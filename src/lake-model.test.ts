@@ -1,8 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { lakeContainsLocalPoint, lakePhaseFromSeed } from "./lake-model";
+import { lakeContainsLocalPoint, lakePhaseFromSeed } from "./lake-shape";
+import { LAKE_SEED } from "./world-config";
 
 describe("lakeContainsLocalPoint", () => {
-  const phase = lakePhaseFromSeed(8417);
+  const phase = lakePhaseFromSeed(LAKE_SEED);
 
   test("the center is water", () => {
     expect(lakeContainsLocalPoint(900, 520, phase, 0, 0)).toBe(true);

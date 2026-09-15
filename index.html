@@ -10,11 +10,49 @@
     <main id="game" aria-label="Mosswhisker Hollow game world">
       <canvas id="world" aria-label="A lush pixel-art woodland clearing"></canvas>
 
+      <aside class="left-hud">
+        <section class="pack-hud" aria-label="Pack">
+        <button type="button" class="pack-toggle pixel-frame" aria-label="Open pack" aria-expanded="false">
+          <canvas class="pack-icon" width="24" height="24" aria-hidden="true"></canvas>
+          <span class="pack-count pixel-frame" hidden>0</span>
+        </button>
+        <div class="pack-panel pixel-frame" hidden>
+          <h2>Pack</h2>
+          <ul class="pack-grid"></ul>
+          <p class="pack-empty">Empty</p>
+        </div>
+      </section>
+
+      <section class="quest-hud" hidden aria-label="Quest">
+        <button type="button" class="quest-toggle pixel-frame" aria-label="Open quest" aria-expanded="false">
+          <canvas class="quest-icon" width="24" height="24" aria-hidden="true"></canvas>
+        </button>
+        <div class="quest-panel pixel-frame" hidden>
+          <h2>Quest</h2>
+          <p class="quest-from">Bernie Sandwhisker</p>
+          <p class="quest-summary">His woods are dying and the pond is a puddle. Bring him fish and mice. He lives in the far northwest — the top-left corner of the wood.</p>
+        </div>
+      </section>
+      </aside>
+
       <section class="colony-banner" aria-label="World title">
         <h1>Mosswhisker Hollow</h1>
       </section>
 
-      <p class="controls" aria-label="Controls">WASD / ARROWS TO WANDER · SPACE TO SWIPE</p>
+      <p class="interact-prompt pixel-frame" hidden>E · READ MAIL</p>
+      <section class="letter-hud" hidden>
+        <article class="letter-sheet pixel-frame" role="dialog" aria-labelledby="letter-title">
+          <p class="letter-kicker">A letter from Bernie Sandwhisker</p>
+          <h2 id="letter-title">Mosswhisker</h2>
+          <p>I hope the hollow still smells of moss.</p>
+          <p>My stretch of woods is going thin. Leaves yellow too soon, and the pond is little more than a puddle. I cannot say why.</p>
+          <p class="letter-objective">If you can spare some fish and mice, bring them to me. I am in the far northwest — the top-left corner of the wood.</p>
+          <p class="letter-sign">— Bernie Sandwhisker</p>
+          <p class="letter-hint">E / ESC · CLOSE</p>
+        </article>
+      </section>
+
+      <p class="controls" aria-label="Controls">WASD / ARROWS TO WANDER · SPACE TO SWIPE · E TO READ</p>
       <div class="screen-shade" aria-hidden="true"></div>
     </main>
     <script type="module" src="./src/game.ts"></script>

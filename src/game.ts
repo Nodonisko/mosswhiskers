@@ -2,27 +2,71 @@ import * as THREE from "three";
 import "./styles.css";
 import { createKeyboardInput } from "./input";
 import { createLakeModel, updateLakeModel } from "./lake-model";
+import { createMailHud } from "./mail-hud";
+import { createPackHud } from "./pack-hud";
+import { createQuestHud } from "./quest-hud";
 import { paintPixelTexture } from "./pixel-canvas";
 import { createPierModel } from "./pier-model";
 import { seeded } from "./rng";
-import { createSim, hitsSolid, tickSim, type FishSim, type MouseSim, type MouseSpec, type Solid } from "./sim";
 import {
-  CAT_COLLISION,
+  createSim,
+  drainFixedTicks,
+  playerById,
+  tickSim,
+  type CatFacing,
+  type FishSim,
+  type MouseSim,
+  type PlayerSim,
+} from "./sim";
+import { createWalkable, createWorldLayout, type WorldProp } from "./world";
+import {
+  CAT_SCALE,
   CLAW_DURATION,
+  CLAW_HIT_AT,
+  DEFAULT_CAT_SEED,
+  DEFAULT_SPAWN,
   LAKE_HEIGHT,
+  LAKE_SEED,
   LAKE_WIDTH,
   LAKE_X,
   LAKE_Y,
+  LOCAL_PLAYER_ID,
+  MAILBOX,
   MAP_HEIGHT,
   MAP_WIDTH,
+  MAX_TICKS_PER_FRAME,
+  PIER_SEED,
   PIER_X,
   PIER_Y,
+  TICK_DT,
   VIEW_HEIGHT,
+  WALK_FRAME,
   denPathX,
   mainPathY,
   southPathX,
 } from "./world-config";
-import { createWorldModel, getWorldModelTexture, TREE_TRUNK_HITBOX, type WorldModelKind } from "./world-models";
+import { createWorldModel, getWorldModelTexture, type WorldModelKind } from "./world-models";
+
+type CatTextures = {
+  views: Record<CatFacing, THREE.Texture[]>;
+  clawHit: Record<CatFacing, THREE.Texture[]>;
+};
+
+const FACINGS: CatFacing[] = ["e", "w", "n", "s"];
+
+function catTextures(seed: number, cache: Map<number, CatTextures>): CatTextures {
+  const cached = cache.get(seed);
+  if (cached) return cached;
+  const views = {} as CatTextures["views"];
+  const clawHit = {} as CatTextures["clawHit"];
+  for (const facing of FACINGS) {
+    views[facing] = [0, 1, 2, 3, 4, 5, 6, 7].map((variant) => getWorldModelTexture("cat", { seed, variant, facing }));
+    clawHit[facing] = [5, 6, 7].map((variant) => getWorldModelTexture("cat", { seed, variant, facing, hit: true }));
+  }
+  const created = { views, clawHit };
+  cache.set(seed, created);
+  return created;
+}
 
 function startGame() {
   const canvas = document.querySelector<HTMLCanvasElement>("#world");
@@ -127,55 +171,48 @@ function startGame() {
   }
   world.add(makeForestPaths());
 
-  const southernLake = createLakeModel({ width: LAKE_WIDTH, height: LAKE_HEIGHT, seed: 8417 });
+  const southernLake = createLakeModel({ width: LAKE_WIDTH, height: LAKE_HEIGHT, seed: LAKE_SEED });
   southernLake.mesh.position.set(LAKE_X, LAKE_Y, -3);
   world.add(southernLake.mesh);
 
-  const lakePier = createPierModel({ seed: 719 });
+  const lakePier = createPierModel({ seed: PIER_SEED });
   lakePier.mesh.position.set(PIER_X, PIER_Y, -2);
   world.add(lakePier.mesh);
 
+  const layout = createWorldLayout();
   const occluders: THREE.Sprite[] = [];
-  const trunks: Solid[] = [];
   const worldEntities: Array<{ id: string; kind: WorldModelKind; x: number; y: number }> = [];
   world.userData.entities = worldEntities;
+  const lanterns: THREE.Sprite[] = [];
+  let mailNotice: THREE.Sprite | undefined;
 
-  function place(kind: WorldModelKind, x: number, y: number, scale = 1, seed = 1, variant = 0) {
-    const model = createWorldModel(kind, { scale, seed, variant });
-    model.position.set(x, y, 0);
-    model.renderOrder = 10000 - Math.round(y);
-    model.userData.baseY = y;
+  function place(prop: WorldProp) {
+    const model = createWorldModel(prop.kind, {
+      scale: prop.scale,
+      seed: prop.seed,
+      variant: prop.variant,
+    });
+    model.position.set(prop.x, prop.y, 0);
+    model.renderOrder = 10000 - Math.round(prop.y);
+    model.userData.baseY = prop.y;
     world.add(model);
-    if (kind !== "cat") worldEntities.push({ id: model.userData.id as string, kind, x, y });
-    const trunk = TREE_TRUNK_HITBOX[kind];
-    if (trunk) trunks.push({ x, y, halfW: trunk[0] * scale, halfH: trunk[1] * scale });
-    if (kind === "pine" || kind === "oak" || kind === "willow" || kind === "den") {
+    worldEntities.push({ id: model.userData.id as string, kind: prop.kind, x: prop.x, y: prop.y });
+    if (prop.kind === "pine" || prop.kind === "oak" || prop.kind === "willow" || prop.kind === "den") {
       (model.material as THREE.SpriteMaterial).alphaTest = 0.08;
       occluders.push(model);
     }
+    if (prop.kind === "lamp") lanterns.push(model);
+    if (prop.kind === "mailBubble") {
+      model.position.z = 12;
+      model.renderOrder = 30000;
+      (model.material as THREE.SpriteMaterial).depthTest = false;
+      mailNotice = model;
+    }
     return model;
   }
-
-  // Deep background canopy.
-  for (let i = 0; i < 11; i++) {
-    place(i % 3 === 0 ? "pine" : "oak", -540 + i * 108, 170 + (i % 3) * 34, 1.2 + (i % 2) * 0.12, 70 + i, i);
-  }
-
-  // Side framing and the colony clearing.
-  place("pine", -455, 112, 1.18, 13, 1);
-  place("oak", -404, 8, 1.12, 14, 2);
-  place("oak", 455, 115, 1.24, 15, 3);
-  place("pine", 415, -20, 1.1, 16, 4);
-  place("den", 0, 46, 1.12, 22);
-  place("mailbox", 153, 52, 1.28, 23);
-  const mailNotice = place("mailBubble", 153, 116, 0.92, 26);
-  mailNotice.position.z = 12;
-  mailNotice.renderOrder = 30000;
-  (mailNotice.material as THREE.SpriteMaterial).depthTest = false;
-  const lanterns = [
-    place("lamp", -230, -86, 1.12, 24),
-    place("lamp", 230, -86, 1.12, 25),
-  ];
+  for (const prop of layout.props) place(prop);
+  if (!mailNotice) throw new Error("Mailbox notice is missing from the world layout");
+  const mailboxNotice: THREE.Sprite = mailNotice;
 
   const lanternFlameFrames = [
     paintPixelTexture(8, 12, (ctx) => {
@@ -218,94 +255,70 @@ function startGame() {
     return flame;
   });
 
-  [-165, -136, -107, -78, -49, -22, 4].forEach((y, index) => {
-    const pathX = denPathX(y);
-    const offset = 54 + (index % 2) * 8;
-    place("bush", pathX - offset, y, 1.08 + (index % 3) * 0.05, 40 + index);
-    place("bush", pathX + offset, y + (index % 2 === 0 ? 5 : -4), 1.1 + ((index + 1) % 3) * 0.05, 50 + index);
+  const sim = createSim({
+    players: [{ id: LOCAL_PLAYER_ID, x: DEFAULT_SPAWN.x, y: DEFAULT_SPAWN.y, seed: DEFAULT_CAT_SEED }],
+    fish: layout.fish,
+    mice: layout.mice,
+    interactables: layout.interactables,
   });
 
-  place("log", -420, -112, 1.12, 31);
-  place("stone", 330, -140, 0.9, 32);
-  place("stone", -340, 118, 0.75, 33);
-  place("bush", -382, -32, 1.2, 36);
-  place("bush", 385, 10, 1.18, 37);
-  place("pine", -500, -164, 1.08, 38, 1);
-  place("oak", 510, -185, 1.14, 39, 2);
+  const textureCache = new Map<number, CatTextures>();
+  type PlayerView = { sprite: THREE.Sprite; scaleX: number };
+  const playerViews = new Map<string, PlayerView>();
 
-  const flowerGroups: Array<[number, number, number, number]> = [
-    [-342, 137, 1.1, 0], [-450, 90, 1.05, 1],
-    [400, 79, 1.06, 2], [380, -228, 1.1, 0],
-    [-318, -210, .95, 1], [321, -114, .92, 2],
-    [-444, -14, .92, 0], [435, 190, .88, 1],
-  ];
-  flowerGroups.forEach(([x, y, scale, variant], index) => place("flowers", x, y, scale, 100 + index, variant));
-
-  // Landmarks beyond the starting clearing.
-  place("log", -860, 470, 1.32, 251);
-  place("log", 910, 390, 1.18, 252);
-  place("stone", -970, -570, 1.25, 253);
-  place("stone", 790, -640, 1.1, 254);
-
-  // A few willows frame the banks, with room to walk between their trunks.
-  const lakeWillows: Array<[number, number, number]> = [
-    [LAKE_X - 325, LAKE_Y + 145, 1.12],
-    [LAKE_X + 378, LAKE_Y - 34, 1.05],
-    [LAKE_X - 205, LAKE_Y - 192, 0.98],
-  ];
-  lakeWillows.forEach(([x, y, scale], index) => place("willow", x, y, scale, 280 + index, index));
-
-  const isForestFloor = (x: number, y: number) => {
-    const insideColony = Math.abs(x) < 610 && y > -340 && y < 330;
-    const insideLake = southernLake.containsPoint(x - LAKE_X, y - LAKE_Y, 46);
-    const nearWillow = lakeWillows.some(([willowX, willowY]) => Math.hypot(x - willowX, y - willowY) < 92);
-    const onMainPath = Math.abs(y - mainPathY(x)) < 56;
-    const onSouthPath = Math.abs(x - southPathX(y)) < 56 && y < mainPathY(655) + 30;
-    return !insideColony && !insideLake && !nearWillow && !onMainPath && !onSouthPath;
-  };
-
-  const sceneRandom = seeded(1987);
-  let scattered = 0;
-  let scatterAttempts = 0;
-  while (scattered < 105 && scatterAttempts < 600) {
-    scatterAttempts += 1;
-    const x = (sceneRandom() - 0.5) * (MAP_WIDTH - 180);
-    const y = (sceneRandom() - 0.5) * (MAP_HEIGHT - 180);
-    if (!isForestFloor(x, y)) continue;
-
-    const roll = sceneRandom();
-    const seed = 500 + (scattered % 8);
-    if (roll < 0.44) {
-      place(sceneRandom() < 0.43 ? "pine" : "oak", x, y, 0.9 + sceneRandom() * 0.42, seed, scattered % 5);
-    } else if (roll < 0.64) {
-      place("bush", x, y, 0.82 + sceneRandom() * 0.46, seed);
-    } else if (roll < 0.84) {
-      place("flowers", x, y, 0.72 + sceneRandom() * 0.45, seed, scattered % 3);
-    } else if (roll < 0.94) {
-      place("stone", x, y, 0.72 + sceneRandom() * 0.62, seed);
-    } else {
-      place("log", x, y, 0.76 + sceneRandom() * 0.42, seed);
-    }
-    scattered += 1;
+  function attachPlayer(player: PlayerSim) {
+    const sprite = createWorldModel("cat", {
+      scale: CAT_SCALE,
+      seed: player.seed,
+      variant: 0,
+      facing: player.facing,
+    });
+    sprite.renderOrder = 10005;
+    sprite.userData.id = player.id;
+    world.add(sprite);
+    const view = { sprite, scaleX: Math.abs(sprite.scale.x) };
+    playerViews.set(player.id, view);
+    return view;
   }
 
-  const cat = place("cat", 0, -5, 2.05, 5, 0);
-  cat.renderOrder = 10005;
-  const catScaleX = Math.abs(cat.scale.x);
-  const catViews = {
-    e: [0, 1, 2, 3, 4, 5, 6, 7].map((variant) => getWorldModelTexture("cat", { seed: 5, variant, facing: "e" })),
-    w: [0, 1, 2, 3, 4, 5, 6, 7].map((variant) => getWorldModelTexture("cat", { seed: 5, variant, facing: "w" })),
-    n: [0, 1, 2, 3, 4, 5, 6, 7].map((variant) => getWorldModelTexture("cat", { seed: 5, variant, facing: "n" })),
-    s: [0, 1, 2, 3, 4, 5, 6, 7].map((variant) => getWorldModelTexture("cat", { seed: 5, variant, facing: "s" })),
-  } as const;
-  const catClawHit = {
-    e: [5, 6, 7].map((variant) => getWorldModelTexture("cat", { seed: 5, variant, facing: "e", hit: true })),
-    w: [5, 6, 7].map((variant) => getWorldModelTexture("cat", { seed: 5, variant, facing: "w", hit: true })),
-    n: [5, 6, 7].map((variant) => getWorldModelTexture("cat", { seed: 5, variant, facing: "n", hit: true })),
-    s: [5, 6, 7].map((variant) => getWorldModelTexture("cat", { seed: 5, variant, facing: "s", hit: true })),
-  } as const;
-  (cat.material as THREE.SpriteMaterial).map = catViews.s[0]!;
-  let catWalkTime = 0;
+  function paintPlayer(player: PlayerSim) {
+    let view = playerViews.get(player.id);
+    if (!view) view = attachPlayer(player);
+    const { sprite, scaleX } = view;
+    const maps = catTextures(player.seed, textureCache);
+    sprite.position.x = player.x;
+    sprite.position.y = player.y;
+    sprite.scale.x = scaleX;
+    const material = sprite.material as THREE.SpriteMaterial;
+    if (player.clawing) {
+      const swing = player.clawElapsed / CLAW_DURATION;
+      const frame = swing < CLAW_HIT_AT ? 5 : swing < 0.64 ? 6 : 7;
+      material.map = player.clawHit
+        ? maps.clawHit[player.facing][frame - 5]!
+        : maps.views[player.facing][frame]!;
+    } else if (player.moving) {
+      const frame = 1 + (Math.floor(player.walkElapsed / WALK_FRAME) % 4);
+      material.map = maps.views[player.facing][frame]!;
+    } else {
+      material.map = maps.views[player.facing][0]!;
+    }
+    sprite.position.z = player.clawing
+      ? 1.2
+      : player.moving
+        ? Math.sin(player.walkElapsed * 22) * 0.6
+        : Math.sin(sim.elapsed * 3.2 + player.seed) * 0.7;
+    sprite.renderOrder = 10000 - Math.round(sprite.position.y);
+  }
+
+  function syncPlayers(players: readonly PlayerSim[]) {
+    const living = new Set(players.map((player) => player.id));
+    for (const [id, view] of playerViews) {
+      if (living.has(id)) continue;
+      world.remove(view.sprite);
+      playerViews.delete(id);
+    }
+    for (const player of players) paintPlayer(player);
+  }
 
   type FishView = {
     sprite: THREE.Sprite;
@@ -330,37 +343,6 @@ function startGame() {
     world.add(sprite);
     fishViews.set(fish.id, { sprite, frames: [map0, map1], baseScaleX: sprite.scale.x });
   }
-
-  const mouseRandom = seeded(4412);
-  const mouseSpecs: MouseSpec[] = [];
-  let mouseAttempts = 0;
-  while (mouseSpecs.length < 12 && mouseAttempts < 500) {
-    mouseAttempts += 1;
-    const x = (mouseRandom() - 0.5) * (MAP_WIDTH - 220);
-    const y = (mouseRandom() - 0.5) * (MAP_HEIGHT - 220);
-    if (!isForestFloor(x, y)) continue;
-    if (mouseSpecs.some((spec) => Math.hypot(spec.originX - x, spec.originY - y) < 140)) continue;
-    mouseSpecs.push({
-      id: `mouse-${mouseSpecs.length}`,
-      originX: x,
-      originY: y,
-      radiusX: 36 + mouseRandom() * 28,
-      radiusY: 10 + mouseRandom() * 8,
-      speed: 1.1 + mouseRandom() * 0.7,
-      phase: mouseRandom() * Math.PI * 2,
-      step: 0.1 + mouseRandom() * 0.05,
-    });
-  }
-
-  const sim = createSim({
-    cat: { x: 0, y: -5 },
-    fish: [
-      { id: "fish-pike", kind: "pike", originX: LAKE_X - 20, originY: LAKE_Y - 30, radiusX: 210, radiusY: 85, speed: 0.12, phase: 0.4, tailStep: 0.85 },
-      { id: "fish-perch", kind: "perch", originX: LAKE_X + 90, originY: LAKE_Y + 10, radiusX: 155, radiusY: 70, speed: 0.16, phase: 1.8, tailStep: 0.7 },
-      { id: "fish-bluegill", kind: "bluegill", originX: LAKE_X + 130, originY: LAKE_Y - 70, radiusX: 120, radiusY: 55, speed: 0.19, phase: 3.1, tailStep: 0.55 },
-    ],
-    mice: mouseSpecs,
-  });
   attachFish(sim.fish[0]!, 1.18, 801);
   attachFish(sim.fish[1]!, 1.14, 802);
   attachFish(sim.fish[2]!, 1.16, 803);
@@ -385,14 +367,15 @@ function startGame() {
   }
   sim.mice.forEach((mouse, index) => attachMouse(mouse, 1.05 + (index % 3) * 0.08, 900 + (index % 3)));
 
-  const walkable = (x: number, y: number) => {
-    if (hitsSolid(x, y, trunks, CAT_COLLISION.halfW, CAT_COLLISION.halfH)) return false;
-    const overWater = southernLake.containsPoint(x - LAKE_X, y - LAKE_Y, -10);
-    const onPier = lakePier.containsPoint(x - PIER_X, y - PIER_Y, 5);
-    return !overWater || onPier;
-  };
-
+  const walkable = createWalkable(layout.trunks);
   const input = createKeyboardInput();
+  const packRoot = document.querySelector<HTMLElement>(".pack-hud");
+  if (!packRoot) throw new Error("Pack HUD is missing");
+  const pack = createPackHud(packRoot);
+  const questRoot = document.querySelector<HTMLElement>(".quest-hud");
+  if (!questRoot) throw new Error("Quest HUD is missing");
+  const quest = createQuestHud(questRoot);
+  const mail = createMailHud(document.getElementById("game") ?? document.body);
   let viewWidth = 960;
   function resize() {
     const width = window.innerWidth;
@@ -409,51 +392,35 @@ function startGame() {
   resize();
 
   const clock = new THREE.Clock();
+  let accumulator = 0;
   let raf = 0;
   function animate() {
     raf = requestAnimationFrame(animate);
-    const dt = Math.min(clock.getDelta(), 0.05);
-    tickSim(sim, input.sample(), dt, walkable);
+    const frameDt = Math.min(clock.getDelta(), 0.05);
+    accumulator += frameDt;
+    accumulator = drainFixedTicks(accumulator, TICK_DT, MAX_TICKS_PER_FRAME, () => {
+      const sample = input.sample();
+      if (mail.consumeDismiss()) sample.interact = true;
+      tickSim(sim, { [LOCAL_PLAYER_ID]: sample }, TICK_DT, walkable);
+    });
 
-    cat.position.x = sim.cat.x;
-    cat.position.y = sim.cat.y;
-    cat.scale.x = catScaleX;
-    if (sim.cat.moving) catWalkTime += dt;
-    else catWalkTime = 0;
-    let catFrame = 0;
-    const catMaterial = cat.material as THREE.SpriteMaterial;
-    if (sim.cat.clawing) {
-      const swing = sim.cat.clawElapsed / CLAW_DURATION;
-      catFrame = swing < 0.28 ? 5 : swing < 0.64 ? 6 : 7;
-      catMaterial.map = sim.cat.clawHit
-        ? catClawHit[sim.cat.facing][catFrame - 5]!
-        : catViews[sim.cat.facing][catFrame]!;
-    } else if (sim.cat.moving) {
-      catFrame = 1 + (Math.floor(catWalkTime / 0.1) % 4);
-      catMaterial.map = catViews[sim.cat.facing][catFrame]!;
-    } else {
-      catMaterial.map = catViews[sim.cat.facing][0]!;
-    }
-    cat.position.z = sim.cat.clawing
-      ? 1.2
-      : sim.cat.moving
-        ? Math.sin(catWalkTime * 22) * 0.6
-        : Math.sin(sim.elapsed * 3.2) * 0.7;
-    cat.renderOrder = 10000 - Math.round(cat.position.y);
+    syncPlayers(sim.players);
 
-    const catHalfW = catScaleX * (20 / 36) * 0.3;
+    const catHalfW = CAT_SCALE * 20 * 0.3;
     for (const sprite of occluders) {
       const halfW = sprite.scale.x * 0.28;
       const intoTree = sprite.position.y + sprite.scale.y * 0.16;
       const underCanopy = sprite.position.y + sprite.scale.y * 0.82;
-      const overlapping = Math.abs(cat.position.x - sprite.position.x) < halfW + catHalfW
-        && cat.position.y > intoTree
-        && cat.position.y < underCanopy;
+      const overlapping = sim.players.some((player) => (
+        Math.abs(player.x - sprite.position.x) < halfW + catHalfW
+        && player.y > intoTree
+        && player.y < underCanopy
+      ));
       const target = overlapping ? 0.38 : 1;
       const material = sprite.material as THREE.SpriteMaterial;
-      material.opacity += (target - material.opacity) * Math.min(1, 8 * dt);
+      material.opacity += (target - material.opacity) * Math.min(1, 8 * frameDt);
     }
-    mailNotice.position.y = 116 + Math.round(Math.sin(sim.elapsed * 4) * 2);
+    mailboxNotice.position.y = MAILBOX.y + 64 + Math.round(Math.sin(sim.elapsed * 4) * 2);
     lanternFlames.forEach((flame, index) => {
       const frame = Math.floor(sim.elapsed / 0.22 + index) % lanternFlameFrames.length;
       (flame.material as THREE.SpriteMaterial).map = lanternFlameFrames[frame]!;
@@ -482,13 +449,20 @@ function startGame() {
       (view.sprite.material as THREE.SpriteMaterial).map = view.frames[facing][mouse.frame]!;
     }
 
-    const cameraEdgeX = Math.max(0, MAP_WIDTH / 2 - viewWidth / 2);
-    const cameraEdgeY = MAP_HEIGHT / 2 - VIEW_HEIGHT / 2;
-    const cameraTargetX = THREE.MathUtils.clamp(cat.position.x, -cameraEdgeX, cameraEdgeX);
-    const cameraTargetY = THREE.MathUtils.clamp(cat.position.y + 24, -cameraEdgeY, cameraEdgeY);
-    const cameraFollow = 1 - Math.exp(-6 * dt);
-    camera.position.x = THREE.MathUtils.lerp(camera.position.x, cameraTargetX, cameraFollow);
-    camera.position.y = THREE.MathUtils.lerp(camera.position.y, cameraTargetY, cameraFollow);
+    const local = playerById(sim, LOCAL_PLAYER_ID) ?? sim.players[0];
+    if (local) {
+      pack.sync(local.inventory);
+      quest.sync(local.progress.activeQuest);
+      mail.sync(local);
+      mailboxNotice.visible = !local.progress.mailboxRead;
+      const cameraEdgeX = Math.max(0, MAP_WIDTH / 2 - viewWidth / 2);
+      const cameraEdgeY = MAP_HEIGHT / 2 - VIEW_HEIGHT / 2;
+      const cameraTargetX = THREE.MathUtils.clamp(local.x, -cameraEdgeX, cameraEdgeX);
+      const cameraTargetY = THREE.MathUtils.clamp(local.y + 24, -cameraEdgeY, cameraEdgeY);
+      const cameraFollow = 1 - Math.exp(-6 * frameDt);
+      camera.position.x = THREE.MathUtils.lerp(camera.position.x, cameraTargetX, cameraFollow);
+      camera.position.y = THREE.MathUtils.lerp(camera.position.y, cameraTargetY, cameraFollow);
+    }
     renderer.render(scene, camera);
   }
   animate();
@@ -497,6 +471,9 @@ function startGame() {
     dispose() {
       cancelAnimationFrame(raf);
       input.dispose();
+      pack.dispose();
+      quest.dispose();
+      mail.dispose();
       window.removeEventListener("resize", resize);
     },
   };

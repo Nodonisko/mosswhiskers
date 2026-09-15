@@ -1,6 +1,10 @@
 import * as THREE from "three";
 import { createPixelCanvas, nearestTexture } from "./pixel-canvas";
+import { pierContainsLocalPoint, pierDeckBounds } from "./pier-shape";
 import { seeded } from "./rng";
+import { PIER_HEIGHT, PIER_WIDTH } from "./world-config";
+
+export { pierContainsLocalPoint, pierDeckBounds } from "./pier-shape";
 
 export interface PierModelOptions {
   width?: number;
@@ -20,8 +24,8 @@ export interface PierModel {
 
 /** A small XY ground-plane pier; its north (+Y) end meets the bank. */
 export function createPierModel(options: PierModelOptions = {}): PierModel {
-  const width = options.width ?? 84;
-  const height = options.height ?? 136;
+  const width = options.width ?? PIER_WIDTH;
+  const height = options.height ?? PIER_HEIGHT;
   const { canvas, context: ctx } = createPixelCanvas(42, 68);
   const random = seeded(options.seed ?? 719);
   const rect = (x: number, y: number, w: number, h: number, color: string) => {
@@ -79,17 +83,11 @@ export function createPierModel(options: PierModelOptions = {}): PierModel {
   mesh.position.z = -2;
   mesh.renderOrder = -8;
 
-  const deckBounds = {
-    minX: (4 / 42 - 0.5) * width,
-    maxX: (38 / 42 - 0.5) * width,
-    minY: (0.5 - 63 / 68) * height,
-    maxY: (0.5 - 3 / 68) * height,
-  };
+  const deckBounds = pierDeckBounds(width, height);
   return {
     mesh, width, height, deckBounds,
     containsPoint(localX, localY, inset = 0) {
-      return localX >= deckBounds.minX + inset && localX <= deckBounds.maxX - inset
-        && localY >= deckBounds.minY + inset && localY <= deckBounds.maxY - inset;
+      return pierContainsLocalPoint(width, height, localX, localY, inset);
     },
   };
 }

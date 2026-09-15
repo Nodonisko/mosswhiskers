@@ -4,6 +4,7 @@ export type MoveInput = {
   x: number;
   y: number;
   claw?: boolean;
+  interact?: boolean;
 };
 
 function isSpace(event: KeyboardEvent) {
@@ -23,9 +24,14 @@ export function moveFromKeys(keys: ReadonlySet<string>): MoveInput {
   return { x: x / length, y: y / length };
 }
 
+function isInteract(event: KeyboardEvent) {
+  return event.key.toLowerCase() === "e";
+}
+
 export function createKeyboardInput(target: Window = window) {
   const keys = new Set<string>();
   let clawQueued = false;
+  let interactQueued = false;
 
   const onKeyDown = (event: KeyboardEvent) => {
     if (isSpace(event)) {
@@ -33,17 +39,23 @@ export function createKeyboardInput(target: Window = window) {
       if (!event.repeat) clawQueued = true;
       return;
     }
+    if (isInteract(event)) {
+      event.preventDefault();
+      if (!event.repeat) interactQueued = true;
+      return;
+    }
     const key = event.key.toLowerCase();
     if (MOVEMENT_KEYS.has(key)) event.preventDefault();
     keys.add(key);
   };
   const onKeyUp = (event: KeyboardEvent) => {
-    if (isSpace(event)) return;
+    if (isSpace(event) || isInteract(event)) return;
     keys.delete(event.key.toLowerCase());
   };
   const onBlur = () => {
     keys.clear();
     clawQueued = false;
+    interactQueued = false;
   };
 
   target.addEventListener("keydown", onKeyDown);
@@ -54,8 +66,10 @@ export function createKeyboardInput(target: Window = window) {
     sample(): MoveInput {
       const move = moveFromKeys(keys);
       const claw = clawQueued;
+      const interact = interactQueued;
       clawQueued = false;
-      return { ...move, claw };
+      interactQueued = false;
+      return { ...move, claw, interact };
     },
     dispose() {
       target.removeEventListener("keydown", onKeyDown);
@@ -63,6 +77,7 @@ export function createKeyboardInput(target: Window = window) {
       target.removeEventListener("blur", onBlur);
       keys.clear();
       clawQueued = false;
+      interactQueued = false;
     },
   };
 }

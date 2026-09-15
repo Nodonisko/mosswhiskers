@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 import { seeded } from './rng';
+import { TREE_TRUNK_HITBOX, type WorldModelKind } from './world-config';
 
-/** Native pixel dimensions are also world dimensions at scale 1. */
-export type WorldModelKind = 'pine' | 'oak' | 'willow' | 'bush' | 'den' | 'mailbox' | 'mailBubble' | 'lamp' | 'flowers' | 'stone' | 'log' | 'cat' | 'pike' | 'perch' | 'bluegill' | 'mouse';
+export type { WorldModelKind };
+export { TREE_TRUNK_HITBOX };
 export type CatView = 'e' | 'w' | 'n' | 's';
 
 export interface WorldModelOptions {
@@ -24,13 +25,6 @@ export const WORLD_MODEL_SIZES: Record<WorldModelKind, readonly [number, number]
   pine: [88, 142], oak: [120, 152], willow: [146, 168], bush: [42, 38], den: [198, 154],
   mailbox: [26, 48], mailBubble: [46, 38], lamp: [28, 84], flowers: [40, 40], stone: [32, 22], log: [90, 32], cat: [36, 42],
   pike: [52, 18], perch: [36, 20], bluegill: [28, 24], mouse: [32, 16],
-};
-
-/** Ground footprint of the trunk only, in native pixels / world units at scale 1. */
-export const TREE_TRUNK_HITBOX: Partial<Record<WorldModelKind, readonly [halfW: number, halfH: number]>> = {
-  pine: [8, 5],
-  oak: [11, 6],
-  willow: [9, 5],
 };
 
 /** Raster primitives deliberately avoid canvas antialiasing. */
