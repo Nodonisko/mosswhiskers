@@ -24,7 +24,8 @@ type Paint = ReturnType<typeof painter>;
 const textureCache = new Map<string, THREE.CanvasTexture>();
 
 export const WORLD_MODEL_SIZES: Record<WorldModelKind, readonly [number, number]> = {
-  pine: [88, 142], oak: [120, 152], willow: [146, 168], bush: [42, 38], den: [198, 154], hut: [136, 118], bernie: [36, 42],
+  pine: [88, 142], oak: [120, 152], willow: [146, 168], bush: [42, 38], den: [198, 154], hut: [136, 118], datacenter: [312, 180], racks: [96, 88], bernie: [36, 42], sam: [36, 42],
+  carrot: [56, 92], rabbit: [36, 42], fence: [78, 36], shed: [188, 132],
   mailbox: [26, 48], mailBubble: [46, 38], lamp: [28, 84], flowers: [40, 40], stone: [32, 22], log: [90, 32], cat: [36, 42],
   pike: [52, 18], perch: [36, 20], bluegill: [28, 24], mouse: [32, 16],
 };
@@ -373,6 +374,219 @@ function hut(p: Paint) {
   p.rect(32, 79, 7, 1, '#5a4a38');
 }
 
+/** Pixel blossom sampled from the OpenAI mark, 35×35. */
+const OPENAI_BLOSSOM = [
+  "............#######................",
+  "...........##########..............",
+  ".........#####...#####.............",
+  ".........###.......#########.......",
+  "........###........##########......",
+  ".......###.......#####....#####....",
+  "......####.....#####........###....",
+  "....#####....#####...........###...",
+  "...######...####..............##...",
+  "..###..##...###.....#####.....###..",
+  ".###...##...##.....########...###..",
+  ".##....##...##...###....#####..##..",
+  "###....##...##.#####.....########..",
+  "###....##...#####.###......######..",
+  "###....##...###.....###......####..",
+  "###....##...##.......####.....###..",
+  "###....##...##.......######....###.",
+  ".##....###..##.......##..###....##.",
+  ".###....######.......##...##....###",
+  "..###.....####.......##...##....###",
+  "..####......###.....###...##....###",
+  "..######.....####.#####...##....###",
+  "..########.....#####.##...##....###",
+  "..##..#####....###...##...##...###.",
+  "..###...########.....##...##...###.",
+  "..###.....#####.....###...##..###..",
+  "...##..............####...######...",
+  "...###...........#####....#####....",
+  "....###........#####.....####......",
+  "....#####....#####.......###.......",
+  ".....###########........###........",
+  ".......#########.......###.........",
+  ".............#####...#####.........",
+  "..............##########...........",
+  "................######.............",
+] as const;
+
+function openaiBlossom(p: Paint, left: number, top: number, color: string) {
+  for (let y = 0; y < OPENAI_BLOSSOM.length; y++) {
+    const row = OPENAI_BLOSSOM[y]!;
+    for (let x = 0; x < row.length; x++) {
+      if (row[x] === "#") p.rect(left + x, top + y, 1, 1, color);
+    }
+  }
+}
+
+function hvacUnit(p: Paint, x: number, y: number, w: number, h: number) {
+  p.rect(x, y, w, h, '#3a3e42');
+  p.rect(x + 1, y + 1, w - 2, h - 2, '#6a7278');
+  p.rect(x + 1, y + 1, w - 2, 2, '#8a9298');
+  p.rect(x + w - 2, y + 2, 1, h - 3, '#4a5258');
+  for (let grill = 0; grill < Math.floor((h - 6) / 3); grill++) {
+    p.rect(x + 3, y + 4 + grill * 3, w - 6, 1, '#4a5258');
+  }
+  const fanX = x + Math.floor(w / 2);
+  const fanY = y + Math.floor(h / 2) + 1;
+  p.ellipse(fanX, fanY, 5, 5, '#3a4248');
+  p.ellipse(fanX, fanY, 3, 3, '#5a6268');
+  p.rect(fanX - 1, fanY - 1, 2, 2, '#2a3238');
+}
+
+function datacenter(p: Paint) {
+  // Long industrial hall. Shadow and gravel sit on the last rows so the slab stands on the grass.
+  p.ellipse(156, 176, 128, 4, '#4a5236');
+  p.ellipse(156, 175, 108, 3, '#5a6240');
+  for (let i = 0; i < 90; i++) {
+    const x = 18 + p.random() * 276;
+    const y = 166 + p.random() * 12;
+    p.rect(x, y, 1 + Math.floor(p.random() * 2), 1, p.random() > 0.45 ? '#8a8678' : '#6e6a60');
+  }
+
+  // Chain fence across the yard, with a gated gap in front of the door.
+  for (let x = 14; x < 300; x += 7) {
+    if (x > 142 && x < 174) continue;
+    p.rect(x, 164, 1, 14, '#4a5054');
+    p.rect(x, 166, 1, 10, '#8a9296');
+  }
+  p.rect(14, 168, 128, 1, '#6a7276');
+  p.rect(174, 168, 126, 1, '#6a7276');
+  p.rect(14, 172, 128, 1, '#6a7276');
+  p.rect(174, 172, 126, 1, '#6a7276');
+  p.rect(142, 164, 2, 14, '#3a4044');
+  p.rect(172, 164, 2, 14, '#3a4044');
+  p.rect(144, 164, 28, 1, '#5a6266');
+
+  // Generator annex on the left, a step shorter than the hall.
+  p.rect(16, 96, 62, 68, '#4a4e48');
+  p.rect(18, 98, 58, 64, '#7a7e74');
+  p.rect(18, 98, 2, 64, '#a8aaa0');
+  p.rect(72, 98, 2, 64, '#5a5e58');
+  for (let plank = 0; plank < 5; plank++) {
+    p.rect(22 + plank * 10, 100, 1, 60, plank % 2 ? '#6a6e64' : '#8a8e84');
+  }
+  p.rect(24, 108, 22, 28, '#3a3e3a');
+  p.rect(25, 109, 20, 26, '#5a625c');
+  for (let slat = 0; slat < 8; slat++) p.rect(26, 111 + slat * 3, 18, 1, '#3a423c');
+  p.rect(50, 118, 16, 18, '#3a3e3a');
+  p.rect(51, 119, 14, 16, '#4a5250');
+  p.rect(53, 122, 4, 4, '#6ec8c4');
+  p.rect(59, 128, 4, 4, '#3a8a88');
+  p.rect(22, 152, 50, 8, '#5a5e58');
+  p.rect(24, 154, 10, 4, '#3a3e3a');
+  p.rect(38, 154, 10, 4, '#3a3e3a');
+  p.rect(52, 154, 10, 4, '#3a3e3a');
+
+  // Main hall, wider at the slab.
+  p.rect(70, 50, 226, 114, '#5a5854');
+  p.rect(72, 52, 222, 110, '#8e8a80');
+  p.rect(72, 52, 3, 110, '#b8b4a8');
+  p.rect(290, 52, 3, 110, '#6a6860');
+  for (let seam = 0; seam < 10; seam++) {
+    p.rect(88 + seam * 20, 54, 1, 106, seam % 2 ? '#7a766c' : '#9a968c');
+  }
+  p.rect(70, 158, 226, 6, '#6e6a64');
+  p.rect(72, 159, 222, 3, '#a09c94');
+  p.rect(76, 150, 8, 4, '#6a7a44');
+  p.rect(118, 152, 6, 3, '#5a6a3c');
+  p.rect(248, 151, 7, 3, '#6a7a44');
+
+  // Parapet and roof deck.
+  p.rect(66, 44, 234, 10, '#4a4e52');
+  p.rect(68, 46, 230, 6, '#6a7278');
+  p.rect(70, 47, 226, 2, '#8a9298');
+  p.rect(72, 38, 222, 10, '#5c5854');
+  p.rect(74, 40, 218, 6, '#7a7670');
+  hvacUnit(p, 86, 18, 28, 24);
+  hvacUnit(p, 128, 14, 32, 28);
+  hvacUnit(p, 176, 16, 30, 26);
+  hvacUnit(p, 222, 20, 26, 22);
+  p.rect(262, 22, 4, 22, '#4a5054');
+  p.rect(263, 12, 2, 12, '#6a7278');
+  p.rect(258, 10, 12, 4, '#5a6268');
+  p.rect(261, 6, 6, 5, '#8a9298');
+  p.ellipse(264, 5, 3, 2, '#b0b4b0');
+
+  // OpenAI sign: dark plate, orange blossom.
+  p.rect(108, 54, 56, 56, '#3a2a18');
+  p.rect(110, 56, 52, 52, '#1e1814');
+  p.rect(111, 57, 50, 2, '#3a3028');
+  p.rect(111, 57, 2, 50, '#3a3028');
+  openaiBlossom(p, 118, 64, '#f07818');
+
+  // Server-hall window ribbons, cool interior glow.
+  const ribbon = (x: number, y: number, w: number) => {
+    p.rect(x, y, w, 14, '#2a3238');
+    p.rect(x + 1, y + 1, w - 2, 12, '#3a4a52');
+    for (let pane = 0; pane < Math.floor((w - 4) / 8); pane++) {
+      const px = x + 2 + pane * 8;
+      p.rect(px, y + 2, 6, 10, pane % 3 === 0 ? '#2a5860' : '#3a6a74');
+      p.rect(px + 1, y + 3, 2, 3, pane % 2 ? '#7ec8c4' : '#4a8890');
+      if (pane % 4 === 1) p.rect(px + 3, y + 7, 2, 2, '#c8f0ee');
+    }
+    p.rect(x + Math.floor(w / 2) - 1, y + 1, 2, 12, '#2a3238');
+  };
+  ribbon(172, 62, 108);
+  ribbon(78, 92, 28);
+  ribbon(166, 92, 112);
+  ribbon(78, 122, 64);
+
+  // Staff door under the sign.
+  p.rect(148, 128, 22, 34, '#3a3e42');
+  p.rect(150, 130, 18, 30, '#5a6268');
+  p.rect(151, 131, 2, 28, '#8a9298');
+  p.rect(150, 144, 18, 1, '#3a3e42');
+  p.rect(164, 146, 3, 3, '#c4a050');
+  p.rect(152, 156, 14, 4, '#2a3238');
+
+  // Loading dock on the right, hazard lip and dark bay.
+  p.rect(230, 126, 56, 36, '#3a3e42');
+  p.rect(232, 128, 52, 32, '#2a2e32');
+  p.rect(234, 130, 48, 22, '#1a1e22');
+  p.rect(236, 132, 18, 8, '#2a5860');
+  p.rect(258, 136, 12, 6, '#3a8a88');
+  p.rect(244, 142, 8, 4, '#7ec8c4');
+  for (let stripe = 0; stripe < 7; stripe++) {
+    p.rect(232 + stripe * 7, 154, 7, 6, stripe % 2 ? '#c4a050' : '#2a2e32');
+  }
+
+  // Bollards by the gate.
+  p.rect(136, 160, 4, 8, '#4a5054');
+  p.rect(137, 161, 2, 6, '#b8b0a4');
+  p.rect(176, 160, 4, 8, '#4a5054');
+  p.rect(177, 161, 2, 6, '#b8b0a4');
+}
+
+function racks(p: Paint) {
+  p.ellipse(48, 85, 40, 3, '#4a5236');
+  const cabinets = [
+    { x: 4, y: 24, w: 22, h: 60 },
+    { x: 26, y: 14, w: 24, h: 70 },
+    { x: 50, y: 22, w: 22, h: 62 },
+    { x: 72, y: 18, w: 20, h: 66 },
+  ];
+  for (const cab of cabinets) {
+    const lean = Math.floor(p.random() * 3);
+    p.rect(cab.x, cab.y - lean, cab.w, cab.h + lean, '#2a2e32');
+    p.rect(cab.x + 1, cab.y - lean + 1, cab.w - 2, cab.h + lean - 2, '#3a444c');
+    p.rect(cab.x + 2, cab.y - lean + 6, cab.w - 4, cab.h + lean - 12, '#15191e');
+    p.rect(cab.x + 1, cab.y - lean + 1, 1, cab.h + lean - 2, '#6a7680');
+    p.rect(cab.x + cab.w - 2, cab.y - lean + 1, 1, cab.h + lean - 2, '#2a3238');
+    p.rect(cab.x + 3, cab.y - lean + 2, 4, 2, '#3a4a3c');
+    p.rect(cab.x + cab.w - 8, cab.y - lean + 2, 4, 2, '#4a3a30');
+    for (let row = 0; row < 12; row++) {
+      const y = cab.y - lean + 10 + row * 4;
+      p.rect(cab.x + 5, y, 1, 1, '#243238');
+      p.rect(cab.x + cab.w - 7, y, 1, 1, '#243238');
+    }
+    p.rect(cab.x + 2, cab.y + cab.h - 4, cab.w - 4, 3, '#2a3238');
+  }
+}
+
 function mailbox(p: Paint) {
   p.rect(11, 21, 6, 26, '#795436');
   p.rect(12, 22, 3, 23, '#a67b4d');
@@ -400,12 +614,12 @@ function mailBubble(p: Paint) {
   p.rect(6, 4, 34, 2, paperLight);
   p.poly([[17, 27], [30, 27], [24, 37]], border);
   p.poly([[20, 26], [28, 26], [24, 33]], paper);
-  p.rect(14, 10, 20, 14, ink);
-  p.rect(16, 12, 16, 10, paperLight);
-  p.line(16, 13, 24, 19, ink, 1);
-  p.line(32, 13, 24, 19, ink, 1);
-  p.line(16, 21, 21, 17, ink, 1);
-  p.line(32, 21, 27, 17, ink, 1);
+  p.rect(13, 8, 20, 14, ink);
+  p.rect(15, 10, 16, 10, paperLight);
+  p.line(15, 11, 23, 17, ink, 1);
+  p.line(31, 11, 23, 17, ink, 1);
+  p.line(15, 19, 20, 15, ink, 1);
+  p.line(31, 19, 26, 15, ink, 1);
 }
 
 function lamp(p: Paint) {
@@ -541,6 +755,188 @@ function catFront(p: Paint, variant: number, c: CatColors, tint: SlashTint) {
     p.rect(ax(10), 24, 3, 3, c.paw);
     slash(p, ax(8), 35, 4, tint.inkSoft, tint.shadeSoft);
   }
+}
+
+function samCat(p: Paint) {
+  catFront(p, 0, {
+    fur: '#d08a3c',
+    shadow: '#7a5634',
+    light: '#e8b060',
+    belly: '#f4f1ea',
+    paw: '#ece8e0',
+  }, clawTint(false));
+  const ax = (n: number) => n + 8;
+  p.rect(ax(9), 13, 2, 4, '#f4f1ea');
+  p.rect(ax(9), 14, 2, 2, '#fff8f0');
+}
+
+function carrot(p: Paint, variant: number) {
+  const loose = variant >= 10;
+  const lean = [0, -5, 4, 2][variant % 4]!;
+  const cx = 28 + Math.round(lean * 0.25);
+  const soil = loose ? 88 : 82;
+  const crown = loose ? 48 : 64;
+  if (!loose) p.ellipse(28, 90, 18, 2, '#4a5834');
+
+  const stems: Array<{ x: number; bend: number; h: number }> = [
+    { x: cx - 7, bend: -8, h: 42 },
+    { x: cx - 2, bend: -3, h: 50 },
+    { x: cx + 2, bend: 4, h: 46 },
+    { x: cx + 8, bend: 9, h: 38 },
+  ];
+  if (variant % 2) stems.push({ x: cx + 1, bend: -6, h: 36 });
+  for (const stem of stems) {
+    for (let step = 0; step < stem.h; step += 2) {
+      const t = step / stem.h;
+      const x = stem.x + stem.bend * t * t;
+      const y = crown - 2 - step;
+      p.rect(x, y, 2, 3, t > 0.7 ? '#2a5224' : '#347030');
+      if (step > 6 && step % 6 === 0) {
+        const side = (step / 6) % 2 === 0 ? -1 : 1;
+        const leaf = 4 + Math.floor(p.random() * 4);
+        p.rect(x + side * 2, y - 1, leaf, 3, '#3d8a34');
+        p.rect(x + side * 3, y - 2, leaf - 1, 2, '#6aaa44');
+        p.rect(x + side * (leaf - 1), y, 2, 2, '#4f9a38');
+      }
+    }
+  }
+  p.ellipse(cx, crown - 1, 8, 5, '#2f5a28');
+  p.ellipse(cx - 1, crown - 3, 5, 3, '#4a8a34');
+
+  p.poly([
+    [cx - 10, crown + 4], [cx - 12, crown + 12], [cx - 8, soil - 2],
+    [cx + 8, soil - 2], [cx + 11, crown + 12], [cx + 9, crown + 4],
+    [cx + 4, crown], [cx - 4, crown],
+  ], '#b84410');
+  p.poly([
+    [cx - 7, crown + 5], [cx - 8, crown + 12], [cx - 4, soil - 4],
+    [cx + 3, soil - 6], [cx + 6, crown + 10], [cx + 4, crown + 4],
+    [cx, crown + 2],
+  ], '#e86a1c');
+  p.poly([
+    [cx - 5, crown + 6], [cx - 5, crown + 12], [cx - 2, soil - 8],
+    [cx, crown + 8],
+  ], '#f4a040');
+  p.line(cx + 4, crown + 7, cx + 3, soil - 6, '#c45414');
+  p.rect(cx - 1, crown + 8, 2, 2, '#f8c070');
+
+  if (loose) {
+    p.rect(cx - 2, soil - 2, 4, 4, '#c45414');
+    p.rect(cx - 1, soil, 2, 3, '#e86a1c');
+    return;
+  }
+
+  p.ellipse(cx, soil + 4, 16, 6, '#5a3e24');
+  p.ellipse(cx - 1, soil + 2, 14, 5, '#7a5a34');
+  p.poly([
+    [cx - 16, soil + 6], [cx - 14, soil - 2], [cx - 6, soil - 6],
+    [cx + 5, soil - 7], [cx + 14, soil - 1], [cx + 16, soil + 6],
+    [cx + 8, soil + 8], [cx - 8, soil + 8],
+  ], '#6a4a28');
+  p.poly([
+    [cx - 10, soil + 4], [cx - 8, soil - 1], [cx - 2, soil - 4],
+    [cx + 4, soil - 3], [cx + 8, soil + 2], [cx + 4, soil + 5],
+    [cx - 6, soil + 5],
+  ], '#8a6840');
+  p.rect(cx - 6, soil, 4, 2, '#9a7850');
+  p.rect(cx + 3, soil + 2, 5, 2, '#5a3e24');
+  p.rect(cx - 2, soil - 3, 3, 2, '#c45414');
+}
+
+function rabbit(p: Paint) {
+  const ax = (n: number) => n + 8;
+  p.ellipse(ax(10), 28, 7, 2, '#536740');
+  p.ellipse(ax(16), 20, 3, 3, '#c8c0b4');
+  p.ellipse(ax(16), 20, 2, 2, '#fff8f0');
+  p.ellipse(ax(13), 22, 5, 6, '#c4b8a8');
+  p.ellipse(ax(12), 21, 4, 5, '#f0ece4');
+  p.ellipse(ax(10), 18, 6, 8, '#c4b8a8');
+  p.ellipse(ax(10), 17, 5, 7, '#f4f0e8');
+  p.rect(ax(8), 16, 4, 8, '#fffaf4');
+  p.poly([[ax(7), 11], [ax(5), 1], [ax(8), 0], [ax(9), 11]], '#c4b8a8');
+  p.poly([[ax(7), 10], [ax(6), 2], [ax(7), 1], [ax(8), 10]], '#f4f0e8');
+  p.rect(ax(7), 2, 1, 8, '#f0a090');
+  p.poly([[ax(12), 11], [ax(13), 0], [ax(16), 1], [ax(14), 11]], '#c4b8a8');
+  p.poly([[ax(13), 10], [ax(14), 2], [ax(15), 1], [ax(14), 10]], '#f4f0e8');
+  p.rect(ax(14), 2, 1, 8, '#f0a090');
+  p.ellipse(ax(10), 11, 6, 6, '#c4b8a8');
+  p.ellipse(ax(10), 11, 5, 5, '#f4f0e8');
+  p.ellipse(ax(10), 12, 3, 3, '#fffaf4');
+  p.rect(ax(7), 10, 2, 2, '#1a1814');
+  p.rect(ax(12), 10, 2, 2, '#1a1814');
+  p.rect(ax(7), 10, 1, 1, '#fff8f0');
+  p.rect(ax(12), 10, 1, 1, '#fff8f0');
+  p.rect(ax(9), 13, 3, 2, '#e8a0a0');
+  p.rect(ax(10), 13, 1, 1, '#d47878');
+  p.line(ax(6), 14, ax(1), 13, '#e9dfbb');
+  p.line(ax(14), 14, ax(19), 13, '#e9dfbb');
+  p.rect(ax(7), 24, 3, 4, '#fff8f0');
+  p.rect(ax(12), 24, 3, 4, '#fff8f0');
+  p.rect(ax(6), 26, 4, 3, '#e8e0d4');
+  p.rect(ax(12), 26, 4, 3, '#e8e0d4');
+}
+
+function fence(p: Paint) {
+  p.ellipse(39, 34, 34, 2, '#4a5236');
+  p.rect(6, 8, 8, 26, '#5a3e24');
+  p.rect(7, 9, 6, 24, '#8a6240');
+  p.rect(8, 9, 2, 22, '#c49a60');
+  p.rect(64, 10, 8, 24, '#5a3e24');
+  p.rect(65, 11, 6, 22, '#8a6240');
+  p.rect(66, 11, 2, 20, '#c49a60');
+  p.rect(4, 12, 70, 5, '#6a4a28');
+  p.rect(5, 13, 68, 3, '#b08a50');
+  p.rect(4, 22, 70, 5, '#6a4a28');
+  p.rect(5, 23, 68, 3, '#a07844');
+  for (let i = 0; i < 8; i++) {
+    p.rect(10 + i * 8, 13, 1, 3, p.random() > 0.5 ? '#8a6240' : '#c49a60');
+    p.rect(12 + i * 8, 23, 1, 3, p.random() > 0.5 ? '#7a5234' : '#b08a50');
+  }
+  p.rect(6, 7, 8, 2, '#4a3420');
+  p.rect(64, 9, 8, 2, '#4a3420');
+}
+
+function shed(p: Paint) {
+  const turf = ['#2a4a28', '#355c30', '#43743a', '#558a46', '#6aa054', '#83b468', '#9cc67c'];
+  const cx = 94;
+  const ground = 129;
+  p.ellipse(cx, ground, 82, 3, '#4a5236');
+  p.poly([[6, ground], [10, 96], [22, 62], [48, 28], [cx, 8], [142, 26], [170, 58], [182, 96], [184, ground]], turf[0]!);
+  leafCluster(p, cx, 58, 72, 42, turf, 0.85);
+  leafCluster(p, 42, 78, 38, 32, turf, 0.8);
+  leafCluster(p, 148, 74, 36, 30, turf, 0.8);
+  leafCluster(p, cx, 32, 40, 24, turf, 0.9);
+  leafCluster(p, 70, 48, 28, 22, turf, 0.7);
+  leafCluster(p, 122, 46, 30, 22, turf, 0.7);
+
+  p.rect(124, 16, 12, 32, '#6a4030');
+  p.rect(125, 18, 10, 30, '#8a5850');
+  p.rect(125, 18, 3, 28, '#b08070');
+  for (let row = 0; row < 5; row++) {
+    p.rect(125, 22 + row * 5, 10, 1, '#6a4030');
+    if (row % 2) p.rect(129, 19 + row * 5, 1, 4, '#6a4030');
+  }
+  p.rect(123, 14, 14, 4, '#5a3428');
+  p.rect(125, 12, 10, 3, '#7a5048');
+  p.rect(128, 10, 4, 3, '#b8b0a4');
+
+  for (let col = 0; col < 12; col++) {
+    const x = 22 + col * 12 + (col % 2);
+    const y = 116 + (col % 3 === 0 ? 1 : 0);
+    p.poly([[x, y + 12], [x - 2, y + 4], [x + 3, y], [x + 12, y + 2], [x + 13, y + 8], [x + 8, y + 12], [x + 2, y + 12]], '#5a564c');
+    p.poly([[x + 1, y + 10], [x, y + 4], [x + 4, y + 2], [x + 10, y + 3], [x + 11, y + 7], [x + 7, y + 11], [x + 3, y + 11]], ['#8a8680', '#a09c94', '#7a7670'][col % 3]!);
+  }
+
+  const holeX = cx;
+  const holeY = 102;
+  p.ellipse(holeX, holeY + 2, 24, 22, '#5a4630');
+  p.ellipse(holeX, holeY, 21, 20, '#3a2a1c');
+  p.ellipse(holeX, holeY, 18, 17, '#1a1410');
+  p.ellipse(holeX, holeY - 1, 14, 13, '#12100c');
+  p.ellipse(holeX + 2, holeY - 3, 8, 8, '#0c0a08');
+  p.ellipse(holeX - 8, holeY - 4, 4, 5, '#2a2218');
+  p.rect(holeX - 10, 118, 20, 4, '#4a3828');
+  p.rect(holeX - 8, 119, 16, 2, '#6a5038');
 }
 
 function catSide(p: Paint, variant: number, c: CatColors, tint: SlashTint) {
@@ -781,6 +1177,8 @@ export function getWorldModelTexture(kind: WorldModelKind, options: WorldModelOp
     case 'bush': bush(p); break;
     case 'den': den(p); break;
     case 'hut': hut(p); break;
+    case 'datacenter': datacenter(p); break;
+    case 'racks': racks(p); break;
     case 'bernie': catFront(p, 0, {
       fur: '#929286',
       shadow: '#626961',
@@ -788,6 +1186,11 @@ export function getWorldModelTexture(kind: WorldModelKind, options: WorldModelOp
       belly: '#d8dbd6',
       paw: '#cdd0cb',
     }, clawTint(false)); break;
+    case 'sam': samCat(p); break;
+    case 'carrot': carrot(p, variant); break;
+    case 'rabbit': rabbit(p); break;
+    case 'fence': fence(p); break;
+    case 'shed': shed(p); break;
     case 'mailbox': mailbox(p); break;
     case 'mailBubble': mailBubble(p); break;
     case 'lamp': lamp(p); break;
@@ -829,7 +1232,7 @@ export function createWorldModel(kind: WorldModelKind, options: WorldModelOption
   const texture = getWorldModelTexture(kind, options);
   const material = new THREE.SpriteMaterial({ map: texture, transparent: true, alphaTest: 0.5, depthWrite: false, toneMapped: false });
   const sprite = new THREE.Sprite(material);
-  sprite.center.set(0.5, kind === 'cat' || kind === 'bernie' ? (height - 30) / height : 0);
+  sprite.center.set(0.5, kind === 'cat' || kind === 'bernie' || kind === 'sam' || kind === 'rabbit' ? (height - 30) / height : 0);
   sprite.scale.set(width * (options.scale ?? 1), height * (options.scale ?? 1), 1);
   sprite.name = `${kind}-${seed}-${variant}`;
   sprite.userData = { id: sprite.name, kind, seed, variant, nativeWidth: width, nativeHeight: height };

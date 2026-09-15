@@ -1,4 +1,4 @@
-import type { PlayerSim } from "./sim";
+import { countKind, type PlayerSim } from "./sim";
 
 export function createMailHud(root: HTMLElement) {
   const prompt = root.querySelector<HTMLElement>(".interact-prompt");
@@ -28,7 +28,15 @@ export function createMailHud(root: HTMLElement) {
       const nearby = player?.nearbyId;
       const openId = player?.openId;
       open = openId === "mailbox";
-      interactPrompt.textContent = nearby === "bernie" ? "E · TALK" : "E · READ MAIL";
+      interactPrompt.textContent = nearby === "mailbox"
+        ? "E · READ MAIL"
+        : nearby === "intake"
+          ? player && player.progress.activeQuest === "clog"
+            && countKind(player.inventory, "carrot") > 0
+            && !player.progress.pipeClogged
+            ? "E · STUFF"
+            : "E · LOOK"
+          : "E · TALK";
       interactPrompt.hidden = !nearby || Boolean(openId);
       letterHud.hidden = !open;
     },

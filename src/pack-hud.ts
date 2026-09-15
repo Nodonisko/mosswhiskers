@@ -6,6 +6,7 @@ const ITEM_LABEL: Record<InventoryItemKind, string> = {
   pike: "Pike",
   perch: "Perch",
   bluegill: "Bluegill",
+  carrot: "Carrot",
 };
 
 const FRAME_INK = "#67523a";
@@ -78,7 +79,11 @@ function paintBackpack(canvas: HTMLCanvasElement) {
 }
 
 function itemIconUrl(kind: InventoryItemKind) {
-  const texture = getWorldModelTexture(kind, { seed: kind === "mouse" ? 900 : 801, variant: 0, facing: "e" });
+  const texture = getWorldModelTexture(kind, {
+    seed: kind === "mouse" ? 900 : kind === "carrot" ? 88 : 801,
+    variant: kind === "carrot" ? 10 : 0,
+    facing: "e",
+  });
   const image = texture.image;
   if (!(image instanceof HTMLCanvasElement)) throw new Error(`Missing icon canvas for ${kind}`);
   return image.toDataURL();
@@ -108,6 +113,7 @@ export function createPackHud(root: HTMLElement) {
     pike: itemIconUrl("pike"),
     perch: itemIconUrl("perch"),
     bluegill: itemIconUrl("bluegill"),
+    carrot: itemIconUrl("carrot"),
   } as const;
 
   let open = false;

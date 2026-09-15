@@ -10,7 +10,9 @@ import { createQuestHud } from "./quest-hud";
 import { createTalkHud } from "./talk-hud";
 import { paintPixelTexture } from "./pixel-canvas";
 import { createPierModel } from "./pier-model";
+import { createIntakePipeModel, updateIntakePipeModel } from "./pipe-model";
 import { createHutFx, updateHutFx } from "./hut-fx";
+import { createDataCenterFx, updateDataCenterFx } from "./datacenter-fx";
 import { createDriedPondModel, updateDriedPondModel } from "./pond-model";
 import { seeded } from "./rng";
 import {
@@ -23,7 +25,7 @@ import {
   type MouseSim,
   type PlayerSim,
 } from "./sim";
-import { createWalkable, createWorldLayout, isBernieWoods, type WorldProp } from "./world";
+import { createWalkable, createWorldLayout, inDataCenterClearing, inFarmPlot, isBernieWoods, type WorldProp } from "./world";
 import {
   BERNIE,
   BERNIE_NAME,
@@ -36,7 +38,10 @@ import {
   CAT_SCALE,
   CLAW_DURATION,
   CLAW_HIT_AT,
+  DATA_CENTER,
   DEFAULT_CAT_SEED,
+  FARM,
+  FARM_PLOT,
   DEFAULT_SPAWN,
   LAKE_HEIGHT,
   LAKE_SEED,
@@ -51,10 +56,16 @@ import {
   PIER_SEED,
   PIER_X,
   PIER_Y,
+  RABBIT,
+  RABBIT_NAME,
+  SAM,
+  SAM_NAME,
   TICK_DT,
   VIEW_HEIGHT,
   WALK_FRAME,
   berniePathPoints,
+  dataCenterPathPoints,
+  farmPathPoints,
   denPathX,
   mainPathY,
   southPathX,
@@ -155,6 +166,81 @@ function startGame() {
   }
   world.add(makeBernieFloor());
 
+  function makeDataCenterPad() {
+    const west = DATA_CENTER.x - 360;
+    const east = DATA_CENTER.x + 360;
+    const south = DATA_CENTER.y - 220;
+    const north = DATA_CENTER.y + 280;
+    const width = east - west;
+    const height = north - south;
+    const textureWidth = Math.ceil(width / 4);
+    const textureHeight = Math.ceil(height / 4);
+    const map = paintPixelTexture(textureWidth, textureHeight, (ctx) => {
+      const image = ctx.createImageData(textureWidth, textureHeight);
+      const pixels = image.data;
+      for (let y = 0; y < textureHeight; y++) {
+        for (let x = 0; x < textureWidth; x++) {
+          const worldX = west + (x + 0.5) / textureWidth * width;
+          const worldY = north - (y + 0.5) / textureHeight * height;
+          if (!inDataCenterClearing(worldX, worldY)) continue;
+          const index = (y * textureWidth + x) * 4;
+          const dust = ((x * 11 + y * 17) % 5) / 5;
+          pixels[index] = Math.round(118 + dust * 22);
+          pixels[index + 1] = Math.round(116 + dust * 16);
+          pixels[index + 2] = Math.round(104 + dust * 12);
+          pixels[index + 3] = 176;
+        }
+      }
+      ctx.putImageData(image, 0, 0);
+    });
+    const mesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(width, height),
+      new THREE.MeshBasicMaterial({ map, transparent: true, opacity: 0.88, alphaTest: 0.04, depthWrite: false }),
+    );
+    mesh.position.set((west + east) / 2, (south + north) / 2, -19);
+    mesh.renderOrder = -90;
+    return mesh;
+  }
+  world.add(makeDataCenterPad());
+
+  function makeFarmPad() {
+    const west = FARM.x - FARM_PLOT.halfW - 16;
+    const east = FARM.x + FARM_PLOT.halfW + 16;
+    const south = FARM.y - FARM_PLOT.halfH - 16;
+    const north = FARM.y + FARM_PLOT.halfH + 16;
+    const width = east - west;
+    const height = north - south;
+    const textureWidth = Math.ceil(width / 4);
+    const textureHeight = Math.ceil(height / 4);
+    const map = paintPixelTexture(textureWidth, textureHeight, (ctx) => {
+      const image = ctx.createImageData(textureWidth, textureHeight);
+      const pixels = image.data;
+      for (let y = 0; y < textureHeight; y++) {
+        for (let x = 0; x < textureWidth; x++) {
+          const worldX = west + (x + 0.5) / textureWidth * width;
+          const worldY = north - (y + 0.5) / textureHeight * height;
+          if (!inFarmPlot(worldX, worldY)) continue;
+          const index = (y * textureWidth + x) * 4;
+          const dust = ((x * 9 + y * 13) % 5) / 5;
+          const furrow = Math.sin((worldX - FARM.x) / 16) > 0.15;
+          pixels[index] = Math.round((furrow ? 96 : 118) + dust * 18);
+          pixels[index + 1] = Math.round((furrow ? 68 : 86) + dust * 14);
+          pixels[index + 2] = Math.round((furrow ? 42 : 54) + dust * 10);
+          pixels[index + 3] = 210;
+        }
+      }
+      ctx.putImageData(image, 0, 0);
+    });
+    const mesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(width, height),
+      new THREE.MeshBasicMaterial({ map, transparent: true, opacity: 0.92, alphaTest: 0.04, depthWrite: false }),
+    );
+    mesh.position.set((west + east) / 2, (south + north) / 2, -19);
+    mesh.renderOrder = -90;
+    return mesh;
+  }
+  world.add(makeFarmPad());
+
   function makeForestPaths() {
     const textureWidth = MAP_WIDTH / 4;
     const textureHeight = MAP_HEIGHT / 4;
@@ -197,6 +283,8 @@ function startGame() {
 
       const bernieRoute = berniePathPoints();
       routes.push(bernieRoute);
+      routes.push(dataCenterPathPoints());
+      routes.push(farmPathPoints());
 
       const pathLayers: Array<[number, string]> = [
         [13, "#625138"],
@@ -245,6 +333,9 @@ function startGame() {
   berniePond.mesh.position.set(BERNIE_POND_X, BERNIE_POND_Y, -3);
   world.add(berniePond.mesh);
 
+  const intakePipe = createIntakePipeModel();
+  world.add(intakePipe.mesh);
+
   const layout = createWorldLayout();
   const occluders: THREE.Sprite[] = [];
   const worldEntities: Array<{ id: string; kind: WorldModelKind; x: number; y: number }> = [];
@@ -252,6 +343,8 @@ function startGame() {
   const lanterns: THREE.Sprite[] = [];
   let mailNotice: THREE.Sprite | undefined;
   let bernieHut: THREE.Sprite | undefined;
+  let dataHall: THREE.Sprite | undefined;
+  const rackSprites: THREE.Sprite[] = [];
 
   function place(prop: WorldProp) {
     const model = createWorldModel(prop.kind, {
@@ -265,12 +358,14 @@ function startGame() {
     model.userData.baseY = prop.y;
     world.add(model);
     worldEntities.push({ id: model.userData.id as string, kind: prop.kind, x: prop.x, y: prop.y });
-    if (prop.kind === "pine" || prop.kind === "oak" || prop.kind === "willow" || prop.kind === "den" || prop.kind === "hut") {
+    if (prop.kind === "pine" || prop.kind === "oak" || prop.kind === "willow" || prop.kind === "den" || prop.kind === "hut" || prop.kind === "datacenter" || prop.kind === "racks" || prop.kind === "carrot" || prop.kind === "shed") {
       (model.material as THREE.SpriteMaterial).alphaTest = 0.08;
       occluders.push(model);
     }
     if (prop.kind === "lamp") lanterns.push(model);
     if (prop.kind === "hut") bernieHut = model;
+    if (prop.kind === "datacenter") dataHall = model;
+    if (prop.kind === "racks") rackSprites.push(model);
     if (prop.kind === "mailBubble") {
       model.position.z = 12;
       model.renderOrder = 30000;
@@ -282,9 +377,17 @@ function startGame() {
   for (const prop of layout.props) place(prop);
   if (!mailNotice) throw new Error("Mailbox notice is missing from the world layout");
   if (!bernieHut) throw new Error("Bernie hut is missing from the world layout");
+  if (!dataHall) throw new Error("Data center is missing from the world layout");
   const mailboxNotice: THREE.Sprite = mailNotice;
   const hutSprite: THREE.Sprite = bernieHut;
   const hutFx = createHutFx(hutSprite, world);
+  const dataCenterFx = createDataCenterFx(dataHall, rackSprites, world);
+  const clogCarrot = createWorldModel("carrot", { scale: 0.86, seed: 88, variant: 10 });
+  clogCarrot.position.set(BERNIE_POND_X + 6, BERNIE_POND_Y - 4, 0);
+  clogCarrot.renderOrder = 10000 - Math.round(BERNIE_POND_Y);
+  clogCarrot.visible = false;
+  (clogCarrot.material as THREE.SpriteMaterial).alphaTest = 0.08;
+  world.add(clogCarrot);
 
   const lanternFlameFrames = [
     paintPixelTexture(8, 12, (ctx) => {
@@ -481,6 +584,8 @@ function startGame() {
     meows.sync(sim.players);
     names.sync([
       { id: "npc-bernie", name: BERNIE_NAME, x: BERNIE.x, y: BERNIE.y },
+      { id: "npc-sam", name: SAM_NAME, x: SAM.x, y: SAM.y },
+      { id: "npc-hopsk", name: RABBIT_NAME, x: RABBIT.x, y: RABBIT.y },
       ...playerNameTags(sim.players),
     ]);
 
@@ -503,9 +608,14 @@ function startGame() {
       const frame = Math.floor(sim.elapsed / 0.22 + index) % lanternFlameFrames.length;
       (flame.material as THREE.SpriteMaterial).map = lanternFlameFrames[frame]!;
     });
+    const local = playerById(sim, LOCAL_PLAYER_ID) ?? sim.players[0];
+    const clogged = Boolean(local?.progress.pipeClogged);
     updateLakeModel(southernLake, sim.elapsed);
     updateDriedPondModel(berniePond, sim.elapsed);
+    clogCarrot.visible = clogged;
+    updateIntakePipeModel(intakePipe, sim.elapsed, clogged);
     updateHutFx(hutFx, hutSprite, sim.elapsed);
+    updateDataCenterFx(dataCenterFx, sim.elapsed, clogged);
     for (const fish of sim.fish) {
       const view = fishViews.get(fish.id);
       if (!view) continue;
@@ -529,7 +639,6 @@ function startGame() {
       (view.sprite.material as THREE.SpriteMaterial).map = view.frames[facing][mouse.frame]!;
     }
 
-    const local = playerById(sim, LOCAL_PLAYER_ID) ?? sim.players[0];
     if (local) {
       pack.sync(local.inventory);
       quest.sync(local.progress.activeQuest);

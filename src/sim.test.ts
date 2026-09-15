@@ -14,7 +14,7 @@ import {
   type GameSim,
   type Walkable,
 } from "./sim";
-import { BERNIE, CAT_SPEED, CLAW_DURATION, LOCAL_PLAYER_ID, MAILBOX, MEOW_DURATION, MOUSE_RESPAWN, TICK_DT } from "./world-config";
+import { BERNIE, CAT_SPEED, CLAW_DURATION, INTAKE, LOCAL_PLAYER_ID, MAILBOX, MEOW_DURATION, MOUSE_RESPAWN, RABBIT, SAM, TICK_DT } from "./world-config";
 
 const openGround = () => true;
 const blocked = () => false;
@@ -602,6 +602,191 @@ describe("Bernie conversation", () => {
     expect(playerById(sim, "guest")!.progress.activeQuest).toBe("sandwhisker");
     expect(playerById(sim, "guest")!.talkId).toBe("bernie-ask");
     expect(playerById(sim, "guest")!.inventory).toEqual([]);
+  });
+});
+
+describe("Sam Catman conversation", () => {
+  const bernie = { id: "bernie", kind: "bernie" as const, x: BERNIE.x, y: BERNIE.y };
+  const sam = { id: "sam", kind: "sam" as const, x: SAM.x, y: SAM.y };
+
+  function simAtSam(extraPlayers: Array<{ id: string; x: number; y: number }> = []) {
+    return createSim({
+      players: [{ id: LOCAL_PLAYER_ID, x: SAM.x, y: SAM.y }, ...extraPlayers],
+      fish: [],
+      interactables: [bernie, sam],
+    });
+  }
+
+  test("Sam asks you to speak with Bernie first until the pond investigation starts", () => {
+    const sim = simAtSam();
+    tick(sim, { x: 0, y: 0, interact: true }, 0.05);
+    expect(cat(sim).nearbyId).toBe("sam");
+    expect(cat(sim).openId).toBe("sam");
+    expect(cat(sim).talkId).toBe("sam-wait");
+    expect(cat(sim).meowing).toBe(false);
+    expect(cat(sim).progress.heardSam).toBe(false);
+    expect(cat(sim).progress.activeQuest).toBeNull();
+  });
+
+  test("Sam still sends you to Bernie during the supply quest", () => {
+    const sim = simAtSam();
+    cat(sim).progress.activeQuest = "sandwhisker";
+    tick(sim, { x: 0, y: 0, interact: true }, 0.05);
+    expect(cat(sim).talkId).toBe("sam-wait");
+    expect(cat(sim).progress.heardSam).toBe(false);
+    expect(cat(sim).progress.activeQuest).toBe("sandwhisker");
+  });
+
+  test("Sam boasts about the data center once the pond quest is on, then sends you back to Bernie", () => {
+    const sim = simAtSam();
+    cat(sim).progress.activeQuest = "pond";
+    tick(sim, { x: 0, y: 0, interact: true }, 0.05);
+    expect(cat(sim).nearbyId).toBe("sam");
+    expect(cat(sim).openId).toBe("sam");
+    expect(cat(sim).talkId).toBe("sam-pitch");
+    expect(cat(sim).progress.heardSam).toBe(true);
+    expect(cat(sim).progress.activeQuest).toBe("report");
+  });
+
+  test("Bernie takes the report and sends you to the rabbit", () => {
+    const sim = simAtSam();
+    cat(sim).progress.activeQuest = "pond";
+    tick(sim, { x: 0, y: 0, interact: true }, 0.05);
+    tick(sim, { x: 0, y: 0, interact: true }, 0.05);
+    cat(sim).x = BERNIE.x;
+    cat(sim).y = BERNIE.y;
+    tick(sim, { x: 0, y: 0 }, 0.05);
+    tick(sim, { x: 0, y: 0, interact: true }, 0.05);
+    expect(cat(sim).openId).toBe("bernie");
+    expect(cat(sim).talkId).toBe("bernie-report");
+    expect(cat(sim).progress.activeQuest).toBe("hopsk");
+    expect(cat(sim).progress.heardSam).toBe(true);
+    tick(sim, { x: 0, y: 0, interact: true }, 0.05);
+    tick(sim, { x: 0, y: 0, interact: true }, 0.05);
+    expect(cat(sim).talkId).toBe("bernie-hopsk");
+    expect(cat(sim).progress.activeQuest).toBe("hopsk");
+  });
+
+  test("reading mail after the report does not roll the quest back", () => {
+    const sim = createSim({
+      players: [{ id: LOCAL_PLAYER_ID, x: MAILBOX.x, y: MAILBOX.y }],
+      fish: [],
+      interactables: [{ id: "mailbox", kind: "mailbox", x: MAILBOX.x, y: MAILBOX.y }],
+    });
+    cat(sim).progress.mailboxRead = true;
+    cat(sim).progress.heardSam = true;
+    tick(sim, { x: 0, y: 0, interact: true }, 0.05);
+    expect(cat(sim).openId).toBe("mailbox");
+    expect(cat(sim).progress.activeQuest).toBeNull();
+  });
+
+  test("Sam does not share the pitch with another player still on supplies", () => {
+    const sim = simAtSam([{ id: "guest", x: SAM.x, y: SAM.y }]);
+    cat(sim).progress.activeQuest = "pond";
+    tickSim(sim, {
+      [LOCAL_PLAYER_ID]: { x: 0, y: 0, interact: true },
+      guest: { x: 0, y: 0, interact: true },
+    }, 0.05, openGround);
+    expect(cat(sim).talkId).toBe("sam-pitch");
+    expect(cat(sim).progress.activeQuest).toBe("report");
+    expect(playerById(sim, "guest")!.talkId).toBe("sam-wait");
+    expect(playerById(sim, "guest")!.meowing).toBe(false);
+    expect(playerById(sim, "guest")!.progress.heardSam).toBe(false);
+  });
+});
+
+describe("Elon Hopsk and the intake", () => {
+  const bernie = { id: "bernie", kind: "bernie" as const, x: BERNIE.x, y: BERNIE.y };
+  const sam = { id: "sam", kind: "sam" as const, x: SAM.x, y: SAM.y };
+  const rabbit = { id: "rabbit", kind: "rabbit" as const, x: RABBIT.x, y: RABBIT.y };
+  const intake = { id: "intake", kind: "intake" as const, x: INTAKE.x, y: INTAKE.y };
+
+  function simOnQuest(extraPlayers: Array<{ id: string; x: number; y: number }> = []) {
+    return createSim({
+      players: [{ id: LOCAL_PLAYER_ID, x: RABBIT.x, y: RABBIT.y }, ...extraPlayers],
+      fish: [],
+      interactables: [bernie, sam, rabbit, intake],
+    });
+  }
+
+  test("Hopsk sends you to Bernie until the report quest is on", () => {
+    const sim = simOnQuest();
+    tick(sim, { x: 0, y: 0, interact: true }, 0.05);
+    expect(cat(sim).talkId).toBe("hopsk-wait");
+    expect(cat(sim).progress.heardHopsk).toBe(false);
+    expect(cat(sim).inventory).toEqual([]);
+  });
+
+  test("Hopsk lends a rocket after Bernie sends you, then the intake will take it", () => {
+    const sim = simOnQuest();
+    cat(sim).progress.heardSam = true;
+    cat(sim).progress.activeQuest = "hopsk";
+    tick(sim, { x: 0, y: 0, interact: true }, 0.05);
+    expect(cat(sim).talkId).toBe("hopsk-offer");
+    expect(cat(sim).progress.heardHopsk).toBe(true);
+    expect(cat(sim).progress.activeQuest).toBe("clog");
+    expect(cat(sim).inventory).toEqual([{ kind: "carrot", count: 1 }]);
+    tick(sim, { x: 0, y: 0, interact: true }, 0.05);
+    cat(sim).x = INTAKE.x;
+    cat(sim).y = INTAKE.y;
+    tick(sim, { x: 0, y: 0 }, 0.05);
+    tick(sim, { x: 0, y: 0, interact: true }, 0.05);
+    expect(cat(sim).talkId).toBe("intake-stuff");
+    expect(cat(sim).progress.pipeClogged).toBe(true);
+    expect(cat(sim).progress.activeQuest).toBe("smoke");
+    expect(cat(sim).inventory).toEqual([]);
+  });
+
+  test("the intake only looks until you have Hopsk's rocket", () => {
+    const sim = simOnQuest();
+    cat(sim).x = INTAKE.x;
+    cat(sim).y = INTAKE.y;
+    tick(sim, { x: 0, y: 0 }, 0.05);
+    tick(sim, { x: 0, y: 0, interact: true }, 0.05);
+    expect(cat(sim).talkId).toBe("intake-look");
+    expect(cat(sim).progress.pipeClogged).toBe(false);
+  });
+
+  test("Bernie sends you to the burning campus after the clog, then Sam is confused", () => {
+    const sim = simOnQuest();
+    cat(sim).progress.heardSam = true;
+    cat(sim).progress.heardHopsk = true;
+    cat(sim).progress.pipeClogged = true;
+    cat(sim).progress.activeQuest = "smoke";
+    cat(sim).x = BERNIE.x;
+    cat(sim).y = BERNIE.y;
+    tick(sim, { x: 0, y: 0 }, 0.05);
+    tick(sim, { x: 0, y: 0, interact: true }, 0.05);
+    expect(cat(sim).talkId).toBe("bernie-smoke");
+    expect(cat(sim).progress.activeQuest).toBe("blaze");
+    tick(sim, { x: 0, y: 0, interact: true }, 0.05);
+    cat(sim).x = SAM.x;
+    cat(sim).y = SAM.y;
+    tick(sim, { x: 0, y: 0 }, 0.05);
+    tick(sim, { x: 0, y: 0, interact: true }, 0.05);
+    expect(cat(sim).talkId).toBe("sam-blaze");
+    expect(cat(sim).progress.activeQuest).toBeNull();
+    tick(sim, { x: 0, y: 0, interact: true }, 0.05);
+    cat(sim).x = BERNIE.x;
+    cat(sim).y = BERNIE.y;
+    tick(sim, { x: 0, y: 0 }, 0.05);
+    tick(sim, { x: 0, y: 0, interact: true }, 0.05);
+    expect(cat(sim).talkId).toBe("bernie-victory");
+  });
+
+  test("Hopsk does not share the rocket with another player still waiting on Bernie", () => {
+    const sim = simOnQuest([{ id: "guest", x: RABBIT.x, y: RABBIT.y }]);
+    cat(sim).progress.heardSam = true;
+    cat(sim).progress.activeQuest = "hopsk";
+    tickSim(sim, {
+      [LOCAL_PLAYER_ID]: { x: 0, y: 0, interact: true },
+      guest: { x: 0, y: 0, interact: true },
+    }, 0.05, openGround);
+    expect(cat(sim).talkId).toBe("hopsk-offer");
+    expect(cat(sim).inventory).toEqual([{ kind: "carrot", count: 1 }]);
+    expect(playerById(sim, "guest")!.talkId).toBe("hopsk-wait");
+    expect(playerById(sim, "guest")!.inventory).toEqual([]);
+    expect(playerById(sim, "guest")!.progress.heardHopsk).toBe(false);
   });
 });
 

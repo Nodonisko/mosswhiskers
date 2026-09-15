@@ -7,7 +7,27 @@ const QUEST_COPY: Record<QuestId, { summary: string; objective: string }> = {
   },
   pond: {
     summary: "Bernie took the fish and mice.",
-    objective: "Investigate why his pond is drying up.",
+    objective: "Investigate why his pond is drying up. Follow the pipe.",
+  },
+  report: {
+    summary: "Sam Catman is cooling his data center with Bernie's pond.",
+    objective: "Tell Bernie. He is in the far northwest of the wood.",
+  },
+  hopsk: {
+    summary: "Bernie knows a rabbit who never did like Catman.",
+    objective: "Find Elon Hopsk on the southwest farm.",
+  },
+  clog: {
+    summary: "Hopsk lent you one of his rockets.",
+    objective: "Stuff it in the pipe intake. Bernie's pond, the gulping end.",
+  },
+  smoke: {
+    summary: "The pipe has stopped drinking.",
+    objective: "Tell Bernie. Far northwest, by the pond.",
+  },
+  blaze: {
+    summary: "There is a glow over Catman's barn.",
+    objective: "Check the data center. Speak with Sam.",
   },
 };
 

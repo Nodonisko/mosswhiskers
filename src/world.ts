@@ -16,6 +16,18 @@ import {
   BERNIE_WOODS,
   CAT_COLLISION,
   CAT_SCALE,
+  DATA_CENTER,
+  DATA_CENTER_RACKS,
+  DATA_CENTER_SCALE,
+  FARM,
+  FARM_CARROTS,
+  FARM_FENCES,
+  FARM_PLOT,
+  FARM_SHED,
+  FARM_SHED_SCALE,
+  INTAKE,
+  RABBIT,
+  SAM,
   LAKE_HEIGHT,
   LAKE_SEED,
   LAKE_WIDTH,
@@ -34,6 +46,7 @@ import {
   SCENE_SEED,
   denPathX,
   mainPathY,
+  onIntakePipe,
   southPathX,
   TREE_TRUNK_HITBOX,
   type WorldModelKind,
@@ -71,6 +84,37 @@ export function isBernieWoods(x: number, y: number) {
   return x < BERNIE_WOODS.east && y > BERNIE_WOODS.south && !insideColony;
 }
 
+export function inDataCenterClearing(x: number, y: number) {
+  const dx = (x - DATA_CENTER.x) / 350;
+  const dy = (y - (DATA_CENTER.y + 80)) / 260;
+  return dx * dx + dy * dy < 1;
+}
+
+function onDataCenterPath(x: number, y: number) {
+  return y >= mainPathY(DATA_CENTER.x) - 28
+    && y <= DATA_CENTER.y + 8
+    && Math.abs(x - (DATA_CENTER.x + Math.sin((y + 40) / 72) * 16)) < 48;
+}
+
+export function inFarmClearing(x: number, y: number) {
+  const dx = (x - (FARM.x - 80)) / 420;
+  const dy = (y - (FARM.y + 30)) / 300;
+  return dx * dx + dy * dy < 1;
+}
+
+export function inFarmPlot(x: number, y: number) {
+  const dx = Math.abs(x - FARM.x) / FARM_PLOT.halfW;
+  const dy = Math.abs(y - FARM.y) / FARM_PLOT.halfH;
+  return dx ** 4 + dy ** 4 < 1;
+}
+
+function onFarmPath(x: number, y: number) {
+  const endY = FARM.y + FARM_PLOT.halfH;
+  return y <= mainPathY(FARM.x) + 28
+    && y >= endY
+    && Math.abs(x - (FARM.x + Math.sin((y + 40) / 72) * 16)) < 48;
+}
+
 function onBerniePath(x: number, y: number) {
   const alongSouth = x <= BERNIE_WOODS.east + 24 && x >= BERNIE_HUT.x - 20
     && Math.abs(y - BERNIE_PATH_APPROACH_Y) < 44;
@@ -96,7 +140,9 @@ export function isForestFloor(x: number, y: number) {
   const nearWillow = LAKE_WILLOWS.some(([willowX, willowY]) => Math.hypot(x - willowX, y - willowY) < 92);
   const onMainPath = Math.abs(y - mainPathY(x)) < 56;
   const onSouthPath = Math.abs(x - southPathX(y)) < 56 && y < mainPathY(655) + 30;
-  return !insideColony && !insideLake && !nearWillow && !onMainPath && !onSouthPath;
+  return !insideColony && !insideLake && !nearWillow && !onMainPath && !onSouthPath
+    && !inDataCenterClearing(x, y) && !onDataCenterPath(x, y) && !onIntakePipe(x, y)
+    && !inFarmClearing(x, y) && !onFarmPath(x, y);
 }
 
 export function createWalkable(solids: readonly Solid[]): Walkable {
@@ -113,7 +159,14 @@ function trunksFromProps(props: readonly WorldProp[]): Solid[] {
   const trunks: Solid[] = [];
   for (const prop of props) {
     const trunk = TREE_TRUNK_HITBOX[prop.kind];
-    if (trunk) trunks.push({ x: prop.x, y: prop.y, halfW: trunk[0] * prop.scale, halfH: trunk[1] * prop.scale });
+    if (trunk) {
+      trunks.push({
+        x: prop.x,
+        y: prop.y + (trunk[2] ?? 0) * prop.scale,
+        halfW: trunk[0] * prop.scale,
+        halfH: trunk[1] * prop.scale,
+      });
+    }
   }
   return trunks;
 }
@@ -172,7 +225,18 @@ export function createWorldLayout(): WorldLayout {
   add("mailbox", MAILBOX.x, MAILBOX.y, 1.28, 23);
   add("mailBubble", MAILBOX.x, MAILBOX.y + 64, 0.92, 26);
   add("hut", BERNIE_HUT.x, BERNIE_HUT.y, 1.42, 29);
+  add("datacenter", DATA_CENTER.x, DATA_CENTER.y, DATA_CENTER_SCALE, 41);
+  for (const rack of DATA_CENTER_RACKS) add("racks", rack.x, rack.y, rack.scale, rack.seed);
   add("bernie", BERNIE.x, BERNIE.y, CAT_SCALE, 0);
+  add("sam", SAM.x, SAM.y, CAT_SCALE, 0);
+  add("shed", FARM_SHED.x, FARM_SHED.y, FARM_SHED_SCALE, 60);
+  for (const crop of FARM_CARROTS) add("carrot", crop.x, crop.y, crop.scale, crop.seed, crop.variant);
+  for (const rail of FARM_FENCES) add("fence", rail.x, rail.y, rail.scale, rail.seed);
+  add("rabbit", RABBIT.x, RABBIT.y, CAT_SCALE, 0);
+  add("flowers", FARM.x + 248, FARM.y + 36, 1.06, 93, 2);
+  add("flowers", FARM.x - 256, FARM.y - 18, 0.96, 94, 0);
+  add("bush", FARM.x + 246, FARM.y + 118, 1.16, 95);
+  add("stone", FARM.x - 230, FARM.y + 160, 0.92, 96);
   add("lamp", -230, -86, 1.12, 24);
   add("lamp", 230, -86, 1.12, 25);
 
@@ -238,7 +302,7 @@ export function createWorldLayout(): WorldLayout {
     bernieAttempts += 1;
     const x = -SCATTER_WIDTH / 2 + 70 + bernieRandom() * (BERNIE_WOODS.east + SCATTER_WIDTH / 2 - 110);
     const y = BERNIE_WOODS.south + 36 + bernieRandom() * (SCATTER_HEIGHT / 2 - BERNIE_WOODS.south - 70);
-    if (!isBernieWoods(x, y) || inBernieClearing(x, y) || onBerniePath(x, y)) continue;
+    if (!isBernieWoods(x, y) || inBernieClearing(x, y) || onBerniePath(x, y) || onIntakePipe(x, y)) continue;
     if (bernieTrees.some(([treeX, treeY]) => Math.hypot(treeX - x, treeY - y) < 88)) continue;
     bernieTrees.push([x, y]);
     const kind = bernieRandom() < 0.52 ? "pine" : "oak";
@@ -255,7 +319,7 @@ export function createWorldLayout(): WorldLayout {
     const y = onWestRim
       ? BERNIE_WOODS.south + bernieRandom() * (MAP_HEIGHT / 2 - BERNIE_WOODS.south - 80)
       : SCATTER_HEIGHT / 2 - 40 + bernieRandom() * (MAP_HEIGHT / 2 - SCATTER_HEIGHT / 2);
-    if (!isBernieWoods(x, y) || inBernieClearing(x, y) || onBerniePath(x, y)) continue;
+    if (!isBernieWoods(x, y) || inBernieClearing(x, y) || onBerniePath(x, y) || onIntakePipe(x, y)) continue;
     if (bernieTrees.some(([treeX, treeY]) => Math.hypot(treeX - x, treeY - y) < 88)) continue;
     bernieTrees.push([x, y]);
     const kind = bernieRandom() < 0.52 ? "pine" : "oak";
@@ -270,6 +334,9 @@ export function createWorldLayout(): WorldLayout {
     interactables: [
       { id: "mailbox", kind: "mailbox", x: MAILBOX.x, y: MAILBOX.y },
       { id: "bernie", kind: "bernie", x: BERNIE.x, y: BERNIE.y },
+      { id: "sam", kind: "sam", x: SAM.x, y: SAM.y },
+      { id: "rabbit", kind: "rabbit", x: RABBIT.x, y: RABBIT.y },
+      { id: "intake", kind: "intake", x: INTAKE.x, y: INTAKE.y },
     ],
   };
 }

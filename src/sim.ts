@@ -27,14 +27,14 @@ export type PlayerInputs = Readonly<Record<PlayerId, MoveInput>>;
 
 export const IDLE_INPUT: MoveInput = { x: 0, y: 0 };
 
-export type InventoryItemKind = "mouse" | FishKind;
+export type InventoryItemKind = "mouse" | FishKind | "carrot";
 
 export type InventorySlot = {
   kind: InventoryItemKind;
   count: number;
 };
 
-export type InteractableKind = "mailbox" | "bernie";
+export type InteractableKind = "mailbox" | "bernie" | "sam" | "rabbit" | "intake";
 
 export type Interactable = {
   id: string;
@@ -44,13 +44,35 @@ export type Interactable = {
 };
 
 /** Per-player quest flags. Never store these on GameSim — each cat keeps their own. */
-export type QuestId = "sandwhisker" | "pond";
+export type QuestId = "sandwhisker" | "pond" | "report" | "hopsk" | "clog" | "smoke" | "blaze";
 
-export type TalkId = "bernie-ask" | "bernie-thanks" | "bernie-pond";
+export type TalkId =
+  | "bernie-ask"
+  | "bernie-thanks"
+  | "bernie-pond"
+  | "bernie-report"
+  | "bernie-hopsk"
+  | "bernie-clog"
+  | "bernie-smoke"
+  | "bernie-blaze"
+  | "bernie-victory"
+  | "sam-wait"
+  | "sam-pitch"
+  | "sam-blaze"
+  | "hopsk-wait"
+  | "hopsk-offer"
+  | "hopsk-nudge"
+  | "hopsk-clogged"
+  | "intake-look"
+  | "intake-stuff"
+  | "intake-clogged";
 
 export type PlayerProgress = {
   mailboxRead: boolean;
   activeQuest: QuestId | null;
+  heardSam: boolean;
+  heardHopsk: boolean;
+  pipeClogged: boolean;
 };
 
 export type PlayerSim = {
@@ -223,7 +245,7 @@ export function createPlayer(options: { id: string; name?: string; x: number; y:
     meowing: false,
     meowElapsed: 0,
     meowNonce: 0,
-    progress: { mailboxRead: false, activeQuest: null },
+    progress: { mailboxRead: false, activeQuest: null, heardSam: false, heardHopsk: false, pipeClogged: false },
   };
 }
 
@@ -274,11 +296,104 @@ function closeDialog(player: PlayerSim) {
 
 function beginSandwhisker(player: PlayerSim) {
   player.progress.mailboxRead = true;
-  if (player.progress.activeQuest === null) player.progress.activeQuest = "sandwhisker";
+  if (player.progress.activeQuest !== null) return;
+  if (player.progress.heardSam || player.progress.heardHopsk || player.progress.pipeClogged) return;
+  player.progress.activeQuest = "sandwhisker";
+}
+
+function canTalkToSam(player: PlayerSim) {
+  return player.progress.activeQuest === "pond"
+    || player.progress.activeQuest === "report"
+    || player.progress.heardSam;
+}
+
+function talkToSam(player: PlayerSim) {
+  if (player.progress.pipeClogged && (player.progress.activeQuest === "blaze" || player.progress.activeQuest === null)) {
+    if (player.progress.activeQuest === "blaze") player.progress.activeQuest = null;
+    player.talkId = "sam-blaze";
+    return;
+  }
+  if (!canTalkToSam(player)) {
+    player.talkId = "sam-wait";
+    return;
+  }
+  player.progress.heardSam = true;
+  if (player.progress.activeQuest === "pond") player.progress.activeQuest = "report";
+  player.talkId = "sam-pitch";
+}
+
+function canTalkToHopsk(player: PlayerSim) {
+  return player.progress.activeQuest === "hopsk"
+    || player.progress.activeQuest === "clog"
+    || player.progress.activeQuest === "smoke"
+    || player.progress.activeQuest === "blaze"
+    || player.progress.heardHopsk
+    || player.progress.pipeClogged;
+}
+
+function talkToHopsk(player: PlayerSim) {
+  if (!canTalkToHopsk(player)) {
+    player.talkId = "hopsk-wait";
+    return;
+  }
+  if (player.progress.pipeClogged) {
+    player.talkId = "hopsk-clogged";
+    return;
+  }
+  if (!player.progress.heardHopsk) {
+    player.progress.heardHopsk = true;
+    addToInventory(player, "carrot");
+    if (player.progress.activeQuest === "hopsk") player.progress.activeQuest = "clog";
+    player.talkId = "hopsk-offer";
+    return;
+  }
+  player.talkId = "hopsk-nudge";
+}
+
+function talkToIntake(player: PlayerSim) {
+  if (player.progress.pipeClogged) {
+    player.talkId = "intake-clogged";
+    return;
+  }
+  if (player.progress.activeQuest === "clog" && countKind(player.inventory, "carrot") > 0) {
+    removeFromInventory(player, "carrot", 1);
+    player.progress.pipeClogged = true;
+    player.progress.activeQuest = "smoke";
+    player.talkId = "intake-stuff";
+    return;
+  }
+  player.talkId = "intake-look";
 }
 
 function talkToBernie(player: PlayerSim) {
   player.progress.mailboxRead = true;
+  if (player.progress.pipeClogged) {
+    if (player.progress.activeQuest === "smoke") {
+      player.progress.activeQuest = "blaze";
+      player.talkId = "bernie-smoke";
+      return;
+    }
+    if (player.progress.activeQuest === "blaze") {
+      player.talkId = "bernie-blaze";
+      return;
+    }
+    player.talkId = "bernie-victory";
+    return;
+  }
+  if (player.progress.heardHopsk) {
+    if (player.progress.activeQuest === "hopsk") player.progress.activeQuest = "clog";
+    player.talkId = "bernie-clog";
+    return;
+  }
+  if (player.progress.heardSam) {
+    if (player.progress.activeQuest === "hopsk") {
+      player.talkId = "bernie-hopsk";
+      return;
+    }
+    player.progress.activeQuest = "hopsk";
+    player.talkId = "bernie-report";
+    return;
+  }
   if (player.progress.activeQuest === "pond") {
     player.talkId = "bernie-pond";
     return;
@@ -380,6 +495,9 @@ function tickPlayer(
       player.openId = nearby.id;
       if (nearby.kind === "mailbox") beginSandwhisker(player);
       else if (nearby.kind === "bernie") talkToBernie(player);
+      else if (nearby.kind === "sam") talkToSam(player);
+      else if (nearby.kind === "rabbit") talkToHopsk(player);
+      else if (nearby.kind === "intake") talkToIntake(player);
     } else {
       player.meowing = true;
       player.meowElapsed = 0;
