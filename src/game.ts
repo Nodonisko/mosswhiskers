@@ -234,9 +234,9 @@ place("stone", 790, -640, 1.1, 254);
 
 // A few willows frame the banks, with room to walk between their trunks.
 const lakeWillows: Array<[number, number, number]> = [
-  [LAKE_X - 350, LAKE_Y + 155, 1.12],
-  [LAKE_X + 435, LAKE_Y - 40, 1.05],
-  [LAKE_X - 220, LAKE_Y - 205, 0.98],
+  [LAKE_X - 325, LAKE_Y + 145, 1.12],
+  [LAKE_X + 378, LAKE_Y - 34, 1.05],
+  [LAKE_X - 205, LAKE_Y - 192, 0.98],
 ];
 lakeWillows.forEach(([x, y, scale], index) => place("willow", x, y, scale, 280 + index, index));
 
@@ -328,7 +328,7 @@ function animate() {
     const mapEdgeY = MAP_HEIGHT / 2 - 45;
     const nextX = THREE.MathUtils.clamp(cat.position.x + (dx / length) * 118 * dt, -mapEdgeX, mapEdgeX);
     const nextY = THREE.MathUtils.clamp(cat.position.y + (dy / length) * 118 * dt, -mapEdgeY, mapEdgeY);
-    if (!southernLake.containsPoint(nextX - LAKE_X, nextY - LAKE_Y, 8)) {
+    if (!southernLake.containsPoint(nextX - LAKE_X, nextY - LAKE_Y)) {
       cat.position.x = nextX;
       cat.position.y = nextY;
     }
