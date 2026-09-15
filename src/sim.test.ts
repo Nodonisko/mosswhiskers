@@ -263,6 +263,18 @@ describe("multiplayer-ready sim", () => {
     expect(playerById(sim, "b")!.clawElapsed).toBeCloseTo(0.05);
   });
 
+  test("each player carries a display name for nametags", () => {
+    const sim = createSim({
+      players: [
+        { id: "a", name: "Mosswhisker", x: 0, y: 0 },
+        { id: "b", name: "Pip", x: 40, y: 0 },
+      ],
+      fish: [],
+    });
+    expect(playerById(sim, "a")!.name).toBe("Mosswhisker");
+    expect(playerById(sim, "b")!.name).toBe("Pip");
+  });
+
   test("another player's meow is visible in their own meow state", () => {
     const sim = createSim({
       players: [

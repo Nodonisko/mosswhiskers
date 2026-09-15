@@ -4,6 +4,7 @@ import { pondPuddleContains } from "./pond-shape";
 import { seeded } from "./rng";
 import { hitsSolid, type FishSpec, type Interactable, type MouseSpec, type Solid, type Walkable } from "./sim";
 import {
+  BERNIE,
   BERNIE_HUT,
   BERNIE_PATH_APPROACH_Y,
   BERNIE_POND_HEIGHT,
@@ -14,6 +15,7 @@ import {
   BERNIE_SEED,
   BERNIE_WOODS,
   CAT_COLLISION,
+  CAT_SCALE,
   LAKE_HEIGHT,
   LAKE_SEED,
   LAKE_WIDTH,
@@ -74,7 +76,10 @@ function onBerniePath(x: number, y: number) {
     && Math.abs(y - BERNIE_PATH_APPROACH_Y) < 44;
   const alongWest = Math.abs(x - BERNIE_HUT.x) < 44
     && y >= BERNIE_PATH_APPROACH_Y - 20 && y <= BERNIE_HUT.y + 10;
-  return alongSouth || alongWest;
+  const inFrontYard = y < BERNIE_HUT.y - 20
+    && y > BERNIE_PATH_APPROACH_Y + 40
+    && Math.abs(x - BERNIE_HUT.x) < 58;
+  return alongSouth || alongWest || inFrontYard;
 }
 
 function inBernieClearing(x: number, y: number) {
@@ -167,6 +172,7 @@ export function createWorldLayout(): WorldLayout {
   add("mailbox", MAILBOX.x, MAILBOX.y, 1.28, 23);
   add("mailBubble", MAILBOX.x, MAILBOX.y + 64, 0.92, 26);
   add("hut", BERNIE_HUT.x, BERNIE_HUT.y, 1.42, 29);
+  add("bernie", BERNIE.x, BERNIE.y, CAT_SCALE, 0);
   add("lamp", -230, -86, 1.12, 24);
   add("lamp", 230, -86, 1.12, 25);
 

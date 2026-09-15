@@ -24,7 +24,7 @@ type Paint = ReturnType<typeof painter>;
 const textureCache = new Map<string, THREE.CanvasTexture>();
 
 export const WORLD_MODEL_SIZES: Record<WorldModelKind, readonly [number, number]> = {
-  pine: [88, 142], oak: [120, 152], willow: [146, 168], bush: [42, 38], den: [198, 154], hut: [136, 118],
+  pine: [88, 142], oak: [120, 152], willow: [146, 168], bush: [42, 38], den: [198, 154], hut: [136, 118], bernie: [36, 42],
   mailbox: [26, 48], mailBubble: [46, 38], lamp: [28, 84], flowers: [40, 40], stone: [32, 22], log: [90, 32], cat: [36, 42],
   pike: [52, 18], perch: [36, 20], bluegill: [28, 24], mouse: [32, 16],
 };
@@ -464,7 +464,7 @@ function log(p: Paint) {
   p.ellipse(83, 18, 1, 3, '#7a603b');
 }
 
-type CatColors = { fur: string; shadow: string; light: string };
+type CatColors = { fur: string; shadow: string; light: string; belly: string; paw: string };
 
 function catPose(variant: number) {
   const claw = variant >= 5 ? (variant - 5) % 3 : -1;
@@ -505,7 +505,7 @@ function catFront(p: Paint, variant: number, c: CatColors, tint: SlashTint) {
   p.line(ax(11) + tailX, 14 + bob, ax(11) + tailX + tailBend, 3, light);
   p.ellipse(ax(10), 19 + bob, 5, 9, shadow);
   p.ellipse(ax(10), 18 + bob, 4, 8, fur);
-  p.rect(ax(9), 19 + bob, 3, 7, '#f0dfb4');
+  p.rect(ax(9), 19 + bob, 3, 7, c.belly);
   p.rect(ax(6), 19 + bob, 3, 2, shadow);
   p.rect(ax(13), 20 + bob, 2, 2, shadow);
   p.poly([[ax(4), 16 + bob], [ax(3), 8 + bob], [ax(5), 7 + bob], [ax(8), 10 + bob], [ax(12), 10 + bob], [ax(16), 7 + bob], [ax(17), 8 + bob], [ax(16), 17 + bob], [ax(13), 20 + bob], [ax(7), 20 + bob]], shadow);
@@ -522,23 +522,23 @@ function catFront(p: Paint, variant: number, c: CatColors, tint: SlashTint) {
   p.rect(ax(10), 17 + bob, 1, 1, '#a66f67');
   p.line(ax(4), 17 + bob, ax(1), 16 + bob, '#e9dfbb');
   p.line(ax(15), 17 + bob, ax(19), 16 + bob, '#e9dfbb');
-  p.rect(ax(6) + leftShift, 25 - leftLift, 3, 4, '#f1e4bd');
+  p.rect(ax(6) + leftShift, 25 - leftLift, 3, 4, c.paw);
   if (claw < 0) {
-    p.rect(ax(12) + rightShift, 25 - rightLift, 3, 4, '#f1e4bd');
+    p.rect(ax(12) + rightShift, 25 - rightLift, 3, 4, c.paw);
     return;
   }
   if (claw === 0) {
-    p.rect(ax(10), 21, 4, 4, '#f1e4bd');
+    p.rect(ax(10), 21, 4, 4, c.paw);
     p.rect(ax(11), 23, 3, 2, '#e8d4b0');
     p.rect(ax(11), 25, 1, 1, tint.ink);
     p.rect(ax(13), 25, 1, 1, tint.shade);
     p.rect(ax(12), 26, 1, 1, tint.ink);
   } else if (claw === 1) {
-    p.rect(ax(9), 23, 4, 3, '#f1e4bd');
+    p.rect(ax(9), 23, 4, 3, c.paw);
     p.rect(ax(10), 25, 3, 2, '#e8d4b0');
     slash(p, ax(7), 33, 6, tint.ink, tint.shade);
   } else {
-    p.rect(ax(10), 24, 3, 3, '#f1e4bd');
+    p.rect(ax(10), 24, 3, 3, c.paw);
     slash(p, ax(8), 35, 4, tint.inkSoft, tint.shadeSoft);
   }
 }
@@ -630,6 +630,8 @@ function cat(p: Paint, variant: number, seed: number, facing: CatView, hit: bool
     fur: orange ? '#c99751' : '#929286',
     shadow: orange ? '#8c693e' : '#626961',
     light: orange ? '#e3b86c' : '#b8b7a3',
+    belly: '#f0dfb4',
+    paw: '#f1e4bd',
   };
   const tint = clawTint(hit);
   if (facing === 'n') catBack(p, variant, colors, tint);
@@ -779,6 +781,13 @@ export function getWorldModelTexture(kind: WorldModelKind, options: WorldModelOp
     case 'bush': bush(p); break;
     case 'den': den(p); break;
     case 'hut': hut(p); break;
+    case 'bernie': catFront(p, 0, {
+      fur: '#929286',
+      shadow: '#626961',
+      light: '#b8b7a3',
+      belly: '#d8dbd6',
+      paw: '#cdd0cb',
+    }, clawTint(false)); break;
     case 'mailbox': mailbox(p); break;
     case 'mailBubble': mailBubble(p); break;
     case 'lamp': lamp(p); break;
@@ -820,7 +829,7 @@ export function createWorldModel(kind: WorldModelKind, options: WorldModelOption
   const texture = getWorldModelTexture(kind, options);
   const material = new THREE.SpriteMaterial({ map: texture, transparent: true, alphaTest: 0.5, depthWrite: false, toneMapped: false });
   const sprite = new THREE.Sprite(material);
-  sprite.center.set(0.5, kind === 'cat' ? (height - 30) / height : 0);
+  sprite.center.set(0.5, kind === 'cat' || kind === 'bernie' ? (height - 30) / height : 0);
   sprite.scale.set(width * (options.scale ?? 1), height * (options.scale ?? 1), 1);
   sprite.name = `${kind}-${seed}-${variant}`;
   sprite.userData = { id: sprite.name, kind, seed, variant, nativeWidth: width, nativeHeight: height };

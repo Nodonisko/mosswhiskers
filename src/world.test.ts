@@ -3,7 +3,9 @@ import { lakeContainsLocalPoint, lakePhaseFromSeed } from "./lake-shape";
 import { pondBasinContains } from "./pond-shape";
 import { createWalkable, createWorldLayout, isBernieWoods } from "./world";
 import {
+  BERNIE,
   BERNIE_HUT,
+  BERNIE_PATH_APPROACH_Y,
   BERNIE_POND_HEIGHT,
   BERNIE_POND_SEED,
   BERNIE_POND_WIDTH,
@@ -67,11 +69,18 @@ describe("createWorldLayout", () => {
     const layout = createWorldLayout();
     const hut = layout.props.find((prop) => prop.kind === "hut");
     expect(hut).toEqual(expect.objectContaining({ x: BERNIE_HUT.x, y: BERNIE_HUT.y }));
+    const bernie = layout.props.find((prop) => prop.kind === "bernie");
+    expect(bernie).toEqual(expect.objectContaining({ x: BERNIE.x, y: BERNIE.y }));
 
     const inWoods = layout.props.filter((prop) => isBernieWoods(prop.x, prop.y));
     expect(inWoods.some((prop) => prop.kind === "hut")).toBe(true);
+    expect(inWoods.some((prop) => prop.kind === "bernie")).toBe(true);
     expect(inWoods.filter((prop) => prop.kind === "pine" || prop.kind === "oak").length).toBeGreaterThan(8);
-    expect(inWoods.every((prop) => prop.kind === "hut" || ((prop.kind === "pine" || prop.kind === "oak") && prop.sick))).toBe(true);
+    expect(inWoods.every((prop) => (
+      prop.kind === "hut"
+      || prop.kind === "bernie"
+      || ((prop.kind === "pine" || prop.kind === "oak") && prop.sick)
+    ))).toBe(true);
     expect(inWoods.filter((prop) => prop.kind === "pine" || prop.kind === "oak").every((tree) => (
       Math.hypot(tree.x - BERNIE_HUT.x, tree.y - BERNIE_HUT.y) >= 200
     ))).toBe(true);
@@ -80,6 +89,17 @@ describe("createWorldLayout", () => {
     expect(layout.mice.every((mouse) => !isBernieWoods(mouse.originX, mouse.originY))).toBe(true);
     expect(layout.fish.every((fish) => !isBernieWoods(fish.originX, fish.originY))).toBe(true);
     expect(MAP_WIDTH / 2 + BERNIE_HUT.x).toBeGreaterThan(400);
+  });
+
+  test("the path in front of Bernie's hut stays clear of trees", () => {
+    const layout = createWorldLayout();
+    const blocking = layout.props.filter((prop) => (
+      (prop.kind === "pine" || prop.kind === "oak")
+      && prop.y < BERNIE_HUT.y - 20
+      && prop.y > BERNIE_PATH_APPROACH_Y + 40
+      && Math.abs(prop.x - BERNIE_HUT.x) < 58
+    ));
+    expect(blocking).toEqual([]);
   });
 
   test("Bernie hut sits west of the pond and the trail does not cross the basin", () => {
@@ -118,5 +138,9 @@ describe("createWalkable", () => {
 
   test("Bernie hut blocks the doorway footprint", () => {
     expect(walkable(BERNIE_HUT.x, BERNIE_HUT.y)).toBe(false);
+  });
+
+  test("Bernie blocks a small standing footprint", () => {
+    expect(walkable(BERNIE.x, BERNIE.y)).toBe(false);
   });
 });

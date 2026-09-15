@@ -48,6 +48,9 @@ export const BERNIE_SEED = 2704;
 /** Far-northwest dying wood: x west of east edge, y north of south edge. */
 export const BERNIE_WOODS = { east: -400, south: 160 };
 export const BERNIE_HUT = { x: -1480, y: 820 };
+/** On the path in front of the door, facing south toward anyone who walks up. */
+export const BERNIE = { x: BERNIE_HUT.x + 100, y: BERNIE_HUT.y - 35 };
+export const BERNIE_NAME = "Bernie";
 export const BERNIE_POND_X = -920;
 export const BERNIE_POND_Y = 800;
 export const BERNIE_POND_WIDTH = 680;
@@ -63,6 +66,7 @@ export type WorldModelKind =
   | "bush"
   | "den"
   | "hut"
+  | "bernie"
   | "mailbox"
   | "mailBubble"
   | "lamp"
@@ -76,14 +80,18 @@ export type WorldModelKind =
   | "mouse";
 
 /** Ground footprint of the trunk only, in native pixels / world units at scale 1. */
-export const TREE_TRUNK_HITBOX: Partial<Record<WorldModelKind, readonly [halfW: number, halfH: number]>> = {
+export const TREE_TRUNK_HITBOX: Partial<
+  Record<WorldModelKind, readonly [halfW: number, halfH: number]>
+> = {
   pine: [8, 5],
   oak: [11, 6],
   willow: [9, 5],
   hut: [46, 16],
+  bernie: [8, 6],
 };
 
-export const mainPathY = (x: number) => -190 + Math.sin(x / 235) * 58 + Math.sin(x / 93) * 22;
+export const mainPathY = (x: number) =>
+  -190 + Math.sin(x / 235) * 58 + Math.sin(x / 93) * 22;
 export const southPathX = (y: number) => 655 + Math.sin((y + 290) / 145) * 82;
 export const denPathX = (y: number) => Math.sin((y + 170) / 56) * 24;
 

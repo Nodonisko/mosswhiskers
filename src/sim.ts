@@ -52,6 +52,7 @@ export type PlayerProgress = {
 
 export type PlayerSim = {
   id: PlayerId;
+  name: string;
   x: number;
   y: number;
   facing: CatFacing;
@@ -198,9 +199,10 @@ export function clawHitsTarget(player: PlayerSim, target: { x: number; y: number
   return forward > -CLAW_RANGE.back && forward < CLAW_RANGE.forward && Math.abs(side) < CLAW_RANGE.side;
 }
 
-export function createPlayer(options: { id: string; x: number; y: number; seed?: number }): PlayerSim {
+export function createPlayer(options: { id: string; name?: string; x: number; y: number; seed?: number }): PlayerSim {
   return {
     id: options.id,
+    name: options.name ?? options.id,
     x: options.x,
     y: options.y,
     facing: "s",
@@ -234,7 +236,7 @@ export function playerById(sim: GameSim, id: PlayerId): PlayerSim | undefined {
   return sim.players.find((player) => player.id === id);
 }
 
-export function addPlayer(sim: GameSim, options: { id: string; x: number; y: number; seed?: number }): PlayerSim {
+export function addPlayer(sim: GameSim, options: { id: string; name?: string; x: number; y: number; seed?: number }): PlayerSim {
   const existing = playerById(sim, options.id);
   if (existing) return existing;
   const player = createPlayer(options);
@@ -247,7 +249,7 @@ export function removePlayer(sim: GameSim, id: PlayerId) {
 }
 
 export function createSim(options: {
-  players?: Array<{ id?: string; x: number; y: number; seed?: number }>;
+  players?: Array<{ id?: string; name?: string; x: number; y: number; seed?: number }>;
   fish: FishSpec[];
   mice?: MouseSpec[];
   interactables?: Interactable[];
@@ -258,6 +260,7 @@ export function createSim(options: {
     tick: 0,
     players: players.map((player, index) => createPlayer({
       id: player.id ?? (index === 0 ? LOCAL_PLAYER_ID : `player-${index}`),
+      name: player.name,
       x: player.x,
       y: player.y,
       seed: player.seed,

@@ -4,6 +4,7 @@ import { createKeyboardInput } from "./input";
 import { createLakeModel, updateLakeModel } from "./lake-model";
 import { createMailHud } from "./mail-hud";
 import { createMeowLayer } from "./meow-hud";
+import { createNameLayer, playerNameTags } from "./name-hud";
 import { createPackHud } from "./pack-hud";
 import { createQuestHud } from "./quest-hud";
 import { paintPixelTexture } from "./pixel-canvas";
@@ -23,6 +24,8 @@ import {
 } from "./sim";
 import { createWalkable, createWorldLayout, isBernieWoods, type WorldProp } from "./world";
 import {
+  BERNIE,
+  BERNIE_NAME,
   BERNIE_POND_HEIGHT,
   BERNIE_POND_SEED,
   BERNIE_POND_WIDTH,
@@ -324,7 +327,7 @@ function startGame() {
   });
 
   const sim = createSim({
-    players: [{ id: LOCAL_PLAYER_ID, x: DEFAULT_SPAWN.x, y: DEFAULT_SPAWN.y, seed: DEFAULT_CAT_SEED }],
+    players: [{ id: LOCAL_PLAYER_ID, name: "Mosswhisker", x: DEFAULT_SPAWN.x, y: DEFAULT_SPAWN.y, seed: DEFAULT_CAT_SEED }],
     fish: layout.fish,
     mice: layout.mice,
     interactables: layout.interactables,
@@ -443,6 +446,7 @@ function startGame() {
   const quest = createQuestHud(questRoot);
   const mail = createMailHud(document.getElementById("game") ?? document.body);
   const meows = createMeowLayer(world);
+  const names = createNameLayer(world);
   let viewWidth = 960;
   function resize() {
     const width = window.innerWidth;
@@ -473,6 +477,10 @@ function startGame() {
 
     syncPlayers(sim.players);
     meows.sync(sim.players);
+    names.sync([
+      { id: "npc-bernie", name: BERNIE_NAME, x: BERNIE.x, y: BERNIE.y },
+      ...playerNameTags(sim.players),
+    ]);
 
     const catHalfW = CAT_SCALE * 20 * 0.3;
     for (const sprite of occluders) {
@@ -545,6 +553,7 @@ function startGame() {
       quest.dispose();
       mail.dispose();
       meows.dispose();
+      names.dispose();
       window.removeEventListener("resize", resize);
     },
   };
