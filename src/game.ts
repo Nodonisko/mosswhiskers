@@ -328,7 +328,8 @@ function animate() {
     const mapEdgeY = MAP_HEIGHT / 2 - 45;
     const nextX = THREE.MathUtils.clamp(cat.position.x + (dx / length) * 118 * dt, -mapEdgeX, mapEdgeX);
     const nextY = THREE.MathUtils.clamp(cat.position.y + (dy / length) * 118 * dt, -mapEdgeY, mapEdgeY);
-    if (!southernLake.containsPoint(nextX - LAKE_X, nextY - LAKE_Y)) {
+    // Let the cat's paws enter the shallow shoreline before blocking movement.
+    if (!southernLake.containsPoint(nextX - LAKE_X, nextY - LAKE_Y, -10)) {
       cat.position.x = nextX;
       cat.position.y = nextY;
     }
