@@ -12,6 +12,7 @@ import { createTalkHud } from "./talk-hud";
 import { paintPixelTexture } from "./pixel-canvas";
 import { createPierModel } from "./pier-model";
 import { createIntakePipeModel, updateIntakePipeModel } from "./pipe-model";
+import { createRocketFx, updateRocketFx } from "./rocket-fx";
 import { createHutFx, createShedFx, updateHutFx } from "./hut-fx";
 import { createDataCenterFx, updateDataCenterFx } from "./datacenter-fx";
 import { createDriedPondModel, updateDriedPondModel } from "./pond-model";
@@ -20,6 +21,7 @@ import {
   createSim,
   drainFixedTicks,
   playerById,
+  rocketCarrotPose,
   tickSim,
   type CatFacing,
   type FishSim,
@@ -43,7 +45,7 @@ import {
   DEFAULT_CAT_SEED,
   FARM,
   FARM_PLOT,
-  FARM_SHED,
+  FARM_CARROTS,
   DEFAULT_SPAWN,
   LAKE_HEIGHT,
   LAKE_SEED,
@@ -60,6 +62,7 @@ import {
   PIER_Y,
   RABBIT,
   RABBIT_NAME,
+  ROCKET_CARROT,
   SAM,
   SAM_NAME,
   TICK_DT,
@@ -346,6 +349,7 @@ function startGame() {
   let mailNotice: THREE.Sprite | undefined;
   let bernieHut: THREE.Sprite | undefined;
   let hopskShed: THREE.Sprite | undefined;
+  const farmCarrotSprites: Array<THREE.Sprite | undefined> = FARM_CARROTS.map(() => undefined);
   let dataHall: THREE.Sprite | undefined;
   const rackSprites: THREE.Sprite[] = [];
 
@@ -363,11 +367,15 @@ function startGame() {
     worldEntities.push({ id: model.userData.id as string, kind: prop.kind, x: prop.x, y: prop.y });
     if (prop.kind === "pine" || prop.kind === "oak" || prop.kind === "willow" || prop.kind === "den" || prop.kind === "hut" || prop.kind === "datacenter" || prop.kind === "racks" || prop.kind === "carrot" || prop.kind === "shed") {
       (model.material as THREE.SpriteMaterial).alphaTest = 0.08;
-      occluders.push(model);
+      if (prop.kind !== "carrot") occluders.push(model);
     }
     if (prop.kind === "lamp") lanterns.push(model);
     if (prop.kind === "hut") bernieHut = model;
     if (prop.kind === "shed") hopskShed = model;
+    if (prop.kind === "carrot") {
+      const index = FARM_CARROTS.findIndex((crop) => crop.x === prop.x && crop.y === prop.y);
+      if (index >= 0) farmCarrotSprites[index] = model;
+    }
     if (prop.kind === "datacenter") dataHall = model;
     if (prop.kind === "racks") rackSprites.push(model);
     if (prop.kind === "mailBubble") {
@@ -382,12 +390,24 @@ function startGame() {
   if (!mailNotice) throw new Error("Mailbox notice is missing from the world layout");
   if (!bernieHut) throw new Error("Bernie hut is missing from the world layout");
   if (!hopskShed) throw new Error("Hopsk shed is missing from the world layout");
+  if (farmCarrotSprites.some((sprite) => !sprite)) throw new Error("Farm carrots are missing from the world layout");
   if (!dataHall) throw new Error("Data center is missing from the world layout");
   const mailboxNotice: THREE.Sprite = mailNotice;
   const hutSprite: THREE.Sprite = bernieHut;
   const hutFx = createHutFx(hutSprite, world);
   const shedSprite: THREE.Sprite = hopskShed;
   const shedFx = createShedFx(shedSprite, world);
+  const rocketSprites = farmCarrotSprites as THREE.Sprite[];
+  const rocketFx = rocketSprites.map((sprite, index) => {
+    const crop = FARM_CARROTS[index]!;
+    return createRocketFx(
+      sprite,
+      world,
+      getWorldModelTexture("carrot", { seed: crop.seed, variant: crop.variant }),
+      getWorldModelTexture("carrot", { seed: crop.seed, variant: 20 }),
+      { x: crop.x, y: crop.y },
+    );
+  });
   const dataCenterFx = createDataCenterFx(dataHall, rackSprites, world);
   const clogCarrot = createWorldModel("carrot", { scale: 0.86, seed: 88, variant: 10 });
   clogCarrot.position.set(BERNIE_POND_X + 6, BERNIE_POND_Y - 4, 0);
@@ -437,18 +457,22 @@ function startGame() {
     return flame;
   });
 
+  const atRocket = location.hash === "#rocket";
   const sim = createSim({
-    players: [{ id: LOCAL_PLAYER_ID, name: "Mosswhisker", x: DEFAULT_SPAWN.x, y: DEFAULT_SPAWN.y, seed: DEFAULT_CAT_SEED }],
+    players: [{
+      id: LOCAL_PLAYER_ID,
+      name: "Mosswhisker",
+      x: atRocket ? ROCKET_CARROT.x : DEFAULT_SPAWN.x,
+      y: atRocket ? ROCKET_CARROT.y + 40 : DEFAULT_SPAWN.y,
+      seed: DEFAULT_CAT_SEED,
+    }],
     fish: layout.fish,
     mice: layout.mice,
     interactables: layout.interactables,
   });
-  if (location.hash === "#farm") {
+  if (atRocket) {
     const preview = playerById(sim, LOCAL_PLAYER_ID);
-    if (preview) {
-      preview.x = FARM_SHED.x;
-      preview.y = FARM_SHED.y - 140;
-    }
+    if (preview) preview.facing = "s";
   }
 
   const textureCache = new Map<number, CatTextures>();
@@ -554,7 +578,21 @@ function startGame() {
   }
   sim.mice.forEach((mouse, index) => attachMouse(mouse, 1.05 + (index % 3) * 0.08, 900 + (index % 3)));
 
-  const walkable = createWalkable(layout.trunks);
+  function walkableSolids() {
+    return layout.trunks.filter((solid) => {
+      const index = FARM_CARROTS.findIndex((crop) => crop.x === solid.x && crop.y === solid.y);
+      if (index < 0) return true;
+      return !sim.rocketCarrots[index]?.launched;
+    });
+  }
+  let walkable = createWalkable(layout.trunks);
+  let launchMask = "";
+  function syncWalkable() {
+    const next = sim.rocketCarrots.map((rocket) => Number(rocket.launched)).join("");
+    if (next === launchMask) return;
+    launchMask = next;
+    walkable = createWalkable(walkableSolids());
+  }
   const input = createKeyboardInput();
   const packRoot = document.querySelector<HTMLElement>(".pack-hud");
   if (!packRoot) throw new Error("Pack HUD is missing");
@@ -601,6 +639,7 @@ function startGame() {
       } else if (mail.consumeDismiss() || talk.consumeDismiss()) {
         sample.interact = true;
       }
+      syncWalkable();
       tickSim(sim, { [LOCAL_PLAYER_ID]: sample }, TICK_DT, walkable);
     });
 
@@ -640,6 +679,17 @@ function startGame() {
     updateIntakePipeModel(intakePipe, sim.elapsed, clogged);
     updateHutFx(hutFx, hutSprite, sim.elapsed);
     updateHutFx(shedFx, shedSprite, sim.elapsed + 0.9);
+    for (const [index, sprite] of rocketSprites.entries()) {
+      const rocket = sim.rocketCarrots[index]!;
+      const crop = FARM_CARROTS[index]!;
+      updateRocketFx(
+        rocketFx[index]!,
+        sprite,
+        rocketCarrotPose(rocket.elapsed, crop, index),
+        rocket.elapsed,
+        rocket.launched,
+      );
+    }
     updateDataCenterFx(dataCenterFx, sim.elapsed, clogged);
     for (const fish of sim.fish) {
       const view = fishViews.get(fish.id);

@@ -771,6 +771,10 @@ function samCat(p: Paint) {
 }
 
 function carrot(p: Paint, variant: number) {
+  if (variant >= 20) {
+    rocketCarrot(p);
+    return;
+  }
   const loose = variant >= 10;
   const lean = [0, -5, 4, 2][variant % 4]!;
   const cx = 28 + Math.round(lean * 0.25);
@@ -841,6 +845,54 @@ function carrot(p: Paint, variant: number) {
   p.rect(cx - 6, soil, 4, 2, '#9a7850');
   p.rect(cx + 3, soil + 2, 5, 2, '#5a3e24');
   p.rect(cx - 2, soil - 3, 3, 2, '#c45414');
+}
+
+/** Nose-up rocket: pointy tip leads, greens are the engine. */
+function rocketCarrot(p: Paint) {
+  const cx = 28;
+  const greens = 70;
+
+  p.poly([
+    [cx, 1], [cx - 1, 6], [cx - 3, 14], [cx - 7, 28], [cx - 11, 46],
+    [cx - 12, greens - 2], [cx + 12, greens - 2], [cx + 11, 46],
+    [cx + 7, 28], [cx + 3, 14], [cx + 1, 6],
+  ], '#b84410');
+  p.poly([
+    [cx, 2], [cx - 1, 8], [cx - 4, 22], [cx - 7, 42],
+    [cx - 6, greens - 8], [cx + 5, greens - 10], [cx + 6, 40],
+    [cx + 4, 20], [cx + 1, 8],
+  ], '#e86a1c');
+  p.poly([
+    [cx, 4], [cx - 1, 16], [cx - 3, 34], [cx - 2, 50],
+    [cx + 1, 38], [cx + 2, 16],
+  ], '#f4a040');
+  p.line(cx + 3, 18, cx + 4, greens - 12, '#c45414');
+  p.rect(cx - 1, 8, 2, 12, '#f8c070');
+  p.rect(cx, 1, 1, 6, '#f4a040');
+  p.rect(cx - 1, 1, 2, 3, '#e86a1c');
+
+  const stems: Array<{ x: number; bend: number; h: number }> = [
+    { x: cx - 7, bend: -6, h: 16 },
+    { x: cx - 2, bend: -2, h: 20 },
+    { x: cx + 2, bend: 3, h: 18 },
+    { x: cx + 7, bend: 7, h: 15 },
+  ];
+  for (const stem of stems) {
+    for (let step = 0; step < stem.h; step += 2) {
+      const t = step / stem.h;
+      const x = stem.x + stem.bend * t * t;
+      const y = greens + step;
+      p.rect(x, y, 2, 3, t > 0.65 ? '#2a5224' : '#347030');
+      if (step > 4 && step % 6 === 0) {
+        const side = (step / 6) % 2 === 0 ? -1 : 1;
+        const leaf = 4 + (step % 5);
+        p.rect(x + side * 2, y, leaf, 3, '#3d8a34');
+        p.rect(x + side * 3, y + 1, leaf - 1, 2, '#6aaa44');
+      }
+    }
+  }
+  p.ellipse(cx, greens + 1, 8, 5, '#2f5a28');
+  p.ellipse(cx - 1, greens - 1, 5, 3, '#4a8a34');
 }
 
 function rabbit(p: Paint) {

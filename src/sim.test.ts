@@ -10,12 +10,13 @@ import {
   nearestInteractable,
   playerById,
   removePlayer,
+  rocketCarrotPose,
   snapshotSim,
   tickSim,
   type GameSim,
   type Walkable,
 } from "./sim";
-import { BERNIE, BERNIE_POND_X, BERNIE_POND_Y, CAT_SPEED, CLAW_DURATION, INTAKE, LOCAL_PLAYER_ID, MAILBOX, MEOW_DURATION, MOUSE_RESPAWN, nearIntakeRim, QUEST_HINT_DURATION, RABBIT, SAM, TICK_DT } from "./world-config";
+import { BERNIE, BERNIE_POND_X, BERNIE_POND_Y, CAT_SPEED, CLAW_DURATION, FARM_CARROTS, INTAKE, LOCAL_PLAYER_ID, MAILBOX, MEOW_DURATION, MOUSE_RESPAWN, nearIntakeRim, QUEST_HINT_DURATION, RABBIT, ROCKET_CARROT, ROCKET_IGNITE, SAM, TICK_DT } from "./world-config";
 
 const openGround = () => true;
 const blocked = () => false;
@@ -849,6 +850,53 @@ describe("Elon Hopsk and the intake", () => {
     expect(playerById(sim, "guest")!.talkId).toBe("hopsk-wait");
     expect(playerById(sim, "guest")!.inventory).toEqual([]);
     expect(playerById(sim, "guest")!.progress.heardHopsk).toBe(false);
+  });
+});
+
+function rocketIndex(crop: { x: number; y: number }) {
+  return FARM_CARROTS.findIndex((item) => item.x === crop.x && item.y === crop.y);
+}
+
+describe("rocket carrots", () => {
+  test("clawing the biggest farm carrot launches it and does not pocket it", () => {
+    const sim = createSim({
+      players: [{ id: LOCAL_PLAYER_ID, x: ROCKET_CARROT.x, y: ROCKET_CARROT.y - 24 }],
+      fish: [],
+    });
+    cat(sim).facing = "n";
+    tick(sim, { x: 0, y: 0, claw: true }, 0.12);
+    expect(sim.rocketCarrots[rocketIndex(ROCKET_CARROT)]!.launched).toBe(true);
+    expect(sim.rocketCarrots.filter((rocket) => rocket.launched)).toHaveLength(1);
+    expect(cat(sim).clawHit).toBe(true);
+    expect(cat(sim).inventory).toEqual([]);
+  });
+
+  test("after ignition the carrot climbs", () => {
+    const sim = createSim({
+      players: [{ id: LOCAL_PLAYER_ID, x: ROCKET_CARROT.x, y: ROCKET_CARROT.y - 24 }],
+      fish: [],
+    });
+    cat(sim).facing = "n";
+    tick(sim, { x: 0, y: 0, claw: true }, 0.12);
+    tick(sim, { x: 0, y: 0 }, ROCKET_IGNITE + 0.4);
+    const rocket = sim.rocketCarrots[rocketIndex(ROCKET_CARROT)]!;
+    const pose = rocketCarrotPose(rocket.elapsed, ROCKET_CARROT);
+    expect(pose.flying).toBe(true);
+    expect(pose.y).toBeGreaterThan(ROCKET_CARROT.y + 20);
+  });
+
+  test("every farm carrot launches on its own claw", () => {
+    for (const crop of FARM_CARROTS) {
+      const sim = createSim({
+        players: [{ id: LOCAL_PLAYER_ID, x: crop.x, y: crop.y - 24 }],
+        fish: [],
+      });
+      cat(sim).facing = "n";
+      tick(sim, { x: 0, y: 0, claw: true }, 0.12);
+      expect(sim.rocketCarrots[rocketIndex(crop)]!.launched).toBe(true);
+      expect(sim.rocketCarrots.filter((rocket) => rocket.launched)).toHaveLength(1);
+      expect(cat(sim).inventory).toEqual([]);
+    }
   });
 });
 

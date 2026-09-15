@@ -37,6 +37,7 @@ import {
   PIER_X,
   PIER_Y,
   RABBIT,
+  ROCKET_CARROT,
   SAM,
 } from "./world-config";
 import { WORLD_MODEL_SIZES } from "./world-models";
@@ -213,6 +214,9 @@ describe("createWorldLayout", () => {
     expect(carrots).toHaveLength(FARM_CARROTS.length);
     expect(carrots.every((crop) => crop.scale > 1.1 && crop.scale < 1.5)).toBe(true);
     expect(carrots.every((crop) => inFarmPlot(crop.x, crop.y))).toBe(true);
+    expect(ROCKET_CARROT.scale).toBe(Math.max(...FARM_CARROTS.map((crop) => crop.scale)));
+    expect(Math.hypot(ROCKET_CARROT.x - FARM.x, ROCKET_CARROT.y - FARM.y)).toBeLessThan(80);
+    expect(layout.props.find((prop) => prop.kind === "carrot" && prop.x === ROCKET_CARROT.x && prop.y === ROCKET_CARROT.y)?.scale).toBe(ROCKET_CARROT.scale);
     expect(Math.abs(RABBIT.x - FARM_SHED.x)).toBeLessThan(80);
     expect(Math.abs(RABBIT.y - FARM_SHED.y)).toBeLessThan(20);
     expect(inFarmPlot(RABBIT.x, RABBIT.y)).toBe(false);

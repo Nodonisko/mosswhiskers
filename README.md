@@ -1,4 +1,4 @@
-# Mosswhisker Hollow
+# Mosswhiskers Meadow
 
 A small Three.js woodland world rendered with an orthographic camera, generated pixel textures, and procedural sprite models. Walk the cat with WASD or the arrow keys.
 

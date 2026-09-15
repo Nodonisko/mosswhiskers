@@ -14,6 +14,8 @@ import {
   MEOW_DURATION,
   QUEST_HINT_DURATION,
   PREY_RESPAWN,
+  FARM_CARROTS,
+  ROCKET_IGNITE,
   BERNIE_SUPPLY,
   nearIntakeRim,
 } from "./world-config";
@@ -159,6 +161,19 @@ export type MouseSim = MouseSpec & {
  * Authoritative world state. JSON-serializable so a host can snapshot it
  * and every client can paint the same mice, fish, and other cats' swipes.
  */
+export type RocketCarrotSim = {
+  launched: boolean;
+  elapsed: number;
+};
+
+export type RocketCarrotPose = {
+  x: number;
+  y: number;
+  igniting: boolean;
+  flying: boolean;
+  gone: boolean;
+};
+
 export type GameSim = {
   elapsed: number;
   tick: number;
@@ -166,6 +181,7 @@ export type GameSim = {
   fish: FishSim[];
   mice: MouseSim[];
   interactables: Interactable[];
+  rocketCarrots: RocketCarrotSim[];
 };
 
 export type Walkable = (x: number, y: number) => boolean;
@@ -227,6 +243,34 @@ export function clawHitsTarget(player: PlayerSim, target: { x: number; y: number
   const forward = player.facing === "e" ? dx : player.facing === "w" ? -dx : player.facing === "n" ? dy : -dy;
   const side = player.facing === "e" || player.facing === "w" ? dy : dx;
   return forward > -CLAW_RANGE.back && forward < CLAW_RANGE.forward && Math.abs(side) < CLAW_RANGE.side;
+}
+
+export function rocketCarrotPose(
+  elapsed: number,
+  origin: { x: number; y: number },
+  phase = 0,
+): RocketCarrotPose {
+  if (elapsed <= 0) {
+    return { x: origin.x, y: origin.y, igniting: false, flying: false, gone: false };
+  }
+  if (elapsed < ROCKET_IGNITE) {
+    return {
+      x: origin.x + Math.sin(elapsed * 58 + phase) * 2.5,
+      y: origin.y,
+      igniting: true,
+      flying: false,
+      gone: false,
+    };
+  }
+  const t = elapsed - ROCKET_IGNITE;
+  const lift = 70 * t + 320 * t * t;
+  return {
+    x: origin.x + Math.sin(t * 2.4 + phase) * Math.min(16, t * 9),
+    y: origin.y + lift,
+    igniting: false,
+    flying: true,
+    gone: origin.y + lift > MAP_HEIGHT / 2 + 120,
+  };
 }
 
 export function createPlayer(options: { id: string; name?: string; x: number; y: number; seed?: number }): PlayerSim {
@@ -460,6 +504,7 @@ export function createSim(options: {
     fish: options.fish.map((spec) => fishAt(spec, 0, 1)),
     mice: (options.mice ?? []).map((spec) => mouseAt(spec, 0, 1)),
     interactables: options.interactables ?? [],
+    rocketCarrots: FARM_CARROTS.map(() => ({ launched: false, elapsed: 0 })),
   };
 }
 
@@ -476,6 +521,7 @@ export function applySnapshot(sim: GameSim, snapshot: GameSim) {
   sim.fish = next.fish;
   sim.mice = next.mice;
   sim.interactables = next.interactables;
+  sim.rocketCarrots = next.rocketCarrots;
 }
 
 export function nearestInteractable(
@@ -635,6 +681,14 @@ function resolveClaws(sim: GameSim) {
       player.clawHit = true;
       addToInventory(player, fish.kind);
     }
+    for (const [index, crop] of FARM_CARROTS.entries()) {
+      const rocket = sim.rocketCarrots[index];
+      if (!rocket || rocket.launched) continue;
+      if (!clawHitsTarget(player, { x: crop.x, y: crop.y, alive: true })) continue;
+      rocket.launched = true;
+      rocket.elapsed = 0;
+      player.clawHit = true;
+    }
   }
 }
 
@@ -647,6 +701,9 @@ export function tickSim(sim: GameSim, inputs: PlayerInputs, dt: number, walkable
   tickPrey(sim, dt);
   resolveClaws(sim);
   finishClaws(sim);
+  for (const rocket of sim.rocketCarrots) {
+    if (rocket.launched) rocket.elapsed += dt;
+  }
 }
 
 /** Run onTick once per fixed step. Edge-triggered input must be sampled inside onTick, not before. */

@@ -20,4 +20,4 @@ Bun.serve({
   },
 });
 
-console.log(`Mosswhisker Hollow is running at http://localhost:${port}`);
+console.log(`Mosswhiskers Meadow is running at http://localhost:${port}`);
