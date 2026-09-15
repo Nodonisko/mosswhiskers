@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 
 /** Native pixel dimensions are also world dimensions at scale 1. */
-export type WorldModelKind = 'pine' | 'oak' | 'willow' | 'bush' | 'den' | 'mailbox' | 'mailBubble' | 'lamp' | 'flowers' | 'stone' | 'log' | 'cat';
+export type WorldModelKind = 'pine' | 'oak' | 'willow' | 'bush' | 'den' | 'mailbox' | 'mailBubble' | 'lamp' | 'flowers' | 'stone' | 'log' | 'cat' | 'pike' | 'perch' | 'bluegill';
 export interface WorldModelOptions {
   seed?: number;
   scale?: number;
@@ -16,6 +16,7 @@ const textureCache = new Map<string, THREE.CanvasTexture>();
 export const WORLD_MODEL_SIZES: Record<WorldModelKind, readonly [number, number]> = {
   pine: [88, 142], oak: [120, 152], willow: [146, 168], bush: [42, 38], den: [198, 154],
   mailbox: [26, 48], mailBubble: [46, 38], lamp: [28, 84], flowers: [40, 40], stone: [32, 22], log: [90, 32], cat: [20, 30],
+  pike: [52, 18], perch: [36, 20], bluegill: [28, 24],
 };
 
 function seeded(seed: number) {
@@ -367,6 +368,99 @@ function cat(p: Paint, variant: number) {
   p.line(15, 17, 19, 16, '#e9dfbb');
 }
 
+/** Northern pike: long olive torpedo, duckbill snout, pale bean spots, fins set far back. */
+function pike(p: Paint, variant: number) {
+  const tail = variant % 2 === 0 ? 0 : 1;
+  p.poly([[1, 3 + tail], [10, 7], [3, 8], [10, 10], [1, 14 - tail], [12, 9]], '#2f3c28');
+  p.poly([[2, 5 + tail], [10, 8], [2, 12 - tail], [8, 9]], '#6a7d48');
+  p.rect(5, 8, 4, 2, '#cdd0b4');
+  p.poly([[16, 1], [25, 1], [24, 6], [17, 6]], '#2f3c28');
+  p.poly([[18, 2], [24, 2], [23, 6], [18, 6]], '#7a6b42');
+  p.line(19, 2, 22, 2, '#c4b07a');
+  p.poly([[16, 12], [24, 12], [23, 17], [17, 16]], '#2f3c28');
+  p.poly([[17, 12], [23, 12], [22, 16], [18, 15]], '#6a5c3c');
+  p.poly([[30, 12], [35, 12], [34, 16], [29, 15]], '#b88958');
+  p.poly([[10, 5], [14, 3], [28, 3], [40, 5], [48, 6], [51, 8], [48, 11], [40, 13], [28, 14], [14, 13], [10, 11]], '#2f3c28');
+  p.poly([[12, 6], [15, 4], [28, 4], [40, 6], [47, 7], [47, 10], [40, 12], [28, 13], [15, 12], [12, 10]], '#4f6238');
+  p.poly([[16, 5], [28, 5], [39, 6], [42, 7], [28, 8], [16, 7]], '#7d9156');
+  p.poly([[14, 10], [28, 11], [42, 10], [40, 12], [28, 13], [15, 12]], '#d2d4c0');
+  p.rect(18, 11, 22, 1, '#e4e6d2');
+  p.poly([[42, 5], [51, 7], [51, 10], [42, 12], [40, 8]], '#2f3c28');
+  p.poly([[42, 6], [50, 8], [50, 9], [42, 11]], '#6a7d48');
+  p.rect(46, 7, 5, 1, '#d2d4c0');
+  p.rect(45, 9, 5, 1, '#3a342c');
+  p.line(39, 5, 39, 12, '#2f3c28', 2);
+  p.rect(40, 6, 4, 4, '#e4e6d2');
+  p.rect(41, 7, 3, 3, '#2a2e22');
+  p.rect(43, 7, 1, 1, '#f4f6e4');
+  for (const [x, y] of [[15, 6], [20, 5], [25, 6], [30, 5], [35, 6], [18, 7], [23, 8], [28, 7], [33, 8], [21, 9], [31, 9]] as const) {
+    p.rect(x, y, 3, 2, '#d2d4c0');
+    p.rect(x + 1, y, 1, 1, '#e4e6d2');
+  }
+  p.poly([[36, 11 + (variant % 2)], [40, 11], [39, 15], [35, 14]], '#7a6b42');
+}
+
+/** Yellow perch: gold flanks, dark vertical bars, orange lower fins, two dorsal fins. */
+function perch(p: Paint, variant: number) {
+  const tail = variant % 2 === 0 ? 0 : 1;
+  p.poly([[0, 5 + tail], [8, 8], [1, 9], [8, 11], [0, 14 - tail], [5, 11], [5, 8]], '#7a3e24');
+  p.poly([[1, 7 + tail], [8, 9], [1, 12 - tail], [5, 10]], '#d0703c');
+  p.rect(3, 9, 3, 1, '#e8a060');
+  p.poly([[12, 0], [20, 0], [19, 6], [13, 6]], '#2f2c24');
+  p.poly([[13, 1], [19, 1], [18, 6], [14, 6]], '#6a6240');
+  p.rect(17, 1, 2, 3, '#1e1c18');
+  p.poly([[19, 1], [27, 2], [26, 6], [19, 6]], '#6a6240');
+  p.poly([[20, 2], [26, 3], [25, 6], [20, 6]], '#d4b05a');
+  p.poly([[15, 14], [22, 14], [21, 19], [15, 18]], '#7a3e24');
+  p.poly([[16, 14], [21, 14], [20, 18], [16, 17]], '#d0703c');
+  p.poly([[22, 14], [27, 14], [26, 18], [22, 16]], '#d0703c');
+  p.poly([[8, 6], [12, 3], [22, 2], [30, 5], [32, 8], [30, 13], [22, 16], [12, 15], [8, 12]], '#7a5c30');
+  p.poly([[9, 7], [13, 4], [22, 3], [29, 6], [31, 8], [29, 12], [22, 15], [13, 14], [9, 11]], '#d4b05a');
+  p.poly([[14, 5], [22, 4], [28, 6], [22, 8], [14, 7]], '#e4c878');
+  p.poly([[11, 12], [22, 13], [28, 12], [22, 15], [13, 14]], '#f0e6c4');
+  for (const x of [11, 16, 21, 26]) {
+    p.rect(x, 5, 2, 8, '#2f2c24');
+    p.rect(x, 6, 1, 6, '#3d3a2e');
+  }
+  p.rect(13, 13, 16, 2, '#f0e6c4');
+  p.poly([[29, 5], [35, 7], [35, 12], [29, 14], [27, 9]], '#7a5c30');
+  p.poly([[29, 6], [34, 8], [34, 11], [29, 13]], '#e4c878');
+  p.rect(31, 10, 3, 1, '#3a342c');
+  p.rect(29, 7, 4, 4, '#f0e6c4');
+  p.rect(30, 8, 3, 3, '#2a2e22');
+  p.rect(32, 8, 1, 1, '#f4edd4');
+  p.line(27, 6, 27, 13, '#7a5c30');
+  p.poly([[24, 11 + (variant % 2)], [29, 11], [28, 16], [23, 15]], '#d0703c');
+}
+
+/** Bluegill: deep round sunfish, dark ear flap, teal cheek, orange breast. */
+function bluegill(p: Paint, variant: number) {
+  const tail = variant % 2 === 0 ? 0 : 1;
+  p.poly([[0, 7 + tail], [7, 10], [1, 12], [7, 13], [0, 16 - tail], [4, 12]], '#2f3c28');
+  p.poly([[1, 9 + tail], [7, 11], [1, 14 - tail], [5, 12]], '#6a8c58');
+  p.rect(2, 11, 3, 2, '#4a7d78');
+  p.poly([[9, 1], [18, 1], [20, 5], [18, 9], [9, 9], [8, 5]], '#2f3c28');
+  p.poly([[10, 2], [17, 2], [18, 5], [17, 8], [10, 8]], '#5a6e40');
+  p.ellipse(14, 12, 11, 9, '#2f3c28');
+  p.ellipse(14, 12, 10, 8, '#4a5e34');
+  p.ellipse(14, 11, 8, 6, '#6a8248');
+  p.ellipse(15, 15, 8, 4, '#d4843c');
+  p.ellipse(15, 16, 6, 3, '#e4a058');
+  p.rect(10, 6, 2, 10, '#3a4a30');
+  p.rect(16, 7, 2, 8, '#3a4a30');
+  p.poly([[17, 8], [22, 7], [24, 11], [22, 16], [17, 17]], '#3a6e6a');
+  p.poly([[18, 9], [22, 9], [23, 12], [21, 15], [18, 15]], '#5a9a8e');
+  p.rect(17, 11, 4, 4, '#1a1a14');
+  p.rect(18, 12, 3, 3, '#2a2a20');
+  p.poly([[21, 9], [26, 10], [26, 13], [22, 14]], '#4a5e34');
+  p.rect(24, 11, 2, 1, '#3a342c');
+  p.rect(21, 9, 4, 4, '#e8d090');
+  p.rect(22, 10, 3, 3, '#2a2e22');
+  p.rect(24, 10, 1, 1, '#f4edd4');
+  p.poly([[11, 14 + (variant % 2)], [20, 13], [19, 20], [10, 18]], '#d4843c');
+  p.poly([[12, 15], [19, 14], [18, 18], [12, 17]], '#e4a058');
+}
+
 /** Create a unique Sprite/material while sharing immutable, seeded pixel textures. */
 export function createWorldModel(kind: WorldModelKind, options: WorldModelOptions = {}): THREE.Sprite {
   const seed = options.seed ?? 1;
@@ -389,6 +483,9 @@ export function createWorldModel(kind: WorldModelKind, options: WorldModelOption
       case 'stone': rock(p, 1, 1, 29, 19, 12); break;
       case 'log': log(p); break;
       case 'cat': cat(p, variant); break;
+      case 'pike': pike(p, variant); break;
+      case 'perch': perch(p, variant); break;
+      case 'bluegill': bluegill(p, variant); break;
     }
     texture = new THREE.CanvasTexture(p.canvas);
     texture.magFilter = THREE.NearestFilter;

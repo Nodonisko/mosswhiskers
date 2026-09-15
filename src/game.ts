@@ -123,7 +123,7 @@ function makeForestPaths() {
   });
   const mesh = new THREE.Mesh(
     new THREE.PlaneGeometry(MAP_WIDTH, MAP_HEIGHT),
-    new THREE.MeshBasicMaterial({ map, transparent: true, alphaTest: 0.08 }),
+    new THREE.MeshBasicMaterial({ map, transparent: true, opacity: 0.85, alphaTest: 0.08 }),
   );
   mesh.position.z = -4;
   mesh.renderOrder = -10;
@@ -139,12 +139,18 @@ const lakePier = createPierModel({ seed: 719 });
 lakePier.mesh.position.set(PIER_X, PIER_Y, -2);
 world.add(lakePier.mesh);
 
+const occluders: THREE.Sprite[] = [];
+
 function place(kind: WorldModelKind, x: number, y: number, scale = 1, seed = 1, variant = 0) {
   const model = createWorldModel(kind, { scale, seed, variant });
   model.position.set(x, y, 0);
   model.renderOrder = 10000 - Math.round(y);
   model.userData.baseY = y;
   world.add(model);
+  if (kind === "pine" || kind === "oak" || kind === "willow" || kind === "den") {
+    (model.material as THREE.SpriteMaterial).alphaTest = 0.08;
+    occluders.push(model);
+  }
   return model;
 }
 
@@ -211,11 +217,12 @@ const lanternFlames = lanterns.map((lantern, index) => {
   return flame;
 });
 
-for (const x of [-112, 112]) {
-  place("bush", x, -91, 1.12, 40 + x);
-  place("bush", x, -126, 1.12, 41 + x);
-  place("bush", x, -161, 1.12, 42 + x);
-}
+[-165, -136, -107, -78, -49, -22, 4].forEach((y, index) => {
+  const pathX = denPathX(y);
+  const offset = 54 + (index % 2) * 8;
+  place("bush", pathX - offset, y, 1.08 + (index % 3) * 0.05, 40 + index);
+  place("bush", pathX + offset, y + (index % 2 === 0 ? 5 : -4), 1.1 + ((index + 1) % 3) * 0.05, 50 + index);
+});
 
 place("log", -420, -112, 1.12, 31);
 place("stone", 330, -140, 0.9, 32);
@@ -290,6 +297,55 @@ while (scattered < 105 && scatterAttempts < 600) {
 const cat = place("cat", 0, -5, 2.05, 5, 0);
 cat.renderOrder = 10005;
 
+type LakeFish = {
+  sprite: THREE.Sprite;
+  frames: [THREE.Texture, THREE.Texture];
+  originX: number;
+  originY: number;
+  radiusX: number;
+  radiusY: number;
+  speed: number;
+  phase: number;
+  tailStep: number;
+  baseScaleX: number;
+  facing: number;
+};
+
+const lakeFish: LakeFish[] = [];
+
+function placeFish(
+  kind: "pike" | "perch" | "bluegill",
+  originX: number,
+  originY: number,
+  scale: number,
+  seed: number,
+  motion: { radiusX: number; radiusY: number; speed: number; phase: number; tailStep: number },
+) {
+  const sprite = createWorldModel(kind, { scale, seed, variant: 0 });
+  const alt = createWorldModel(kind, { scale, seed, variant: 1 });
+  const map0 = (sprite.material as THREE.SpriteMaterial).map;
+  const map1 = (alt.material as THREE.SpriteMaterial).map;
+  if (!map0 || !map1) throw new Error(`Fish textures missing for ${kind}`);
+  (alt.material as THREE.SpriteMaterial).dispose();
+  const material = sprite.material as THREE.SpriteMaterial;
+  material.opacity = 0.58;
+  material.color.set('#9eb8b6');
+  material.alphaTest = 0.08;
+  sprite.center.set(0.5, 0.58);
+  sprite.position.set(originX, originY, -2.4);
+  sprite.renderOrder = -8;
+  world.add(sprite);
+  lakeFish.push({
+    sprite, frames: [map0, map1], originX, originY, ...motion,
+    baseScaleX: sprite.scale.x, facing: 1,
+  });
+}
+
+// One of each species: pike in open water, perch east of the pier, bluegill by the southeast pads.
+placeFish("pike", LAKE_X - 20, LAKE_Y - 30, 1.18, 801, { radiusX: 210, radiusY: 85, speed: 0.12, phase: 0.4, tailStep: 0.85 });
+placeFish("perch", LAKE_X + 90, LAKE_Y + 10, 1.14, 802, { radiusX: 155, radiusY: 70, speed: 0.16, phase: 1.8, tailStep: 0.7 });
+placeFish("bluegill", LAKE_X + 130, LAKE_Y - 70, 1.16, 803, { radiusX: 120, radiusY: 55, speed: 0.19, phase: 3.1, tailStep: 0.55 });
+
 const keys = new Set<string>();
 const movementKeys = new Set(["arrowup", "arrowdown", "arrowleft", "arrowright", "w", "a", "s", "d"]);
 
@@ -348,12 +404,37 @@ function animate() {
     cat.position.z = Math.sin(elapsed * 3.2) * 0.7;
   }
   cat.renderOrder = 10000 - Math.round(cat.position.y);
+  const catHalfW = Math.abs(cat.scale.x) * 0.3;
+  for (const sprite of occluders) {
+    const halfW = sprite.scale.x * 0.28;
+    const intoTree = sprite.position.y + sprite.scale.y * 0.16;
+    const underCanopy = sprite.position.y + sprite.scale.y * 0.82;
+    const overlapping = Math.abs(cat.position.x - sprite.position.x) < halfW + catHalfW
+      && cat.position.y > intoTree
+      && cat.position.y < underCanopy;
+    const target = overlapping ? 0.38 : 1;
+    const material = sprite.material as THREE.SpriteMaterial;
+    material.opacity += (target - material.opacity) * Math.min(1, 8 * dt);
+  }
   mailNotice.position.y = 116 + Math.round(Math.sin(elapsed * 4) * 2);
   lanternFlames.forEach((flame, index) => {
     const frame = Math.floor(elapsed / 0.22 + index) % lanternFlameFrames.length;
     (flame.material as THREE.SpriteMaterial).map = lanternFlameFrames[frame]!;
   });
   updateLakeModel(southernLake, elapsed);
+  for (const fish of lakeFish) {
+    const t = elapsed * fish.speed + fish.phase;
+    const x = fish.originX + Math.cos(t) * fish.radiusX;
+    const y = fish.originY + Math.sin(t) * fish.radiusY;
+    const vx = -Math.sin(t) * fish.radiusX * fish.speed;
+    if (Math.abs(vx) > 0.8) fish.facing = vx < 0 ? -1 : 1;
+    fish.sprite.position.x = Math.round(x);
+    fish.sprite.position.y = Math.round(y + Math.sin(elapsed * 0.55 + fish.phase) * 0.5);
+    fish.sprite.scale.x = fish.baseScaleX * fish.facing;
+    fish.sprite.renderOrder = -8;
+    const frame = Math.floor(elapsed / fish.tailStep + fish.phase * 2) % 2;
+    (fish.sprite.material as THREE.SpriteMaterial).map = fish.frames[frame]!;
+  }
 
   const cameraEdgeX = Math.max(0, MAP_WIDTH / 2 - viewWidth / 2);
   const cameraEdgeY = MAP_HEIGHT / 2 - VIEW_HEIGHT / 2;
