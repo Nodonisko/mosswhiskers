@@ -111,6 +111,10 @@ place("oak", 455, 115, 1.24, 15, 3);
 place("pine", 415, -20, 1.1, 16, 4);
 place("den", 0, 46, 1.12, 22);
 place("mailbox", 153, 52, 1.28, 23);
+const mailNotice = place("mailBubble", 153, 116, 0.92, 26);
+mailNotice.position.z = 12;
+mailNotice.renderOrder = 30000;
+(mailNotice.material as THREE.SpriteMaterial).depthTest = false;
 place("lamp", -230, -86, 1.12, 24);
 place("lamp", 230, -86, 1.12, 25);
 
@@ -187,6 +191,7 @@ function animate() {
     cat.position.z = Math.sin(elapsed * 3.2) * 0.7;
   }
   cat.renderOrder = 20000 - Math.round(cat.position.y);
+  mailNotice.position.y = 116 + Math.round(Math.sin(elapsed * 4) * 2);
 
   camera.position.x = THREE.MathUtils.lerp(camera.position.x, cat.position.x * 0.065, 0.025);
   camera.position.y = THREE.MathUtils.lerp(camera.position.y, cat.position.y * 0.025, 0.025);

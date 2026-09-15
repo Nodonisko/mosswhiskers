@@ -93,95 +93,6 @@ body { background: #172816; }
   font-size: 10px;
 }
 
-.day-panel {
-  position: absolute;
-  z-index: 10;
-  top: 7px;
-  right: 8px;
-  width: clamp(150px, 12.5vw, 240px);
-  color: #5a472f;
-  filter: drop-shadow(0 3px 0 #333e20aa);
-}
-
-.clock-card,
-.minimap {
-  border: 5px solid #713845;
-  outline: 2px solid #a36a49;
-  background: #e8d99c;
-  box-shadow: inset 0 0 0 3px #c6b773;
-}
-
-.clock-card { padding: 4px 8px 6px; }
-.clock { display: flex; align-items: center; justify-content: space-between; gap: 7px; }
-.clock strong { font: 400 clamp(19px, 1.9vw, 32px)/1 "Marker Felt", "Chalkboard SE", cursive; white-space: nowrap; }
-.sun-icon { color: #ffd548; font-size: clamp(20px, 2vw, 30px); text-shadow: 1px 1px #8c6830; }
-.season { display: flex; align-items: center; justify-content: space-between; font-size: clamp(9px, .95vw, 14px); }
-.season b { font-size: 1.4em; }
-
-.coin-row {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-  padding: 2px 8px;
-  color: #fff9d7;
-  text-shadow: 2px 2px #5e4a2c, -1px 0 #5e4a2c, 0 -1px #5e4a2c;
-}
-
-.coin-row strong { font: 400 clamp(22px, 2.25vw, 38px)/1 "Marker Felt", "Chalkboard SE", cursive; }
-.coin { display: grid; width: 27px; height: 27px; place-items: center; border: 3px solid #806338; border-radius: 50%; background: #d8b54b; color: #fff1a0; }
-
-.minimap {
-  position: relative;
-  height: clamp(100px, 11.5vw, 160px);
-  overflow: hidden;
-  background-color: #86a84c;
-  background-image:
-    linear-gradient(90deg, transparent 48%, #738a44 48% 52%, transparent 52%),
-    linear-gradient(transparent 48%, #738a44 48% 52%, transparent 52%);
-  background-size: 35px 35px;
-}
-
-.map-river { position: absolute; inset: -20% 36% -20% 45%; transform: rotate(21deg); background: #429cbd; border-inline: 3px solid #28768f; }
-.map-road { position: absolute; height: 8px; border: 2px solid #9d7744; background: #d1b36a; transform-origin: left; }
-.map-road--one { width: 90%; top: 60%; left: 4%; transform: rotate(-16deg); }
-.map-road--two { width: 68%; top: 24%; left: 13%; transform: rotate(23deg); }
-.map-tree { position: absolute; width: 16px; height: 16px; border-radius: 45%; background: #244d2b; box-shadow: inset 4px 3px #4f7e35; }
-.t1 { left: 8%; top: 12%; } .t2 { left: 28%; top: 66%; } .t3 { left: 78%; top: 18%; }
-.t4 { left: 68%; top: 72%; } .t5 { left: 48%; top: 34%; } .t6 { left: 11%; top: 75%; }
-.map-home { position: absolute; right: 13%; bottom: 15%; color: #f0ead2; font-style: normal; font-size: 21px; text-shadow: 2px 2px #654932; }
-.map-player { position: absolute; top: 47%; left: 47%; color: white; font-style: normal; font-size: 18px; filter: drop-shadow(1px 2px #75444a); }
-
-.letter-bubble {
-  position: absolute;
-  z-index: 9;
-  top: 24%;
-  left: calc(50% + clamp(90px, 11vw, 165px));
-  display: grid;
-  width: 54px;
-  height: 45px;
-  place-items: center;
-  border: 4px solid #63513a;
-  border-radius: 8px;
-  background: #fff3c5;
-  color: #76583b;
-  font-size: 27px;
-  filter: drop-shadow(0 4px #8ba75a);
-  animation: bob-mail 1.9s steps(4, end) infinite;
-}
-
-.letter-bubble::after {
-  content: "";
-  position: absolute;
-  bottom: -16px;
-  width: 0;
-  height: 0;
-  border: 8px solid transparent;
-  border-top-color: #63513a;
-}
-
-.letter-bubble span { transform: translateY(-2px); }
-
 .controls {
   position: absolute;
   z-index: 8;
@@ -206,10 +117,8 @@ body { background: #172816; }
   box-shadow: inset 0 0 90px 18px #233b1c73;
 }
 
-@keyframes bob-mail { 50% { transform: translateY(-6px); } }
 @keyframes show-controls { 15%, 70% { opacity: 1; } 100% { opacity: 0.25; } }
 
 @media (max-width: 760px) {
   .colony-banner { left: 34%; width: 58vw; }
-  .letter-bubble { transform: scale(.75); transform-origin: top left; }
 }

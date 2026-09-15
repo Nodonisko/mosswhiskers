@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 
 /** Native pixel dimensions are also world dimensions at scale 1. */
-export type WorldModelKind = 'pine' | 'oak' | 'bush' | 'den' | 'mailbox' | 'lamp' | 'flowers' | 'stone' | 'log' | 'cat';
+export type WorldModelKind = 'pine' | 'oak' | 'bush' | 'den' | 'mailbox' | 'mailBubble' | 'lamp' | 'flowers' | 'stone' | 'log' | 'cat';
 export interface WorldModelOptions {
   seed?: number;
   scale?: number;
@@ -15,7 +15,7 @@ const textureCache = new Map<string, THREE.CanvasTexture>();
 
 export const WORLD_MODEL_SIZES: Record<WorldModelKind, readonly [number, number]> = {
   pine: [88, 142], oak: [120, 152], bush: [42, 38], den: [198, 154],
-  mailbox: [26, 48], lamp: [28, 84], flowers: [40, 40], stone: [32, 22], log: [90, 32], cat: [20, 30],
+  mailbox: [26, 48], mailBubble: [46, 38], lamp: [28, 84], flowers: [40, 40], stone: [32, 22], log: [90, 32], cat: [20, 30],
 };
 
 function seeded(seed: number) {
@@ -220,6 +220,26 @@ function mailbox(p: Paint) {
   p.rect(21, 2, 4, 2, '#ffd279');
 }
 
+function mailBubble(p: Paint) {
+  const border = '#67523a';
+  const paper = '#fff1c2';
+  const paperLight = '#fff8da';
+  const ink = '#76583b';
+  p.rect(5, 1, 36, 2, border);
+  p.rect(2, 4, 42, 23, border);
+  p.rect(5, 2, 36, 27, border);
+  p.rect(4, 5, 38, 20, paper);
+  p.rect(6, 4, 34, 2, paperLight);
+  p.poly([[17, 27], [30, 27], [24, 37]], border);
+  p.poly([[20, 26], [28, 26], [24, 33]], paper);
+  p.rect(14, 10, 20, 14, ink);
+  p.rect(16, 12, 16, 10, paperLight);
+  p.line(16, 13, 24, 19, ink, 1);
+  p.line(32, 13, 24, 19, ink, 1);
+  p.line(16, 21, 21, 17, ink, 1);
+  p.line(32, 21, 27, 17, ink, 1);
+}
+
 function lamp(p: Paint) {
   p.poly([[6, 81], [6, 77], [10, 69], [10, 39], [8, 39], [8, 34], [6, 18], [4, 17], [4, 11], [12, 4], [13, 1], [15, 1], [16, 4], [25, 11], [25, 17], [22, 19], [20, 34], [18, 39], [17, 39], [17, 69], [22, 77], [22, 82]], '#464d48');
   p.rect(12, 33, 4, 42, '#858c81');
@@ -324,6 +344,7 @@ export function createWorldModel(kind: WorldModelKind, options: WorldModelOption
       case 'bush': bush(p); break;
       case 'den': den(p); break;
       case 'mailbox': mailbox(p); break;
+      case 'mailBubble': mailBubble(p); break;
       case 'lamp': lamp(p); break;
       case 'flowers': flowers(p, variant); break;
       case 'stone': rock(p, 1, 1, 29, 19, 12); break;
