@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import "./styles.css";
 import { createLakeModel, updateLakeModel } from "./lake-model";
+import { createPierModel } from "./pier-model";
 import { createWorldModel, type WorldModelKind } from "./world-models";
 
 const canvas = document.querySelector<HTMLCanvasElement>("#world");
@@ -20,6 +21,8 @@ const MAP_WIDTH = 2600;
 const MAP_HEIGHT = 1800;
 const LAKE_X = -380;
 const LAKE_Y = -610;
+const PIER_X = LAKE_X + 70;
+const PIER_Y = LAKE_Y + 153;
 const world = new THREE.Group();
 scene.add(world);
 
@@ -131,6 +134,10 @@ world.add(makeForestPaths());
 const southernLake = createLakeModel({ width: 900, height: 520, seed: 8417 });
 southernLake.mesh.position.set(LAKE_X, LAKE_Y, -3);
 world.add(southernLake.mesh);
+
+const lakePier = createPierModel({ seed: 719 });
+lakePier.mesh.position.set(PIER_X, PIER_Y, -2);
+world.add(lakePier.mesh);
 
 function place(kind: WorldModelKind, x: number, y: number, scale = 1, seed = 1, variant = 0) {
   const model = createWorldModel(kind, { scale, seed, variant });
@@ -329,7 +336,9 @@ function animate() {
     const nextX = THREE.MathUtils.clamp(cat.position.x + (dx / length) * 118 * dt, -mapEdgeX, mapEdgeX);
     const nextY = THREE.MathUtils.clamp(cat.position.y + (dy / length) * 118 * dt, -mapEdgeY, mapEdgeY);
     // Let the cat's paws enter the shallow shoreline before blocking movement.
-    if (!southernLake.containsPoint(nextX - LAKE_X, nextY - LAKE_Y, -10)) {
+    const overWater = southernLake.containsPoint(nextX - LAKE_X, nextY - LAKE_Y, -10);
+    const onPier = lakePier.containsPoint(nextX - PIER_X, nextY - PIER_Y, 5);
+    if (!overWater || onPier) {
       cat.position.x = nextX;
       cat.position.y = nextY;
     }
