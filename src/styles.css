@@ -343,8 +343,8 @@ body { background: #172816; }
 
 .colony-banner h1 {
   margin: 0 0 4px;
-  font: 400 clamp(28px, 2.55vw, 48px)/0.9 "Marker Felt", "Chalkboard SE", "Comic Sans MS", cursive;
-  letter-spacing: 1px;
+  font: 400 clamp(12px, 2vw, 18px)/1.4 "Press Start 2P", ui-monospace, monospace;
+  letter-spacing: 0;
   white-space: nowrap;
 }
 
