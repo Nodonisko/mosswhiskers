@@ -7,12 +7,15 @@
     "dev": "bun --hot index.ts",
     "start": "bun index.ts",
     "test": "bun test",
-    "typecheck": "bunx tsc --noEmit"
+    "typecheck": "bunx tsc --noEmit",
+    "build": "rm -rf dist && bun build ./index.html --outdir ./dist --minify && mkdir -p dist/assets && cp assets/meadow-texture.png dist/assets/meadow-texture.png",
+    "deploy": "bun run build && wrangler deploy"
   },
   "devDependencies": {
     "@types/bun": "latest",
     "@types/three": "^0.186.0",
-    "typescript": "^5"
+    "typescript": "^5",
+    "wrangler": "^4.131.2"
   },
   "dependencies": {
     "three": "^0.186.0"

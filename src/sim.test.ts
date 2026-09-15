@@ -562,21 +562,19 @@ describe("Bernie conversation", () => {
     expect(cat(sim).inventory).toEqual([{ kind: "mouse", count: 1 }]);
   });
 
-  test("Bernie takes a fish and a mouse, then asks about the pond", () => {
+  test("Bernie takes every fish and mouse, then asks about the pond", () => {
     const sim = simAtBernie();
     addToInventory(cat(sim), "mouse");
     addToInventory(cat(sim), "mouse");
     addToInventory(cat(sim), "pike");
     addToInventory(cat(sim), "perch");
+    addToInventory(cat(sim), "carrot");
     tick(sim, { x: 0, y: 0, interact: true }, 0.05);
     expect(cat(sim).talkId).toBe("bernie-thanks");
     expect(cat(sim).progress.mailboxRead).toBe(true);
     expect(cat(sim).progress.activeQuest).toBe("pond");
     expect(cat(sim).questHint).toBe("pond");
-    expect(cat(sim).inventory).toEqual([
-      { kind: "mouse", count: 1 },
-      { kind: "perch", count: 1 },
-    ]);
+    expect(cat(sim).inventory).toEqual([{ kind: "carrot", count: 1 }]);
   });
 
   test("talking to Bernie after the tribute keeps the pond investigation", () => {

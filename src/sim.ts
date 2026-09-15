@@ -288,11 +288,7 @@ export function removeFromInventory(player: PlayerSim, kind: InventoryItemKind, 
 }
 
 export function takeBernieSupplies(player: PlayerSim) {
-  removeFromInventory(player, "mouse", BERNIE_SUPPLY.mice);
-  let fishLeft = BERNIE_SUPPLY.fish;
-  for (const kind of FISH_KINDS) {
-    while (fishLeft > 0 && removeFromInventory(player, kind, 1)) fishLeft -= 1;
-  }
+  player.inventory = player.inventory.filter((slot) => slot.kind !== "mouse" && !FISH_KINDS.includes(slot.kind));
 }
 
 function closeDialog(player: PlayerSim) {
