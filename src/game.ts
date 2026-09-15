@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import "./styles.css";
+import { createLakeModel, updateLakeModel } from "./lake-model";
 import { createWorldModel, type WorldModelKind } from "./world-models";
 
 const canvas = document.querySelector<HTMLCanvasElement>("#world");
@@ -17,6 +18,8 @@ camera.position.set(0, 0, 1000);
 const VIEW_HEIGHT = 540;
 const MAP_WIDTH = 2600;
 const MAP_HEIGHT = 1800;
+const LAKE_X = -380;
+const LAKE_Y = -610;
 const world = new THREE.Group();
 scene.add(world);
 
@@ -104,13 +107,15 @@ function makeForestPaths() {
       for (const route of routes) drawRouteStroke(route, width, color);
     }
 
-    const dirtColors = ["#594933", "#71583a", "#947348", "#b18c59", "#c19d68"];
-    for (let index = 0; index < 1700; index++) {
-      const x = (index * 239 + 47) % textureWidth;
-      const y = (index * 127 + 83) % textureHeight;
+    const dirtColors = ["#765c3b", "#947348", "#b18c59", "#bc9867"];
+    const pathRandom = seededSceneRandom(7123);
+    for (let index = 0; index < 1500; index++) {
+      const x = Math.floor(pathRandom() * textureWidth);
+      const y = Math.floor(pathRandom() * textureHeight);
       if (ctx.getImageData(x, y, 1, 1).data[3] === 0) continue;
       ctx.fillStyle = dirtColors[index % dirtColors.length] ?? "#71583a";
-      ctx.fillRect(x, y, index % 8 === 0 ? 3 : index % 3 === 0 ? 2 : 1, index % 5 === 0 ? 2 : 1);
+      const size = pathRandom() > 0.86 ? 2 : 1;
+      ctx.fillRect(x, y, size, size);
     }
   });
   const mesh = new THREE.Mesh(
@@ -123,23 +128,9 @@ function makeForestPaths() {
 }
 world.add(makeForestPaths());
 
-const steppingStoneMap = pixelCanvas(20, 70, (ctx) => {
-  const stones = [[4, 1, 12, 9], [1, 17, 15, 10], [5, 34, 13, 9], [2, 50, 16, 11]];
-  for (const [x = 0, y = 0, w = 0, h = 0] of stones) {
-    ctx.fillStyle = "#acb18e";
-    ctx.fillRect(x, y, w, h);
-    ctx.fillStyle = "#dfe0b6";
-    ctx.fillRect(x + 2, y + 1, w - 4, 3);
-    ctx.fillStyle = "#8c9575";
-    ctx.fillRect(x + w - 3, y + 3, 2, h - 4);
-  }
-});
-const steps = new THREE.Sprite(new THREE.SpriteMaterial({ map: steppingStoneMap, transparent: true }));
-steps.center.set(0.5, 0);
-steps.scale.set(38, 136, 1);
-steps.position.set(0, -282, 0);
-steps.renderOrder = -5;
-world.add(steps);
+const southernLake = createLakeModel({ width: 900, height: 520, seed: 8417 });
+southernLake.mesh.position.set(LAKE_X, LAKE_Y, -3);
+world.add(southernLake.mesh);
 
 function place(kind: WorldModelKind, x: number, y: number, scale = 1, seed = 1, variant = 0) {
   const model = createWorldModel(kind, { scale, seed, variant });
@@ -166,8 +157,52 @@ const mailNotice = place("mailBubble", 153, 116, 0.92, 26);
 mailNotice.position.z = 12;
 mailNotice.renderOrder = 30000;
 (mailNotice.material as THREE.SpriteMaterial).depthTest = false;
-place("lamp", -230, -86, 1.12, 24);
-place("lamp", 230, -86, 1.12, 25);
+const lanterns = [
+  place("lamp", -230, -86, 1.12, 24),
+  place("lamp", 230, -86, 1.12, 25),
+];
+
+const lanternFlameFrames = [
+  pixelCanvas(8, 12, (ctx) => {
+    ctx.fillStyle = "#d8653f";
+    ctx.fillRect(2, 4, 5, 7);
+    ctx.fillRect(3, 2, 3, 3);
+    ctx.fillStyle = "#ffd36a";
+    ctx.fillRect(3, 6, 3, 4);
+    ctx.fillRect(4, 4, 2, 2);
+  }),
+  pixelCanvas(8, 12, (ctx) => {
+    ctx.fillStyle = "#d8653f";
+    ctx.fillRect(1, 5, 5, 6);
+    ctx.fillRect(3, 2, 3, 4);
+    ctx.fillStyle = "#ffd36a";
+    ctx.fillRect(3, 6, 2, 4);
+    ctx.fillRect(4, 4, 2, 3);
+  }),
+  pixelCanvas(8, 12, (ctx) => {
+    ctx.fillStyle = "#d8653f";
+    ctx.fillRect(2, 5, 5, 6);
+    ctx.fillRect(2, 3, 3, 3);
+    ctx.fillStyle = "#ffd36a";
+    ctx.fillRect(3, 7, 3, 3);
+    ctx.fillRect(3, 5, 2, 2);
+  }),
+];
+lanternFlameFrames.forEach((texture) => { texture.generateMipmaps = false; });
+
+const lanternFlames = lanterns.map((lantern, index) => {
+  const flame = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: lanternFlameFrames[index] ?? lanternFlameFrames[0],
+    transparent: true,
+    alphaTest: 0.1,
+    depthTest: false,
+  }));
+  flame.scale.set(9, 14, 1);
+  flame.position.set(lantern.position.x, lantern.position.y + 65, 12);
+  flame.renderOrder = lantern.renderOrder + 1;
+  world.add(flame);
+  return flame;
+});
 
 for (const x of [-112, 112]) {
   place("bush", x, -91, 1.12, 40 + x);
@@ -191,13 +226,10 @@ const flowerGroups: Array<[number, number, number, number]> = [
 ];
 flowerGroups.forEach(([x, y, scale, variant], index) => place("flowers", x, y, scale, 100 + index, variant));
 
-// Routes and landmarks beyond the starting clearing.
-for (const [index, x] of [-1040, -720, 720, 1040].entries()) {
-  place("lamp", x, -150, 1.05, 240 + index);
-}
+// Landmarks beyond the starting clearing.
 place("log", -860, 470, 1.32, 251);
 place("log", 910, 390, 1.18, 252);
-place("stone", -760, -570, 1.25, 253);
+place("stone", -970, -570, 1.25, 253);
 place("stone", 790, -640, 1.1, 254);
 
 function seededSceneRandom(seed: number) {
@@ -218,9 +250,10 @@ while (scattered < 105 && scatterAttempts < 600) {
   const x = (sceneRandom() - 0.5) * (MAP_WIDTH - 180);
   const y = (sceneRandom() - 0.5) * (MAP_HEIGHT - 180);
   const insideColony = Math.abs(x) < 610 && y > -340 && y < 330;
+  const insideLake = southernLake.containsPoint(x - LAKE_X, y - LAKE_Y, 46);
   const onMainPath = Math.abs(y - mainPathY(x)) < 56;
   const onSouthPath = Math.abs(x - southPathX(y)) < 56 && y < mainPathY(655) + 30;
-  if (insideColony || onMainPath || onSouthPath) continue;
+  if (insideColony || insideLake || onMainPath || onSouthPath) continue;
 
   const roll = sceneRandom();
   const seed = 500 + scattered;
@@ -284,8 +317,12 @@ function animate() {
     const length = Math.hypot(dx, dy);
     const mapEdgeX = MAP_WIDTH / 2 - 45;
     const mapEdgeY = MAP_HEIGHT / 2 - 45;
-    cat.position.x = THREE.MathUtils.clamp(cat.position.x + (dx / length) * 118 * dt, -mapEdgeX, mapEdgeX);
-    cat.position.y = THREE.MathUtils.clamp(cat.position.y + (dy / length) * 118 * dt, -mapEdgeY, mapEdgeY);
+    const nextX = THREE.MathUtils.clamp(cat.position.x + (dx / length) * 118 * dt, -mapEdgeX, mapEdgeX);
+    const nextY = THREE.MathUtils.clamp(cat.position.y + (dy / length) * 118 * dt, -mapEdgeY, mapEdgeY);
+    if (!southernLake.containsPoint(nextX - LAKE_X, nextY - LAKE_Y, 8)) {
+      cat.position.x = nextX;
+      cat.position.y = nextY;
+    }
     cat.scale.x = Math.abs(cat.scale.x) * (dx < 0 ? -1 : 1);
     cat.position.z = Math.sin(elapsed * 16) * 1.5;
   } else {
@@ -293,6 +330,11 @@ function animate() {
   }
   cat.renderOrder = 10000 - Math.round(cat.position.y);
   mailNotice.position.y = 116 + Math.round(Math.sin(elapsed * 4) * 2);
+  lanternFlames.forEach((flame, index) => {
+    const frame = Math.floor(elapsed / 0.22 + index) % lanternFlameFrames.length;
+    (flame.material as THREE.SpriteMaterial).map = lanternFlameFrames[frame]!;
+  });
+  updateLakeModel(southernLake, elapsed);
 
   const cameraEdgeX = Math.max(0, MAP_WIDTH / 2 - viewWidth / 2);
   const cameraEdgeY = MAP_HEIGHT / 2 - VIEW_HEIGHT / 2;
