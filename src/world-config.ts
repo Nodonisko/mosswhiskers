@@ -1,6 +1,9 @@
 export const VIEW_HEIGHT = 540;
-export const MAP_WIDTH = 2600;
-export const MAP_HEIGHT = 1800;
+export const MAP_WIDTH = 4000;
+export const MAP_HEIGHT = 2800;
+/** Prop/mouse scatter stays on this inner size so a bigger rim does not reshuffle the world. */
+export const SCATTER_WIDTH = 3200;
+export const SCATTER_HEIGHT = 2300;
 export const MAP_WALK_MARGIN = 45;
 export const CAT_SPEED = 118;
 export const CAT_SCALE = 2.05;
@@ -40,6 +43,18 @@ export const PIER_X = LAKE_X + 70;
 export const PIER_Y = LAKE_Y + 153;
 export const SCENE_SEED = 1987;
 export const MOUSE_SEED = 4412;
+export const BERNIE_SEED = 2704;
+
+/** Far-northwest dying wood: x west of east edge, y north of south edge. */
+export const BERNIE_WOODS = { east: -400, south: 160 };
+export const BERNIE_HUT = { x: -1480, y: 820 };
+export const BERNIE_POND_X = -920;
+export const BERNIE_POND_Y = 800;
+export const BERNIE_POND_WIDTH = 680;
+export const BERNIE_POND_HEIGHT = 410;
+export const BERNIE_POND_SEED = 3311;
+/** East-west approach stays south of the dried pond, then turns north to the hut. */
+export const BERNIE_PATH_APPROACH_Y = 500;
 
 export type WorldModelKind =
   | "pine"
@@ -47,6 +62,7 @@ export type WorldModelKind =
   | "willow"
   | "bush"
   | "den"
+  | "hut"
   | "mailbox"
   | "mailBubble"
   | "lamp"
@@ -64,8 +80,21 @@ export const TREE_TRUNK_HITBOX: Partial<Record<WorldModelKind, readonly [halfW: 
   pine: [8, 5],
   oak: [11, 6],
   willow: [9, 5],
+  hut: [46, 16],
 };
 
 export const mainPathY = (x: number) => -190 + Math.sin(x / 235) * 58 + Math.sin(x / 93) * 22;
 export const southPathX = (y: number) => 655 + Math.sin((y + 290) / 145) * 82;
 export const denPathX = (y: number) => Math.sin((y + 170) / 56) * 24;
+
+export function berniePathPoints(): Array<[number, number]> {
+  const points: Array<[number, number]> = [];
+  for (let x = BERNIE_WOODS.east + 12; x >= BERNIE_HUT.x; x -= 20) {
+    points.push([x, BERNIE_PATH_APPROACH_Y + Math.sin((x + 980) / 88) * 20]);
+  }
+  for (let y = BERNIE_PATH_APPROACH_Y; y <= BERNIE_HUT.y - 16; y += 16) {
+    points.push([BERNIE_HUT.x + Math.sin((y + 40) / 64) * 12, y]);
+  }
+  points.push([BERNIE_HUT.x, BERNIE_HUT.y - 10]);
+  return points;
+}

@@ -8,6 +8,8 @@ import { createPackHud } from "./pack-hud";
 import { createQuestHud } from "./quest-hud";
 import { paintPixelTexture } from "./pixel-canvas";
 import { createPierModel } from "./pier-model";
+import { createHutFx, updateHutFx } from "./hut-fx";
+import { createDriedPondModel, updateDriedPondModel } from "./pond-model";
 import { seeded } from "./rng";
 import {
   createSim,
@@ -19,8 +21,14 @@ import {
   type MouseSim,
   type PlayerSim,
 } from "./sim";
-import { createWalkable, createWorldLayout, type WorldProp } from "./world";
+import { createWalkable, createWorldLayout, isBernieWoods, type WorldProp } from "./world";
 import {
+  BERNIE_POND_HEIGHT,
+  BERNIE_POND_SEED,
+  BERNIE_POND_WIDTH,
+  BERNIE_POND_X,
+  BERNIE_POND_Y,
+  BERNIE_WOODS,
   CAT_SCALE,
   CLAW_DURATION,
   CLAW_HIT_AT,
@@ -42,6 +50,7 @@ import {
   TICK_DT,
   VIEW_HEIGHT,
   WALK_FRAME,
+  berniePathPoints,
   denPathX,
   mainPathY,
   southPathX,
@@ -91,7 +100,7 @@ function startGame() {
   grass.magFilter = THREE.NearestFilter;
   grass.minFilter = THREE.NearestMipmapLinearFilter;
   grass.wrapS = grass.wrapT = THREE.RepeatWrapping;
-  grass.repeat.set(7.2, 5.1);
+  grass.repeat.set(MAP_WIDTH / 360, MAP_HEIGHT / 353);
 
   const ground = new THREE.Mesh(
     new THREE.PlaneGeometry(MAP_WIDTH, MAP_HEIGHT),
@@ -101,9 +110,50 @@ function startGame() {
   ground.renderOrder = -100;
   world.add(ground);
 
+  function makeBernieFloor() {
+    const west = -MAP_WIDTH / 2;
+    const east = BERNIE_WOODS.east + 70;
+    const south = BERNIE_WOODS.south - 70;
+    const north = MAP_HEIGHT / 2;
+    const width = east - west;
+    const height = north - south;
+    const textureWidth = Math.ceil(width / 4);
+    const textureHeight = Math.ceil(height / 4);
+    const map = paintPixelTexture(textureWidth, textureHeight, (ctx) => {
+      const image = ctx.createImageData(textureWidth, textureHeight);
+      const pixels = image.data;
+      for (let y = 0; y < textureHeight; y++) {
+        for (let x = 0; x < textureWidth; x++) {
+          const worldX = west + (x + 0.5) / textureWidth * width;
+          const worldY = north - (y + 0.5) / textureHeight * height;
+          if (!isBernieWoods(worldX, worldY)) continue;
+          const eastFade = Math.min(1, (BERNIE_WOODS.east - worldX) / 110);
+          const southFade = Math.min(1, (worldY - BERNIE_WOODS.south) / 110);
+          const alpha = Math.max(0, eastFade) * Math.max(0, southFade);
+          if (alpha <= 0) continue;
+          const index = (y * textureWidth + x) * 4;
+          const dust = ((x * 13 + y * 7) % 5) / 5;
+          pixels[index] = Math.round(176 + dust * 18);
+          pixels[index + 1] = Math.round(168 + dust * 12);
+          pixels[index + 2] = Math.round(122 + dust * 10);
+          pixels[index + 3] = Math.round(168 * alpha);
+        }
+      }
+      ctx.putImageData(image, 0, 0);
+    });
+    const mesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(width, height),
+      new THREE.MeshBasicMaterial({ map, transparent: true, opacity: 0.82, alphaTest: 0.04, depthWrite: false }),
+    );
+    mesh.position.set((west + east) / 2, (south + north) / 2, -19);
+    mesh.renderOrder = -90;
+    return mesh;
+  }
+  world.add(makeBernieFloor());
+
   function makeForestPaths() {
-    const textureWidth = 650;
-    const textureHeight = 450;
+    const textureWidth = MAP_WIDTH / 4;
+    const textureHeight = MAP_HEIGHT / 4;
     const worldToTextureX = (x: number) => (x + MAP_WIDTH / 2) / 4;
     const worldToTextureY = (y: number) => (MAP_HEIGHT / 2 - y) / 4;
     const map = paintPixelTexture(textureWidth, textureHeight, (ctx) => {
@@ -140,6 +190,9 @@ function startGame() {
         denRoute.push([denPathX(y), y]);
       }
       routes.push(denRoute);
+
+      const bernieRoute = berniePathPoints();
+      routes.push(bernieRoute);
 
       const pathLayers: Array<[number, string]> = [
         [13, "#625138"],
@@ -180,29 +233,40 @@ function startGame() {
   lakePier.mesh.position.set(PIER_X, PIER_Y, -2);
   world.add(lakePier.mesh);
 
+  const berniePond = createDriedPondModel({
+    width: BERNIE_POND_WIDTH,
+    height: BERNIE_POND_HEIGHT,
+    seed: BERNIE_POND_SEED,
+  });
+  berniePond.mesh.position.set(BERNIE_POND_X, BERNIE_POND_Y, -3);
+  world.add(berniePond.mesh);
+
   const layout = createWorldLayout();
   const occluders: THREE.Sprite[] = [];
   const worldEntities: Array<{ id: string; kind: WorldModelKind; x: number; y: number }> = [];
   world.userData.entities = worldEntities;
   const lanterns: THREE.Sprite[] = [];
   let mailNotice: THREE.Sprite | undefined;
+  let bernieHut: THREE.Sprite | undefined;
 
   function place(prop: WorldProp) {
     const model = createWorldModel(prop.kind, {
       scale: prop.scale,
       seed: prop.seed,
       variant: prop.variant,
+      sick: prop.sick,
     });
     model.position.set(prop.x, prop.y, 0);
     model.renderOrder = 10000 - Math.round(prop.y);
     model.userData.baseY = prop.y;
     world.add(model);
     worldEntities.push({ id: model.userData.id as string, kind: prop.kind, x: prop.x, y: prop.y });
-    if (prop.kind === "pine" || prop.kind === "oak" || prop.kind === "willow" || prop.kind === "den") {
+    if (prop.kind === "pine" || prop.kind === "oak" || prop.kind === "willow" || prop.kind === "den" || prop.kind === "hut") {
       (model.material as THREE.SpriteMaterial).alphaTest = 0.08;
       occluders.push(model);
     }
     if (prop.kind === "lamp") lanterns.push(model);
+    if (prop.kind === "hut") bernieHut = model;
     if (prop.kind === "mailBubble") {
       model.position.z = 12;
       model.renderOrder = 30000;
@@ -213,7 +277,10 @@ function startGame() {
   }
   for (const prop of layout.props) place(prop);
   if (!mailNotice) throw new Error("Mailbox notice is missing from the world layout");
+  if (!bernieHut) throw new Error("Bernie hut is missing from the world layout");
   const mailboxNotice: THREE.Sprite = mailNotice;
+  const hutSprite: THREE.Sprite = bernieHut;
+  const hutFx = createHutFx(hutSprite, world);
 
   const lanternFlameFrames = [
     paintPixelTexture(8, 12, (ctx) => {
@@ -323,16 +390,16 @@ function startGame() {
 
   type FishView = {
     sprite: THREE.Sprite;
-    frames: [THREE.Texture, THREE.Texture];
-    baseScaleX: number;
+    frames: { e: [THREE.Texture, THREE.Texture]; w: [THREE.Texture, THREE.Texture] };
   };
   const fishViews = new Map<string, FishView>();
 
   function attachFish(fish: FishSim, scale: number, seed: number) {
-    const sprite = createWorldModel(fish.kind, { scale, seed, variant: 0 });
-    const map0 = (sprite.material as THREE.SpriteMaterial).map;
-    const map1 = getWorldModelTexture(fish.kind, { seed, variant: 1 });
-    if (!map0 || !map1) throw new Error(`Fish textures missing for ${fish.kind}`);
+    const east0 = getWorldModelTexture(fish.kind, { seed, variant: 0, facing: "e" });
+    const east1 = getWorldModelTexture(fish.kind, { seed, variant: 1, facing: "e" });
+    const west0 = getWorldModelTexture(fish.kind, { seed, variant: 0, facing: "w" });
+    const west1 = getWorldModelTexture(fish.kind, { seed, variant: 1, facing: "w" });
+    const sprite = createWorldModel(fish.kind, { scale, seed, variant: 0, facing: "e" });
     const material = sprite.material as THREE.SpriteMaterial;
     material.opacity = 0.58;
     material.color.set("#9eb8b6");
@@ -342,11 +409,9 @@ function startGame() {
     sprite.renderOrder = -8;
     sprite.userData.id = fish.id;
     world.add(sprite);
-    fishViews.set(fish.id, { sprite, frames: [map0, map1], baseScaleX: sprite.scale.x });
+    fishViews.set(fish.id, { sprite, frames: { e: [east0, east1], w: [west0, west1] } });
   }
-  attachFish(sim.fish[0]!, 1.18, 801);
-  attachFish(sim.fish[1]!, 1.14, 802);
-  attachFish(sim.fish[2]!, 1.16, 803);
+  sim.fish.forEach((fish, index) => attachFish(fish, 1.1 + (index % 3) * 0.04, 801 + index));
 
   type MouseView = {
     sprite: THREE.Sprite;
@@ -429,6 +494,8 @@ function startGame() {
       (flame.material as THREE.SpriteMaterial).map = lanternFlameFrames[frame]!;
     });
     updateLakeModel(southernLake, sim.elapsed);
+    updateDriedPondModel(berniePond, sim.elapsed);
+    updateHutFx(hutFx, hutSprite, sim.elapsed);
     for (const fish of sim.fish) {
       const view = fishViews.get(fish.id);
       if (!view) continue;
@@ -436,9 +503,9 @@ function startGame() {
       if (!fish.alive) continue;
       view.sprite.position.x = Math.round(fish.x);
       view.sprite.position.y = Math.round(fish.y + Math.sin(sim.elapsed * 0.55 + fish.phase) * 0.5);
-      view.sprite.scale.x = view.baseScaleX * fish.facing;
       view.sprite.renderOrder = -8;
-      (view.sprite.material as THREE.SpriteMaterial).map = view.frames[fish.frame]!;
+      const facing = fish.facing < 0 ? "w" : "e";
+      (view.sprite.material as THREE.SpriteMaterial).map = view.frames[facing][fish.frame]!;
     }
     for (const mouse of sim.mice) {
       const view = mouseViews.get(mouse.id);

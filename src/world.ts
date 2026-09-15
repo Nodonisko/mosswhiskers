@@ -1,8 +1,18 @@
 import { lakeContainsLocalPoint, lakePhaseFromSeed } from "./lake-shape";
 import { pierContainsLocalPoint } from "./pier-shape";
+import { pondPuddleContains } from "./pond-shape";
 import { seeded } from "./rng";
 import { hitsSolid, type FishSpec, type Interactable, type MouseSpec, type Solid, type Walkable } from "./sim";
 import {
+  BERNIE_HUT,
+  BERNIE_PATH_APPROACH_Y,
+  BERNIE_POND_HEIGHT,
+  BERNIE_POND_SEED,
+  BERNIE_POND_WIDTH,
+  BERNIE_POND_X,
+  BERNIE_POND_Y,
+  BERNIE_SEED,
+  BERNIE_WOODS,
   CAT_COLLISION,
   LAKE_HEIGHT,
   LAKE_SEED,
@@ -12,6 +22,8 @@ import {
   MAILBOX,
   MAP_HEIGHT,
   MAP_WIDTH,
+  SCATTER_HEIGHT,
+  SCATTER_WIDTH,
   MOUSE_SEED,
   PIER_HEIGHT,
   PIER_WIDTH,
@@ -32,6 +44,7 @@ export type WorldProp = {
   scale: number;
   seed: number;
   variant: number;
+  sick?: boolean;
 };
 
 export type WorldLayout = {
@@ -49,8 +62,30 @@ export const LAKE_WILLOWS: Array<[number, number, number]> = [
 ];
 
 const lakePhase = lakePhaseFromSeed(LAKE_SEED);
+const berniePondPhase = lakePhaseFromSeed(BERNIE_POND_SEED);
+
+export function isBernieWoods(x: number, y: number) {
+  const insideColony = Math.abs(x) < 610 && y > -340 && y < 330;
+  return x < BERNIE_WOODS.east && y > BERNIE_WOODS.south && !insideColony;
+}
+
+function onBerniePath(x: number, y: number) {
+  const alongSouth = x <= BERNIE_WOODS.east + 24 && x >= BERNIE_HUT.x - 20
+    && Math.abs(y - BERNIE_PATH_APPROACH_Y) < 44;
+  const alongWest = Math.abs(x - BERNIE_HUT.x) < 44
+    && y >= BERNIE_PATH_APPROACH_Y - 20 && y <= BERNIE_HUT.y + 10;
+  return alongSouth || alongWest;
+}
+
+function inBernieClearing(x: number, y: number) {
+  if (Math.hypot(x - BERNIE_HUT.x, y - BERNIE_HUT.y) < 200) return true;
+  const nx = (x - BERNIE_POND_X) / (BERNIE_POND_WIDTH / 2 + 18);
+  const ny = (y - BERNIE_POND_Y) / (BERNIE_POND_HEIGHT / 2 + 18);
+  return nx * nx + ny * ny < 1;
+}
 
 export function isForestFloor(x: number, y: number) {
+  if (isBernieWoods(x, y)) return false;
   const insideColony = Math.abs(x) < 610 && y > -340 && y < 330;
   const insideLake = lakeContainsLocalPoint(LAKE_WIDTH, LAKE_HEIGHT, lakePhase, x - LAKE_X, y - LAKE_Y, 46);
   const nearWillow = LAKE_WILLOWS.some(([willowX, willowY]) => Math.hypot(x - willowX, y - willowY) < 92);
@@ -64,7 +99,8 @@ export function createWalkable(solids: readonly Solid[]): Walkable {
     if (hitsSolid(x, y, solids, CAT_COLLISION.halfW, CAT_COLLISION.halfH)) return false;
     const overWater = lakeContainsLocalPoint(LAKE_WIDTH, LAKE_HEIGHT, lakePhase, x - LAKE_X, y - LAKE_Y, -10);
     const onPier = pierContainsLocalPoint(PIER_WIDTH, PIER_HEIGHT, x - PIER_X, y - PIER_Y, 5);
-    return !overWater || onPier;
+    if (overWater && !onPier) return false;
+    return !pondPuddleContains(BERNIE_POND_WIDTH, BERNIE_POND_HEIGHT, berniePondPhase, x - BERNIE_POND_X, y - BERNIE_POND_Y);
   };
 }
 
@@ -81,6 +117,9 @@ export const FISH_SPECS: FishSpec[] = [
   { id: "fish-pike", kind: "pike", originX: LAKE_X - 20, originY: LAKE_Y - 30, radiusX: 210, radiusY: 85, speed: 0.12, phase: 0.4, tailStep: 0.85 },
   { id: "fish-perch", kind: "perch", originX: LAKE_X + 90, originY: LAKE_Y + 10, radiusX: 155, radiusY: 70, speed: 0.16, phase: 1.8, tailStep: 0.7 },
   { id: "fish-bluegill", kind: "bluegill", originX: LAKE_X + 130, originY: LAKE_Y - 70, radiusX: 120, radiusY: 55, speed: 0.19, phase: 3.1, tailStep: 0.55 },
+  { id: "fish-pike-2", kind: "pike", originX: LAKE_X - 160, originY: LAKE_Y + 50, radiusX: 150, radiusY: 58, speed: 0.13, phase: 5.2, tailStep: 0.8 },
+  { id: "fish-perch-2", kind: "perch", originX: LAKE_X - 90, originY: LAKE_Y - 110, radiusX: 130, radiusY: 50, speed: 0.15, phase: 0.9, tailStep: 0.65 },
+  { id: "fish-bluegill-2", kind: "bluegill", originX: LAKE_X + 40, originY: LAKE_Y + 95, radiusX: 100, radiusY: 42, speed: 0.21, phase: 4.6, tailStep: 0.5 },
 ];
 
 export function createMouseSpecs(count = 12): MouseSpec[] {
@@ -89,8 +128,8 @@ export function createMouseSpecs(count = 12): MouseSpec[] {
   let mouseAttempts = 0;
   while (mouseSpecs.length < count && mouseAttempts < 500) {
     mouseAttempts += 1;
-    const x = (mouseRandom() - 0.5) * (MAP_WIDTH - 220);
-    const y = (mouseRandom() - 0.5) * (MAP_HEIGHT - 220);
+    const x = (mouseRandom() - 0.5) * (SCATTER_WIDTH - 220);
+    const y = (mouseRandom() - 0.5) * (SCATTER_HEIGHT - 220);
     if (!isForestFloor(x, y)) continue;
     if (mouseSpecs.some((spec) => Math.hypot(spec.originX - x, spec.originY - y) < 140)) continue;
     mouseSpecs.push({
@@ -110,8 +149,10 @@ export function createMouseSpecs(count = 12): MouseSpec[] {
 /** Deterministic map: same seed, same props, mice, fish, and trunks on every client. */
 export function createWorldLayout(): WorldLayout {
   const props: WorldProp[] = [];
-  const add = (kind: WorldModelKind, x: number, y: number, scale = 1, seed = 1, variant = 0) => {
-    props.push({ kind, x, y, scale, seed, variant });
+  const add = (kind: WorldModelKind, x: number, y: number, scale = 1, seed = 1, variant = 0, sick = false) => {
+    const prop: WorldProp = { kind, x, y, scale, seed, variant };
+    if (sick) prop.sick = true;
+    props.push(prop);
   };
 
   for (let i = 0; i < 11; i++) {
@@ -125,6 +166,7 @@ export function createWorldLayout(): WorldLayout {
   add("den", 0, 46, 1.12, 22);
   add("mailbox", MAILBOX.x, MAILBOX.y, 1.28, 23);
   add("mailBubble", MAILBOX.x, MAILBOX.y + 64, 0.92, 26);
+  add("hut", BERNIE_HUT.x, BERNIE_HUT.y, 1.42, 29);
   add("lamp", -230, -86, 1.12, 24);
   add("lamp", 230, -86, 1.12, 25);
 
@@ -151,7 +193,7 @@ export function createWorldLayout(): WorldLayout {
   ];
   flowerGroups.forEach(([x, y, scale, variant], index) => add("flowers", x, y, scale, 100 + index, variant));
 
-  add("log", -860, 470, 1.32, 251);
+  add("log", 220, 480, 1.32, 251);
   add("log", 910, 390, 1.18, 252);
   add("stone", -970, -570, 1.25, 253);
   add("stone", 790, -640, 1.1, 254);
@@ -161,10 +203,10 @@ export function createWorldLayout(): WorldLayout {
   const sceneRandom = seeded(SCENE_SEED);
   let scattered = 0;
   let scatterAttempts = 0;
-  while (scattered < 105 && scatterAttempts < 600) {
+  while (scattered < 125 && scatterAttempts < 700) {
     scatterAttempts += 1;
-    const x = (sceneRandom() - 0.5) * (MAP_WIDTH - 180);
-    const y = (sceneRandom() - 0.5) * (MAP_HEIGHT - 180);
+    const x = (sceneRandom() - 0.5) * (SCATTER_WIDTH - 180);
+    const y = (sceneRandom() - 0.5) * (SCATTER_HEIGHT - 180);
     if (!isForestFloor(x, y)) continue;
 
     const roll = sceneRandom();
@@ -181,6 +223,37 @@ export function createWorldLayout(): WorldLayout {
       add("log", x, y, 0.76 + sceneRandom() * 0.42, seed);
     }
     scattered += 1;
+  }
+
+  const bernieRandom = seeded(BERNIE_SEED);
+  const bernieTrees: Array<[number, number]> = [];
+  let bernieAttempts = 0;
+  while (bernieTrees.length < 72 && bernieAttempts < 900) {
+    bernieAttempts += 1;
+    const x = -SCATTER_WIDTH / 2 + 70 + bernieRandom() * (BERNIE_WOODS.east + SCATTER_WIDTH / 2 - 110);
+    const y = BERNIE_WOODS.south + 36 + bernieRandom() * (SCATTER_HEIGHT / 2 - BERNIE_WOODS.south - 70);
+    if (!isBernieWoods(x, y) || inBernieClearing(x, y) || onBerniePath(x, y)) continue;
+    if (bernieTrees.some(([treeX, treeY]) => Math.hypot(treeX - x, treeY - y) < 88)) continue;
+    bernieTrees.push([x, y]);
+    const kind = bernieRandom() < 0.52 ? "pine" : "oak";
+    add(kind, x, y, 0.94 + bernieRandom() * 0.38, 800 + bernieTrees.length, bernieTrees.length % 5, true);
+  }
+
+  let rimAttempts = 0;
+  while (bernieTrees.length < 96 && rimAttempts < 400) {
+    rimAttempts += 1;
+    const onWestRim = bernieRandom() < 0.62;
+    const x = onWestRim
+      ? -MAP_WIDTH / 2 + 80 + bernieRandom() * (MAP_WIDTH / 2 - SCATTER_WIDTH / 2 - 80)
+      : -SCATTER_WIDTH / 2 + bernieRandom() * (BERNIE_WOODS.east + SCATTER_WIDTH / 2);
+    const y = onWestRim
+      ? BERNIE_WOODS.south + bernieRandom() * (MAP_HEIGHT / 2 - BERNIE_WOODS.south - 80)
+      : SCATTER_HEIGHT / 2 - 40 + bernieRandom() * (MAP_HEIGHT / 2 - SCATTER_HEIGHT / 2);
+    if (!isBernieWoods(x, y) || inBernieClearing(x, y) || onBerniePath(x, y)) continue;
+    if (bernieTrees.some(([treeX, treeY]) => Math.hypot(treeX - x, treeY - y) < 88)) continue;
+    bernieTrees.push([x, y]);
+    const kind = bernieRandom() < 0.52 ? "pine" : "oak";
+    add(kind, x, y, 0.94 + bernieRandom() * 0.38, 800 + bernieTrees.length, bernieTrees.length % 5, true);
   }
 
   return {

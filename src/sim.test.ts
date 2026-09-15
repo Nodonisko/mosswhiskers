@@ -203,6 +203,17 @@ describe("tickSim", () => {
     expect(sim.mice[0]!.alive).toBe(true);
   });
 
+  test("a fish faces left while swimming left and right while swimming right", () => {
+    const sim = createSim({
+      players: [{ x: 0, y: 0 }],
+      fish: [{ id: "fish-1", kind: "pike", originX: 0, originY: 0, radiusX: 40, radiusY: 10, speed: 1, phase: 0, tailStep: 0.5 }],
+    });
+    tick(sim, { x: 0, y: 0 }, Math.PI / 2);
+    expect(sim.fish[0]!.facing).toBe(-1);
+    tick(sim, { x: 0, y: 0 }, Math.PI);
+    expect(sim.fish[0]!.facing).toBe(1);
+  });
+
   test("a claw in front of the cat kills a nearby fish", () => {
     const sim = createSim({
       players: [{ x: 0, y: 0 }],

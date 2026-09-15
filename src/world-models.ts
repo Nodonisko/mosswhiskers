@@ -11,10 +11,12 @@ export interface WorldModelOptions {
   scale?: number;
   /** Flowers: 0 white, 1 blue, 2 pink. Trees: palette. Cat: 0 idle, 1–4 walk, 5–7 claw. */
   variant?: number;
-  /** Cat and mouse. West is painted flipped. */
+  /** Cat, mouse, and fish. West is painted flipped. */
   facing?: CatView;
   /** Cat claw: red slash marks after a hit. */
   hit?: boolean;
+  /** Pine/oak: yellowish-grey dying foliage. */
+  sick?: boolean;
 }
 
 type Point = readonly [number, number];
@@ -22,7 +24,7 @@ type Paint = ReturnType<typeof painter>;
 const textureCache = new Map<string, THREE.CanvasTexture>();
 
 export const WORLD_MODEL_SIZES: Record<WorldModelKind, readonly [number, number]> = {
-  pine: [88, 142], oak: [120, 152], willow: [146, 168], bush: [42, 38], den: [198, 154],
+  pine: [88, 142], oak: [120, 152], willow: [146, 168], bush: [42, 38], den: [198, 154], hut: [136, 118],
   mailbox: [26, 48], mailBubble: [46, 38], lamp: [28, 84], flowers: [40, 40], stone: [32, 22], log: [90, 32], cat: [36, 42],
   pike: [52, 18], perch: [36, 20], bluegill: [28, 24], mouse: [32, 16],
 };
@@ -91,6 +93,8 @@ function flipCanvasX(p: Paint) {
 
 const pineColors = ['#294222', '#345125', '#405f2a', '#507231', '#62853c', '#779449', '#899e52'];
 const oakColors = ['#285a35', '#2e713b', '#378345', '#42934b', '#55a559', '#6ab666', '#83c379'];
+const sickPineColors = ['#3f3e32', '#534f3c', '#655e46', '#746c50', '#857a5a', '#93886a', '#a39878'];
+const sickOakColors = ['#454338', '#585440', '#686248', '#787054', '#877c60', '#94886c', '#a39678'];
 
 function leafCluster(p: Paint, x: number, y: number, rx: number, ry: number, palette: string[], detail = 1) {
   p.ellipse(x, y + 2, rx, ry, palette[0]!);
@@ -108,42 +112,46 @@ function leafCluster(p: Paint, x: number, y: number, rx: number, ry: number, pal
   }
 }
 
-function trunk(p: Paint, x: number, bottom: number, h: number, w: number) {
-  p.poly([[x - w / 2, bottom - h], [x + w / 2, bottom - h], [x + w / 2, bottom - 11], [x + w, bottom - 2], [x + w / 2, bottom], [x + 1, bottom - 4], [x - 3, bottom], [x - w, bottom - 2], [x - w / 2, bottom - 12]], '#51472f');
-  p.poly([[x - w / 2 + 2, bottom - h], [x + w / 2 - 2, bottom - h], [x + w / 2 - 1, bottom - 10], [x + w - 3, bottom - 4], [x + 2, bottom - 7], [x - 3, bottom - 3], [x - w + 3, bottom - 4], [x - w / 2 + 3, bottom - 13]], '#876b43');
-  p.poly([[x - w / 2 + 3, bottom - h], [x, bottom - h], [x + 1, bottom - 16], [x - 3, bottom - 8], [x - w / 2 + 1, bottom - 6]], '#a58b5b');
+function trunk(p: Paint, x: number, bottom: number, h: number, w: number, sick = false) {
+  p.poly([[x - w / 2, bottom - h], [x + w / 2, bottom - h], [x + w / 2, bottom - 11], [x + w, bottom - 2], [x + w / 2, bottom], [x + 1, bottom - 4], [x - 3, bottom], [x - w, bottom - 2], [x - w / 2, bottom - 12]], sick ? '#5a5344' : '#51472f');
+  p.poly([[x - w / 2 + 2, bottom - h], [x + w / 2 - 2, bottom - h], [x + w / 2 - 1, bottom - 10], [x + w - 3, bottom - 4], [x + 2, bottom - 7], [x - 3, bottom - 3], [x - w + 3, bottom - 4], [x - w / 2 + 3, bottom - 13]], sick ? '#7a6e52' : '#876b43');
+  p.poly([[x - w / 2 + 3, bottom - h], [x, bottom - h], [x + 1, bottom - 16], [x - 3, bottom - 8], [x - w / 2 + 1, bottom - 6]], sick ? '#9a8a68' : '#a58b5b');
   p.line(x + w / 2 - 3, bottom - h + 4, x + w / 2 - 2, bottom - 13, '#695535', 2);
   p.line(x - 2, bottom - 31, x - 1, bottom - 16, '#bc9d67');
   p.line(x + 2, bottom - 17, x - 1, bottom - 10, '#705837');
 }
 
-function pine(p: Paint, variant: number) {
-  const palette = variant % 2 ? pineColors.map((v, i) => i === 4 ? '#6b873a' : v) : pineColors;
-  trunk(p, 43, 139, 70, 12);
+function pine(p: Paint, variant: number, sick = false) {
+  const healthy = variant % 2 ? pineColors.map((v, i) => i === 4 ? '#6b873a' : v) : pineColors;
+  const palette = sick ? sickPineColors : healthy;
+  const detail = sick ? 0.62 : 1;
+  trunk(p, 43, 139, 70, 12, sick);
   // Layered boughs make the conical silhouette irregular, with the darkest skirts below.
   p.poly([[42, 3], [51, 16], [49, 18], [60, 31], [56, 32], [69, 49], [63, 49], [75, 65], [69, 65], [84, 90], [78, 94], [82, 100], [69, 110], [48, 115], [29, 113], [12, 105], [5, 98], [10, 91], [5, 89], [19, 67], [14, 69], [28, 45], [22, 47], [36, 24], [31, 26]], palette[0]!);
-  leafCluster(p, 43, 91, 34, 21, palette);
-  leafCluster(p, 36, 79, 28, 18, palette);
-  leafCluster(p, 53, 78, 23, 17, palette);
-  leafCluster(p, 42, 60, 26, 19, palette);
-  leafCluster(p, 42, 44, 20, 17, palette);
-  leafCluster(p, 43, 29, 14, 15, palette);
-  leafCluster(p, 43, 15, 8, 10, palette);
+  leafCluster(p, 43, 91, 34, 21, palette, detail);
+  leafCluster(p, 36, 79, 28, 18, palette, detail);
+  leafCluster(p, 53, 78, 23, 17, palette, detail);
+  leafCluster(p, 42, 60, 26, 19, palette, detail);
+  leafCluster(p, 42, 44, 20, 17, palette, detail);
+  leafCluster(p, 43, 29, 14, 15, palette, detail);
+  leafCluster(p, 43, 15, 8, 10, palette, detail);
 }
 
-function oak(p: Paint, variant: number) {
-  const palette = variant % 3 === 1 ? ['#304623', '#3d5726', '#506b2d', '#637f36', '#789343', '#8d9f51', '#a4b362'] : oakColors;
-  trunk(p, 63, 149, 74, 20);
+function oak(p: Paint, variant: number, sick = false) {
+  const healthy = variant % 3 === 1 ? ['#304623', '#3d5726', '#506b2d', '#637f36', '#789343', '#8d9f51', '#a4b362'] : oakColors;
+  const palette = sick ? sickOakColors : healthy;
+  const detail = sick ? 0.65 : 1;
+  trunk(p, 63, 149, 74, 20, sick);
   p.line(61, 116, 37, 84, '#745a35', 6);
   p.line(64, 114, 83, 83, '#755b35', 5);
-  leafCluster(p, 61, 83, 48, 27, palette);
-  leafCluster(p, 30, 73, 27, 28, palette);
-  leafCluster(p, 91, 71, 25, 28, palette);
-  leafCluster(p, 53, 58, 33, 29, palette);
-  leafCluster(p, 30, 45, 25, 23, palette);
-  leafCluster(p, 87, 45, 28, 27, palette);
-  leafCluster(p, 59, 29, 31, 26, palette);
-  leafCluster(p, 52, 19, 19, 16, palette);
+  leafCluster(p, 61, 83, 48, 27, palette, detail);
+  leafCluster(p, 30, 73, 27, 28, palette, detail);
+  leafCluster(p, 91, 71, 25, 28, palette, detail);
+  leafCluster(p, 53, 58, 33, 29, palette, detail);
+  leafCluster(p, 30, 45, 25, 23, palette, detail);
+  leafCluster(p, 87, 45, 28, 27, palette, detail);
+  leafCluster(p, 59, 29, 31, 26, palette, detail);
+  leafCluster(p, 52, 19, 19, 16, palette, detail);
 }
 
 function willow(p: Paint, variant: number) {
@@ -260,6 +268,109 @@ function den(p: Paint) {
       p.poly([[x + 1, y + 8], [x, y + 4], [x + 4, y + 2], [x + 9, y + 3], [x + 11, y + 7], [x + 8, y + 10], [x + 3, y + 10]], ['#a48a58', '#967b4e', '#b09a68'][Math.floor(p.random() * 3)]!);
     }
   }
+}
+
+function hut(p: Paint) {
+  // Lived-in cottage. Feet (stones + shadow) sit on the last rows of the canvas.
+  p.ellipse(68, 116, 52, 3, '#4a5236');
+  p.ellipse(68, 115, 40, 2, '#5a6240');
+
+  // Firewood stack on the left, sitting on the same ground line.
+  p.rect(8, 98, 18, 16, '#5a3a20');
+  p.rect(9, 99, 16, 14, '#8a5a30');
+  for (let log = 0; log < 4; log++) {
+    p.rect(10, 100 + log * 3, 14, 2, log % 2 ? '#c49a58' : '#6e4424');
+    p.ellipse(24, 101 + log * 3, 2, 2, '#d4b070');
+    p.ellipse(24, 101 + log * 3, 1, 1, '#6e4424');
+  }
+
+  // River-stone foundation flush with the sprite bottom.
+  for (let col = 0; col < 9; col++) {
+    const x = 18 + col * 11 + (col % 2);
+    const y = 105 + (col % 3 === 0 ? 1 : 0);
+    p.poly([[x, y + 12], [x - 2, y + 4], [x + 3, y], [x + 12, y + 2], [x + 13, y + 8], [x + 8, y + 12], [x + 2, y + 12]], '#5a564c');
+    p.poly([[x + 1, y + 10], [x, y + 4], [x + 4, y + 2], [x + 10, y + 3], [x + 11, y + 7], [x + 7, y + 11], [x + 3, y + 11]], ['#8a8680', '#a09c94', '#7a7670'][col % 3]!);
+    if (col % 3 === 1) p.rect(x + 3, y + 1, 3, 2, '#6a7a44');
+  }
+
+  // Warm timber walls, a little wider at the base.
+  p.poly([[22, 111], [20, 58], [116, 58], [114, 111]], '#6e4a28');
+  p.poly([[24, 109], [22, 60], [114, 60], [112, 109]], '#9a6e3c');
+  p.rect(24, 60, 2, 49, '#c4a066');
+  p.rect(110, 60, 2, 49, '#6e4a28');
+  for (let plank = 0; plank < 10; plank++) {
+    p.rect(26 + plank * 8, 62, 1, 47, plank % 2 ? '#8a5e32' : '#b08a50');
+  }
+  p.rect(22, 58, 94, 3, '#5a3a20');
+
+  // Arched door with a warm crack of firelight at the sill.
+  p.ellipse(46, 74, 11, 8, '#5a3420');
+  p.rect(35, 74, 22, 37, '#5a3420');
+  p.ellipse(46, 75, 9, 7, '#8a4a28');
+  p.rect(37, 75, 18, 35, '#8a4a28');
+  p.rect(38, 76, 2, 33, '#c47a48');
+  p.rect(37, 84, 18, 1, '#5a3420');
+  p.rect(37, 94, 18, 1, '#5a3420');
+  p.rect(37, 107, 18, 3, '#f0c86a');
+  p.rect(38, 108, 16, 1, '#ffe08a');
+  p.rect(51, 90, 3, 3, '#d4b070');
+  p.rect(52, 91, 1, 4, '#8a5a30');
+
+  // Lit window, then the frame, so the cottage looks occupied.
+  p.rect(76, 68, 24, 20, '#5a3420');
+  p.rect(78, 70, 20, 16, '#c47a30');
+  p.rect(79, 71, 8, 6, '#f0b44a');
+  p.rect(89, 71, 8, 6, '#d48828');
+  p.rect(79, 79, 8, 6, '#d48828');
+  p.rect(89, 79, 8, 6, '#f0b44a');
+  p.rect(87, 70, 2, 16, '#5a3420');
+  p.rect(78, 77, 20, 2, '#5a3420');
+  p.rect(76, 67, 24, 2, '#c4a066');
+  p.rect(78, 86, 20, 5, '#6e4a28');
+  p.rect(79, 87, 18, 3, '#8a5e32');
+  p.rect(81, 85, 3, 3, '#6a8a40');
+  p.rect(86, 84, 4, 4, '#7a9a48');
+  p.rect(92, 85, 3, 3, '#6a8a40');
+  p.rect(83, 83, 2, 2, '#d47848');
+  p.rect(89, 83, 2, 2, '#e8a44a');
+
+  // Thick thatch with an overhang and a few moss tufts.
+  p.poly([[68, 12], [132, 54], [128, 64], [8, 64], [4, 54]], '#5a3a20');
+  p.poly([[68, 16], [126, 56], [10, 56]], '#8a5e32');
+  p.poly([[68, 18], [108, 48], [68, 28], [28, 48]], '#c49a58');
+  p.poly([[68, 16], [78, 24], [68, 22], [58, 24]], '#e0c078');
+  for (let row = 0; row < 8; row++) {
+    const t = (row + 1) / 9;
+    const y = 20 + t * 34;
+    const half = 10 + t * 48;
+    p.line(68 - half, y, 68 + half, y, '#6e4424');
+    for (let x = 68 - half + 2 + (row % 2) * 4; x < 68 + half - 2; x += 7) {
+      p.rect(x, y, 2, 4, p.random() > 0.35 ? '#b08a50' : '#d4b070');
+    }
+  }
+  p.rect(42, 34, 8, 4, '#6a7a44');
+  p.rect(96, 40, 7, 3, '#5a6a3c');
+  p.rect(60, 46, 6, 3, '#6a7a44');
+
+  // Brick chimney on the right slope, with a little smoke kept inside the canvas.
+  p.rect(98, 22, 14, 28, '#6a4030');
+  p.rect(99, 23, 12, 26, '#8a5850');
+  p.rect(99, 23, 3, 24, '#b08070');
+  for (let row = 0; row < 5; row++) {
+    p.rect(99, 26 + row * 5, 12, 1, '#6a4030');
+    if (row % 2) p.rect(104, 23 + row * 5, 1, 4, '#6a4030');
+  }
+  p.rect(97, 20, 16, 4, '#5a3428');
+  p.rect(99, 18, 12, 3, '#7a5048');
+  p.rect(104, 16, 3, 2, '#b8b0a4');
+
+  // Warm lantern by the door. Overlay adds the flicker.
+  p.line(30, 76, 30, 86, '#4a3830');
+  p.line(30, 76, 34, 80, '#4a3830');
+  p.rect(32, 80, 7, 8, '#8a6a40');
+  p.rect(33, 81, 5, 6, '#c4a050');
+  p.rect(34, 82, 3, 3, '#e8cc70');
+  p.rect(32, 79, 7, 1, '#5a4a38');
 }
 
 function mailbox(p: Paint) {
@@ -655,17 +766,19 @@ export function getWorldModelTexture(kind: WorldModelKind, options: WorldModelOp
   const variant = options.variant ?? 0;
   const facing = options.facing ?? 'e';
   const hit = options.hit === true;
-  const key = `${kind}:${seed}:${variant}:${facing}:${hit ? 'h' : ''}`;
+  const sick = options.sick === true;
+  const key = `${kind}:${seed}:${variant}:${facing}:${hit ? 'h' : ''}:${sick ? 's' : ''}`;
   const cached = textureCache.get(key);
   if (cached) return cached;
   const [width, height] = WORLD_MODEL_SIZES[kind];
   const p = painter(width, height, seed);
   switch (kind) {
-    case 'pine': pine(p, variant); break;
-    case 'oak': oak(p, variant); break;
+    case 'pine': pine(p, variant, sick); break;
+    case 'oak': oak(p, variant, sick); break;
     case 'willow': willow(p, variant); break;
     case 'bush': bush(p); break;
     case 'den': den(p); break;
+    case 'hut': hut(p); break;
     case 'mailbox': mailbox(p); break;
     case 'mailBubble': mailBubble(p); break;
     case 'lamp': lamp(p); break;
@@ -673,9 +786,18 @@ export function getWorldModelTexture(kind: WorldModelKind, options: WorldModelOp
     case 'stone': rock(p, 1, 1, 29, 19, 12); break;
     case 'log': log(p); break;
     case 'cat': cat(p, variant, seed, facing, hit); break;
-    case 'pike': pike(p, variant); break;
-    case 'perch': perch(p, variant); break;
-    case 'bluegill': bluegill(p, variant); break;
+    case 'pike':
+      pike(p, variant);
+      if (facing === 'w') flipCanvasX(p);
+      break;
+    case 'perch':
+      perch(p, variant);
+      if (facing === 'w') flipCanvasX(p);
+      break;
+    case 'bluegill':
+      bluegill(p, variant);
+      if (facing === 'w') flipCanvasX(p);
+      break;
     case 'mouse':
       mouse(p, variant, seed);
       if (facing === 'w') flipCanvasX(p);
