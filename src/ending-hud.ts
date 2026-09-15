@@ -1,4 +1,4 @@
-import { createEndingSequence, ENDING_PROMPT, shouldStartEnding } from "./ending";
+import { createEndingSequence, ENDING_PROMPT_DESKTOP, ENDING_PROMPT_MOBILE, shouldStartEnding } from "./ending";
 import type { PlayerSim } from "./sim";
 
 export function createEndingHud(root: HTMLElement) {
@@ -14,7 +14,11 @@ export function createEndingHud(root: HTMLElement) {
   let sawVictoryTalk = false;
   let played = false;
 
-  endingPrompt.textContent = ENDING_PROMPT;
+  function promptCopy() {
+    return root.classList.contains("has-touch-controls")
+      ? ENDING_PROMPT_MOBILE
+      : ENDING_PROMPT_DESKTOP;
+  }
 
   function paint() {
     const view = sequence.view();
@@ -24,6 +28,7 @@ export function createEndingHud(root: HTMLElement) {
     endingHud.style.opacity = String(view.overlay);
     endingLine.textContent = view.line;
     endingLine.style.opacity = String(view.lineOpacity);
+    endingPrompt.textContent = promptCopy();
     endingPrompt.style.opacity = String(view.promptOpacity);
   }
 
@@ -41,7 +46,14 @@ export function createEndingHud(root: HTMLElement) {
     sequence.tryDismiss();
   }
 
+  function onPointerDown(event: PointerEvent) {
+    if (!sequence.blocking() || event.button !== 0) return;
+    event.preventDefault();
+    sequence.tryDismiss();
+  }
+
   window.addEventListener("keydown", onKeyDown);
+  endingHud.addEventListener("pointerdown", onPointerDown);
   endingHud.addEventListener("play-ending", play);
   paint();
 
@@ -64,6 +76,7 @@ export function createEndingHud(root: HTMLElement) {
     },
     dispose() {
       window.removeEventListener("keydown", onKeyDown);
+      endingHud.removeEventListener("pointerdown", onPointerDown);
       endingHud.removeEventListener("play-ending", play);
     },
   };

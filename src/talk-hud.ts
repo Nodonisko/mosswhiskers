@@ -72,7 +72,7 @@ const TALK: Record<TalkId, TalkCopy> = {
     name: RABBIT_NAME,
     paragraphs: ["Not today. Launch window's closed."],
     objective:
-      "Go toBernie first, would you? Northwest woods, by the pond. Then we can discuss payload.",
+      "Go to Bernie first, would you? Northwest woods, by the pond. Then we can discuss payload.",
   },
   "hopsk-offer": {
     name: RABBIT_NAME,
@@ -155,12 +155,14 @@ export function createTalkHud(root: HTMLElement) {
   const kicker = root.querySelector<HTMLElement>(".talk-kicker");
   const title = root.querySelector<HTMLElement>("#talk-title");
   const body = root.querySelector<HTMLElement>(".talk-body");
-  if (!talk || !kicker || !title || !body)
+  const closeBtn = talk?.querySelector<HTMLButtonElement>(".sheet-close");
+  if (!talk || !kicker || !title || !body || !closeBtn)
     throw new Error("Talk HUD markup is missing");
   const talkHud: HTMLElement = talk;
   const talkKicker: HTMLElement = kicker;
   const talkTitle: HTMLElement = title;
   const talkBody: HTMLElement = body;
+  const close: HTMLButtonElement = closeBtn;
 
   let open = false;
   let shown: TalkId | null = null;
@@ -184,13 +186,36 @@ export function createTalkHud(root: HTMLElement) {
     talkBody.append(objective);
   }
 
-  function onKeyDown(event: KeyboardEvent) {
-    if (event.key !== "Escape" || !open) return;
-    event.preventDefault();
+  function queueDismiss() {
+    if (!open) return;
     dismissQueued = true;
   }
 
+  function onKeyDown(event: KeyboardEvent) {
+    if (event.key !== "Escape" || !open) return;
+    event.preventDefault();
+    queueDismiss();
+  }
+
+  function onCloseDown(event: PointerEvent) {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    close.blur();
+    queueDismiss();
+  }
+
+  function ignoreSpace(event: KeyboardEvent) {
+    if (event.key === " " || event.code === "Space") event.preventDefault();
+  }
+
+  function onCloseClick(event: MouseEvent) {
+    event.preventDefault();
+  }
+
   window.addEventListener("keydown", onKeyDown);
+  close.addEventListener("pointerdown", onCloseDown);
+  close.addEventListener("click", onCloseClick);
+  close.addEventListener("keydown", ignoreSpace);
 
   return {
     consumeDismiss() {
@@ -206,6 +231,9 @@ export function createTalkHud(root: HTMLElement) {
     },
     dispose() {
       window.removeEventListener("keydown", onKeyDown);
+      close.removeEventListener("pointerdown", onCloseDown);
+      close.removeEventListener("click", onCloseClick);
+      close.removeEventListener("keydown", ignoreSpace);
     },
   };
 }

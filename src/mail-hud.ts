@@ -3,20 +3,45 @@ import { canStuffIntake, type PlayerSim } from "./sim";
 export function createMailHud(root: HTMLElement) {
   const prompt = root.querySelector<HTMLElement>(".interact-prompt");
   const letter = root.querySelector<HTMLElement>(".letter-hud");
-  if (!prompt || !letter) throw new Error("Mail HUD markup is missing");
+  const closeBtn = letter?.querySelector<HTMLButtonElement>(".sheet-close");
+  if (!prompt || !letter || !closeBtn) throw new Error("Mail HUD markup is missing");
   const interactPrompt: HTMLElement = prompt;
   const letterHud: HTMLElement = letter;
+  const close: HTMLButtonElement = closeBtn;
 
   let open = false;
   let dismissQueued = false;
 
-  function onKeyDown(event: KeyboardEvent) {
-    if (event.key !== "Escape" || !open) return;
-    event.preventDefault();
+  function queueDismiss() {
+    if (!open) return;
     dismissQueued = true;
   }
 
+  function onKeyDown(event: KeyboardEvent) {
+    if (event.key !== "Escape" || !open) return;
+    event.preventDefault();
+    queueDismiss();
+  }
+
+  function onCloseDown(event: PointerEvent) {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    close.blur();
+    queueDismiss();
+  }
+
+  function ignoreSpace(event: KeyboardEvent) {
+    if (event.key === " " || event.code === "Space") event.preventDefault();
+  }
+
+  function onCloseClick(event: MouseEvent) {
+    event.preventDefault();
+  }
+
   window.addEventListener("keydown", onKeyDown);
+  close.addEventListener("pointerdown", onCloseDown);
+  close.addEventListener("click", onCloseClick);
+  close.addEventListener("keydown", ignoreSpace);
 
   return {
     consumeDismiss() {
@@ -40,6 +65,9 @@ export function createMailHud(root: HTMLElement) {
     },
     dispose() {
       window.removeEventListener("keydown", onKeyDown);
+      close.removeEventListener("pointerdown", onCloseDown);
+      close.removeEventListener("click", onCloseClick);
+      close.removeEventListener("keydown", ignoreSpace);
     },
   };
 }

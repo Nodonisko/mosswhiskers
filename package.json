@@ -8,7 +8,8 @@
     "start": "bun index.ts",
     "test": "bun test",
     "typecheck": "bunx tsc --noEmit",
-    "build": "rm -rf dist && bun build ./index.html --outdir ./dist --minify && mkdir -p dist/assets && cp assets/meadow-texture.png dist/assets/meadow-texture.png",
+    "icons": "bun scripts/make-cat-icons.ts",
+    "build": "rm -rf dist && bun run icons && bun build ./index.html --outdir ./dist --minify && mkdir -p dist/assets && cp assets/meadow-texture.png dist/assets/meadow-texture.png && cp assets/apple-touch-icon.png dist/assets/apple-touch-icon.png && cp assets/favicon-32.png dist/assets/favicon-32.png && cp assets/icon-192.png dist/assets/icon-192.png && cp assets/icon-512.png dist/assets/icon-512.png && cp favicon.svg dist/favicon.svg && cp manifest.webmanifest dist/manifest.webmanifest",
     "deploy": "bun run build && wrangler deploy"
   },
   "devDependencies": {

@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import "./styles.css";
-import { createKeyboardInput } from "./input";
+import { createKeyboardInput, createPlayerInput } from "./input";
+import { createTouchHud } from "./touch-hud";
 import { createLakeModel, updateLakeModel } from "./lake-model";
 import { createMailHud } from "./mail-hud";
 import { createMeowLayer } from "./meow-hud";
@@ -367,7 +368,7 @@ function startGame() {
     worldEntities.push({ id: model.userData.id as string, kind: prop.kind, x: prop.x, y: prop.y });
     if (prop.kind === "pine" || prop.kind === "oak" || prop.kind === "willow" || prop.kind === "den" || prop.kind === "hut" || prop.kind === "datacenter" || prop.kind === "racks" || prop.kind === "carrot" || prop.kind === "shed") {
       (model.material as THREE.SpriteMaterial).alphaTest = 0.08;
-      if (prop.kind !== "carrot") occluders.push(model);
+      occluders.push(model);
     }
     if (prop.kind === "lamp") lanterns.push(model);
     if (prop.kind === "hut") bernieHut = model;
@@ -593,22 +594,36 @@ function startGame() {
     launchMask = next;
     walkable = createWalkable(walkableSolids());
   }
-  const input = createKeyboardInput();
+  const gameRoot = document.getElementById("game") ?? document.body;
+  const touch = createTouchHud(gameRoot);
+  const input = createPlayerInput(createKeyboardInput(), touch);
   const packRoot = document.querySelector<HTMLElement>(".pack-hud");
   if (!packRoot) throw new Error("Pack HUD is missing");
   const pack = createPackHud(packRoot);
   const questRoot = document.querySelector<HTMLElement>(".quest-hud");
   if (!questRoot) throw new Error("Quest HUD is missing");
   const quest = createQuestHud(questRoot);
-  const mail = createMailHud(document.getElementById("game") ?? document.body);
-  const talk = createTalkHud(document.getElementById("game") ?? document.body);
-  const ending = createEndingHud(document.getElementById("game") ?? document.body);
+  const mail = createMailHud(gameRoot);
+  const talk = createTalkHud(gameRoot);
+  const ending = createEndingHud(gameRoot);
   const meows = createMeowLayer(world);
   const names = createNameLayer(world);
   let viewWidth = 960;
+  function viewportBox() {
+    const view = window.visualViewport;
+    return {
+      width: Math.round(view?.width ?? window.innerWidth),
+      height: Math.round(view?.height ?? window.innerHeight),
+      top: Math.round(view?.offsetTop ?? 0),
+      left: Math.round(view?.offsetLeft ?? 0),
+    };
+  }
   function resize() {
-    const width = window.innerWidth;
-    const height = window.innerHeight;
+    const { width, height, top, left } = viewportBox();
+    gameRoot.style.top = `${top}px`;
+    gameRoot.style.left = `${left}px`;
+    gameRoot.style.width = `${width}px`;
+    gameRoot.style.height = `${height}px`;
     renderer.setSize(width, height, false);
     viewWidth = VIEW_HEIGHT * (width / height);
     camera.left = -viewWidth / 2;
@@ -618,6 +633,8 @@ function startGame() {
     camera.updateProjectionMatrix();
   }
   window.addEventListener("resize", resize);
+  window.visualViewport?.addEventListener("resize", resize);
+  window.visualViewport?.addEventListener("scroll", resize);
   resize();
 
   const clock = new THREE.Clock();
@@ -654,6 +671,10 @@ function startGame() {
 
     const catHalfW = CAT_SCALE * 20 * 0.3;
     for (const sprite of occluders) {
+      if (sim.rocketCarrots.some((rocket, index) => rocket.launched && sprite === rocketSprites[index])) {
+        (sprite.material as THREE.SpriteMaterial).opacity = 1;
+        continue;
+      }
       const halfW = sprite.scale.x * 0.28;
       const intoTree = sprite.position.y + sprite.scale.y * 0.16;
       const underCanopy = sprite.position.y + sprite.scale.y * 0.82;
@@ -719,6 +740,7 @@ function startGame() {
       quest.sync(local);
       mail.sync(local);
       talk.sync(local);
+      touch.sync(local);
       ending.sync(local);
       mailboxNotice.visible = !local.progress.mailboxRead;
       const cameraEdgeX = Math.max(0, MAP_WIDTH / 2 - viewWidth / 2);
@@ -746,6 +768,8 @@ function startGame() {
       meows.dispose();
       names.dispose();
       window.removeEventListener("resize", resize);
+      window.visualViewport?.removeEventListener("resize", resize);
+      window.visualViewport?.removeEventListener("scroll", resize);
     },
   };
 }

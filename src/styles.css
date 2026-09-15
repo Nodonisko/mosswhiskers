@@ -14,20 +14,27 @@
 * { box-sizing: border-box; }
 
 html,
-body,
-#game {
+body {
   width: 100%;
   height: 100%;
+  height: 100vh;
   margin: 0;
   overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: none;
 }
 
 body { background: #172816; }
 
 #game {
-  position: relative;
+  position: fixed;
+  inset: 0;
   isolation: isolate;
+  overflow: hidden;
   user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: none;
 }
 
 #world {
@@ -227,7 +234,7 @@ body { background: #172816; }
 .letter-hud,
 .talk-hud {
   position: absolute;
-  z-index: 20;
+  z-index: 30;
   inset: 0;
   place-items: center;
   background: #17281699;
@@ -241,11 +248,38 @@ body { background: #172816; }
 
 .letter-sheet,
 .talk-sheet {
+  position: relative;
   width: min(460px, calc(100vw - 36px));
-  padding: 20px 22px 16px;
+  padding: 20px 48px 16px 22px;
   background: #fff1c2;
   color: #5a3e28;
   font-family: "Courier New", Courier, monospace;
+}
+
+.letter-sheet {
+  padding-top: 48px;
+}
+
+.sheet-close {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #5a3e28;
+  font: 400 16px/1 "Press Start 2P", ui-monospace, monospace;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.sheet-close:active {
+  color: #3d2a1c;
 }
 
 .letter-kicker,
@@ -330,6 +364,228 @@ body { background: #172816; }
   animation: show-controls 5s 800ms forwards;
 }
 
+.touch-hud {
+  position: absolute;
+  z-index: 25;
+  inset: 0;
+  pointer-events: none;
+}
+
+.touch-joystick {
+  position: absolute;
+  right: max(10px, env(safe-area-inset-right));
+  bottom: max(14px, env(safe-area-inset-bottom));
+  width: 148px;
+  height: 148px;
+  display: grid;
+  place-items: center;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.touch-joystick-base {
+  position: relative;
+  width: 128px;
+  height: 128px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.28);
+  border: 3px solid rgba(255, 255, 255, 0.38);
+  image-rendering: auto;
+}
+
+.touch-joystick-base::before {
+  content: "";
+  position: absolute;
+  inset: 22%;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.18);
+  pointer-events: none;
+}
+
+.touch-joystick-knob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 1;
+  width: 58px;
+  height: 58px;
+  margin: -29px 0 0 -29px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.42);
+  border: 2px solid rgba(255, 255, 255, 0.55);
+  pointer-events: none;
+  image-rendering: auto;
+}
+
+.touch-joystick.is-active .touch-joystick-base {
+  background: rgba(0, 0, 0, 0.38);
+}
+
+.touch-joystick.is-active .touch-joystick-knob {
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.touch-btn:active {
+  background: #3d5c32f0;
+}
+
+.touch-actions {
+  position: absolute;
+  left: max(12px, env(safe-area-inset-left));
+  bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  pointer-events: auto;
+}
+
+.touch-btn {
+  display: grid;
+  place-items: center;
+  padding: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  background: #304928e6;
+  color: #f4eac8;
+  font: 400 14px/1 ui-monospace, "Courier New", monospace;
+  letter-spacing: 1.4px;
+  cursor: pointer;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.touch-interact {
+  width: 72px;
+  height: 68px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.touch-claw {
+  width: 88px;
+  height: 88px;
+  font-size: 12px;
+}
+
+#game.has-touch-controls .controls {
+  display: none;
+}
+
+#game.has-touch-controls .interact-prompt:not(.intake-hint) {
+  bottom: calc(132px + env(safe-area-inset-bottom, 0px));
+}
+
+#game.has-touch-controls .left-hud {
+  top: max(10px, env(safe-area-inset-top));
+  left: max(10px, env(safe-area-inset-left));
+}
+
+#game.has-touch-controls .pack-toggle,
+#game.has-touch-controls .quest-toggle {
+  width: 48px;
+  height: 48px;
+}
+
+#game.has-touch-controls .pack-icon,
+#game.has-touch-controls .quest-icon {
+  width: 34px;
+  height: 34px;
+}
+
+#game.has-touch-controls .colony-banner {
+  left: 50%;
+  top: max(12px, env(safe-area-inset-top));
+  width: min(220px, calc(100vw - 128px));
+}
+
+#game.has-touch-controls .colony-banner h1 {
+  white-space: normal;
+  font-size: clamp(20px, 5.8vw, 28px);
+  line-height: 0.95;
+}
+
+#game.has-touch-controls .letter-hud,
+#game.has-touch-controls .talk-hud {
+  background: #172816c4;
+}
+
+#game.has-touch-controls .letter-sheet,
+#game.has-touch-controls .talk-sheet {
+  width: min(460px, calc(100vw - 24px));
+  max-height: calc(100dvh - 24px);
+  overflow: auto;
+  padding: 16px 44px 14px 16px;
+}
+
+#game.has-touch-controls .letter-sheet {
+  padding-top: 44px;
+}
+
+#game.has-touch-controls .letter-hint,
+#game.has-touch-controls .talk-hint {
+  display: none;
+}
+
+#game.has-touch-controls .letter-sheet h2,
+#game.has-touch-controls .talk-sheet h2 {
+  font-size: 20px;
+}
+
+#game.has-touch-controls .touch-joystick {
+  width: 136px;
+  height: 136px;
+}
+
+#game.has-touch-controls .touch-joystick-base {
+  width: 116px;
+  height: 116px;
+}
+
+#game.has-touch-controls .touch-joystick-knob {
+  width: 52px;
+  height: 52px;
+  margin: -26px 0 0 -26px;
+}
+
+#game.has-touch-controls .touch-interact {
+  width: 72px;
+  height: 56px;
+  font-size: 11px;
+}
+
+#game.has-touch-controls .touch-claw {
+  width: 72px;
+  height: 72px;
+  font-size: 11px;
+}
+
+#game.has-touch-controls .touch-actions {
+  gap: 10px;
+  bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+}
+
+.fullscreen-btn {
+  position: absolute;
+  z-index: 12;
+  top: max(10px, env(safe-area-inset-top));
+  right: max(10px, env(safe-area-inset-right));
+  width: 48px;
+  height: 48px;
+  margin: 0;
+  padding: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  background: #304928e6;
+  color: #f4eac8;
+  font: 400 10px/1.2 ui-monospace, "Courier New", monospace;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
 .screen-shade {
   position: absolute;
   z-index: 6;
@@ -384,5 +640,6 @@ body { background: #172816; }
 @keyframes show-controls { 15%, 70% { opacity: 1; } 100% { opacity: 0.25; } }
 
 @media (max-width: 760px) {
-  .colony-banner { left: 34%; width: 58vw; }
+  .colony-banner { left: 50%; width: min(240px, calc(100vw - 132px)); }
+  .colony-banner h1 { white-space: normal; }
 }

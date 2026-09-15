@@ -2,8 +2,16 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#729847" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Mosswhiskers" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/assets/favicon-32.png" type="image/png" sizes="32x32" />
+    <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png" />
     <title>Mosswhiskers Meadow</title>
   </head>
   <body>
@@ -44,6 +52,7 @@
       <p class="quest-toast pixel-frame" hidden></p>
       <section class="letter-hud" hidden>
         <article class="letter-sheet pixel-frame" role="dialog" aria-labelledby="letter-title">
+          <button type="button" class="sheet-close" aria-label="Close">X</button>
           <p class="letter-kicker">A letter from Bernie Sandwhisker</p>
           <h2 id="letter-title">Mosswhisker</h2>
           <p>My stretch of woods is going thin. Leaves yellow too soon, and the pond is nearly dry. I cannot say why.</p>
@@ -55,6 +64,7 @@
 
       <section class="talk-hud" hidden>
         <article class="talk-sheet pixel-frame" role="dialog" aria-labelledby="talk-title">
+          <button type="button" class="sheet-close" aria-label="Close">X</button>
           <p class="talk-kicker" hidden>Bernie Sandwhiskers</p>
           <h2 id="talk-title">Bernie Sandwhiskers</h2>
           <div class="talk-body"></div>
@@ -68,6 +78,18 @@
       </section>
 
       <p class="controls" aria-label="Controls">WASD / ARROWS TO WANDER · SPACE TO SWIPE · E TO TALK</p>
+      <button type="button" class="fullscreen-btn pixel-frame" hidden aria-label="Enter fullscreen">FULL</button>
+      <div class="touch-hud" hidden aria-hidden="true">
+        <div class="touch-joystick" role="group" aria-label="Move">
+          <div class="touch-joystick-base">
+            <div class="touch-joystick-knob"></div>
+          </div>
+        </div>
+        <div class="touch-actions">
+          <button type="button" class="touch-btn touch-interact pixel-frame" aria-label="Use">USE</button>
+          <button type="button" class="touch-btn touch-claw pixel-frame" aria-label="Swipe">SWIPE</button>
+        </div>
+      </div>
       <div class="screen-shade" aria-hidden="true"></div>
     </main>
     <script type="module" src="./src/game.ts"></script>

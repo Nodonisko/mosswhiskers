@@ -4,7 +4,8 @@ export const ENDING_LINES = [
   "Watch the woods. And your own pond, while you still have one.",
 ] as const;
 
-export const ENDING_PROMPT = "Press Space to return to game";
+export const ENDING_PROMPT_DESKTOP = "Press Space to return to game";
+export const ENDING_PROMPT_MOBILE = "Tap to return to game";
 
 export const ENDING_TIMING = {
   fadeBlack: 1.2,

@@ -1211,15 +1211,12 @@ function mouse(p: Paint, variant: number, seed: number) {
   p.rect(22 - step, 12, 2, 2, '#c8c0b4');
 }
 
-export function getWorldModelTexture(kind: WorldModelKind, options: WorldModelOptions = {}): THREE.CanvasTexture {
+export function paintWorldModel(kind: WorldModelKind, options: WorldModelOptions = {}): HTMLCanvasElement {
   const seed = options.seed ?? 1;
   const variant = options.variant ?? 0;
   const facing = options.facing ?? 'e';
   const hit = options.hit === true;
   const sick = options.sick === true;
-  const key = `${kind}:${seed}:${variant}:${facing}:${hit ? 'h' : ''}:${sick ? 's' : ''}`;
-  const cached = textureCache.get(key);
-  if (cached) return cached;
   const [width, height] = WORLD_MODEL_SIZES[kind];
   const p = painter(width, height, seed);
   switch (kind) {
@@ -1267,7 +1264,20 @@ export function getWorldModelTexture(kind: WorldModelKind, options: WorldModelOp
       if (facing === 'w') flipCanvasX(p);
       break;
   }
-  const texture = new THREE.CanvasTexture(p.canvas);
+  return p.canvas;
+}
+
+export function getWorldModelTexture(kind: WorldModelKind, options: WorldModelOptions = {}): THREE.CanvasTexture {
+  const seed = options.seed ?? 1;
+  const variant = options.variant ?? 0;
+  const facing = options.facing ?? 'e';
+  const hit = options.hit === true;
+  const sick = options.sick === true;
+  const key = `${kind}:${seed}:${variant}:${facing}:${hit ? 'h' : ''}:${sick ? 's' : ''}`;
+  const cached = textureCache.get(key);
+  if (cached) return cached;
+  const canvas = paintWorldModel(kind, options);
+  const texture = new THREE.CanvasTexture(canvas);
   texture.magFilter = THREE.NearestFilter;
   texture.minFilter = THREE.NearestFilter;
   texture.generateMipmaps = false;
