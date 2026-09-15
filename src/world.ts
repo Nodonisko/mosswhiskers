@@ -267,6 +267,9 @@ export function createWorldLayout(): WorldLayout {
     fish: FISH_SPECS,
     mice: createMouseSpecs(),
     trunks: trunksFromProps(props),
-    interactables: [{ id: "mailbox", kind: "mailbox", x: MAILBOX.x, y: MAILBOX.y }],
+    interactables: [
+      { id: "mailbox", kind: "mailbox", x: MAILBOX.x, y: MAILBOX.y },
+      { id: "bernie", kind: "bernie", x: BERNIE.x, y: BERNIE.y },
+    ],
   };
 }

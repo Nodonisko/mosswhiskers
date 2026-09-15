@@ -41,7 +41,10 @@ describe("createWorldLayout", () => {
       "fish-perch-2",
       "fish-bluegill-2",
     ]);
-    expect(a.interactables).toEqual([{ id: "mailbox", kind: "mailbox", x: MAILBOX.x, y: MAILBOX.y }]);
+    expect(a.interactables).toEqual([
+      { id: "mailbox", kind: "mailbox", x: MAILBOX.x, y: MAILBOX.y },
+      { id: "bernie", kind: "bernie", x: BERNIE.x, y: BERNIE.y },
+    ]);
   });
 
   test("lake fish stay in the water", () => {

@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { moveFromKeys, type MoveInput } from "./input";
 import {
   addPlayer,
+  addToInventory,
   applySnapshot,
   createSim,
   drainFixedTicks,
@@ -13,7 +14,7 @@ import {
   type GameSim,
   type Walkable,
 } from "./sim";
-import { CAT_SPEED, CLAW_DURATION, LOCAL_PLAYER_ID, MAILBOX, MEOW_DURATION, MOUSE_RESPAWN, TICK_DT } from "./world-config";
+import { BERNIE, CAT_SPEED, CLAW_DURATION, LOCAL_PLAYER_ID, MAILBOX, MEOW_DURATION, MOUSE_RESPAWN, TICK_DT } from "./world-config";
 
 const openGround = () => true;
 const blocked = () => false;
@@ -501,6 +502,106 @@ describe("mailbox interaction", () => {
     expect(playerById(sim, "guest")!.openId).toBeNull();
     expect(playerById(sim, "guest")!.progress.mailboxRead).toBe(false);
     expect(playerById(sim, "guest")!.progress.activeQuest).toBeNull();
+  });
+
+  test("reading mail after Bernie already advanced the quest does not roll it back", () => {
+    const sim = simAtMailbox();
+    cat(sim).progress.mailboxRead = true;
+    cat(sim).progress.activeQuest = "pond";
+    tick(sim, { x: 0, y: 0, interact: true }, 0.05);
+    expect(cat(sim).openId).toBe("mailbox");
+    expect(cat(sim).progress.activeQuest).toBe("pond");
+  });
+});
+
+describe("Bernie conversation", () => {
+  const bernie = { id: "bernie", kind: "bernie" as const, x: BERNIE.x, y: BERNIE.y };
+
+  function simAtBernie(extraPlayers: Array<{ id: string; x: number; y: number }> = []) {
+    return createSim({
+      players: [{ id: LOCAL_PLAYER_ID, x: BERNIE.x, y: BERNIE.y }, ...extraPlayers],
+      fish: [],
+      interactables: [bernie],
+    });
+  }
+
+  test("talking to Bernie before the letter skips the mail and starts the supply quest", () => {
+    const sim = simAtBernie();
+    tick(sim, { x: 0, y: 0, interact: true }, 0.05);
+    expect(cat(sim).nearbyId).toBe("bernie");
+    expect(cat(sim).openId).toBe("bernie");
+    expect(cat(sim).talkId).toBe("bernie-ask");
+    expect(cat(sim).progress.mailboxRead).toBe(true);
+    expect(cat(sim).progress.activeQuest).toBe("sandwhisker");
+  });
+
+  test("Bernie asks for fish and mice if the pack is short", () => {
+    const sim = simAtBernie();
+    addToInventory(cat(sim), "mouse");
+    tick(sim, { x: 0, y: 0, interact: true }, 0.05);
+    expect(cat(sim).talkId).toBe("bernie-ask");
+    expect(cat(sim).progress.activeQuest).toBe("sandwhisker");
+    expect(cat(sim).inventory).toEqual([{ kind: "mouse", count: 1 }]);
+  });
+
+  test("Bernie takes a fish and a mouse, then asks about the pond", () => {
+    const sim = simAtBernie();
+    addToInventory(cat(sim), "mouse");
+    addToInventory(cat(sim), "mouse");
+    addToInventory(cat(sim), "pike");
+    addToInventory(cat(sim), "perch");
+    tick(sim, { x: 0, y: 0, interact: true }, 0.05);
+    expect(cat(sim).talkId).toBe("bernie-thanks");
+    expect(cat(sim).progress.mailboxRead).toBe(true);
+    expect(cat(sim).progress.activeQuest).toBe("pond");
+    expect(cat(sim).inventory).toEqual([
+      { kind: "mouse", count: 1 },
+      { kind: "perch", count: 1 },
+    ]);
+  });
+
+  test("talking to Bernie after the tribute keeps the pond investigation", () => {
+    const sim = simAtBernie();
+    addToInventory(cat(sim), "mouse");
+    addToInventory(cat(sim), "bluegill");
+    tick(sim, { x: 0, y: 0, interact: true }, 0.05);
+    tick(sim, { x: 0, y: 0, interact: true }, 0.05);
+    addToInventory(cat(sim), "mouse");
+    addToInventory(cat(sim), "pike");
+    tick(sim, { x: 0, y: 0, interact: true }, 0.05);
+    expect(cat(sim).talkId).toBe("bernie-pond");
+    expect(cat(sim).progress.activeQuest).toBe("pond");
+    expect(cat(sim).inventory).toEqual([
+      { kind: "mouse", count: 1 },
+      { kind: "pike", count: 1 },
+    ]);
+  });
+
+  test("an open talk freezes that player's movement", () => {
+    const sim = simAtBernie();
+    tick(sim, { x: 0, y: 0, interact: true }, 0.05);
+    const x = cat(sim).x;
+    tick(sim, { x: 1, y: 0 }, 1);
+    expect(cat(sim).x).toBe(x);
+    expect(cat(sim).moving).toBe(false);
+    expect(cat(sim).openId).toBe("bernie");
+  });
+
+  test("Bernie does not share quest progress or inventory with another player", () => {
+    const sim = simAtBernie([{ id: "guest", x: BERNIE.x, y: BERNIE.y }]);
+    addToInventory(cat(sim), "mouse");
+    addToInventory(cat(sim), "pike");
+    tickSim(sim, {
+      [LOCAL_PLAYER_ID]: { x: 0, y: 0, interact: true },
+      guest: { x: 0, y: 0, interact: true },
+    }, 0.05, openGround);
+    expect(cat(sim).progress.activeQuest).toBe("pond");
+    expect(cat(sim).talkId).toBe("bernie-thanks");
+    expect(cat(sim).inventory).toEqual([]);
+    expect(playerById(sim, "guest")!.progress.mailboxRead).toBe(true);
+    expect(playerById(sim, "guest")!.progress.activeQuest).toBe("sandwhisker");
+    expect(playerById(sim, "guest")!.talkId).toBe("bernie-ask");
+    expect(playerById(sim, "guest")!.inventory).toEqual([]);
   });
 });
 

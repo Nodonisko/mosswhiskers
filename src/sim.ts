@@ -13,6 +13,7 @@ import {
   MAP_WIDTH,
   MEOW_DURATION,
   PREY_RESPAWN,
+  BERNIE_SUPPLY,
 } from "./world-config";
 
 export type FishKind = "pike" | "perch" | "bluegill";
@@ -33,7 +34,7 @@ export type InventorySlot = {
   count: number;
 };
 
-export type InteractableKind = "mailbox";
+export type InteractableKind = "mailbox" | "bernie";
 
 export type Interactable = {
   id: string;
@@ -43,7 +44,9 @@ export type Interactable = {
 };
 
 /** Per-player quest flags. Never store these on GameSim — each cat keeps their own. */
-export type QuestId = "sandwhisker";
+export type QuestId = "sandwhisker" | "pond";
+
+export type TalkId = "bernie-ask" | "bernie-thanks" | "bernie-pond";
 
 export type PlayerProgress = {
   mailboxRead: boolean;
@@ -65,6 +68,7 @@ export type PlayerSim = {
   inventory: InventorySlot[];
   nearbyId: string | null;
   openId: string | null;
+  talkId: TalkId | null;
   meowing: boolean;
   meowElapsed: number;
   meowNonce: number;
@@ -215,12 +219,15 @@ export function createPlayer(options: { id: string; name?: string; x: number; y:
     inventory: [],
     nearbyId: null,
     openId: null,
+    talkId: null,
     meowing: false,
     meowElapsed: 0,
     meowNonce: 0,
     progress: { mailboxRead: false, activeQuest: null },
   };
 }
+
+const FISH_KINDS: readonly InventoryItemKind[] = ["pike", "perch", "bluegill"];
 
 export function addToInventory(player: PlayerSim, kind: InventoryItemKind) {
   const slot = player.inventory.find((entry) => entry.kind === kind);
@@ -230,6 +237,60 @@ export function addToInventory(player: PlayerSim, kind: InventoryItemKind) {
 
 export function inventoryCount(slots: readonly InventorySlot[]) {
   return slots.reduce((sum, slot) => sum + slot.count, 0);
+}
+
+export function countKind(slots: readonly InventorySlot[], kind: InventoryItemKind) {
+  return slots.find((slot) => slot.kind === kind)?.count ?? 0;
+}
+
+export function countFish(slots: readonly InventorySlot[]) {
+  return FISH_KINDS.reduce((sum, kind) => sum + countKind(slots, kind), 0);
+}
+
+export function hasBernieSupplies(slots: readonly InventorySlot[]) {
+  return countKind(slots, "mouse") >= BERNIE_SUPPLY.mice && countFish(slots) >= BERNIE_SUPPLY.fish;
+}
+
+export function removeFromInventory(player: PlayerSim, kind: InventoryItemKind, amount = 1) {
+  const slot = player.inventory.find((entry) => entry.kind === kind);
+  if (!slot || slot.count < amount) return false;
+  slot.count -= amount;
+  if (slot.count <= 0) player.inventory = player.inventory.filter((entry) => entry !== slot);
+  return true;
+}
+
+export function takeBernieSupplies(player: PlayerSim) {
+  removeFromInventory(player, "mouse", BERNIE_SUPPLY.mice);
+  let fishLeft = BERNIE_SUPPLY.fish;
+  for (const kind of FISH_KINDS) {
+    while (fishLeft > 0 && removeFromInventory(player, kind, 1)) fishLeft -= 1;
+  }
+}
+
+function closeDialog(player: PlayerSim) {
+  player.openId = null;
+  player.talkId = null;
+}
+
+function beginSandwhisker(player: PlayerSim) {
+  player.progress.mailboxRead = true;
+  if (player.progress.activeQuest === null) player.progress.activeQuest = "sandwhisker";
+}
+
+function talkToBernie(player: PlayerSim) {
+  player.progress.mailboxRead = true;
+  if (player.progress.activeQuest === "pond") {
+    player.talkId = "bernie-pond";
+    return;
+  }
+  if (hasBernieSupplies(player.inventory)) {
+    takeBernieSupplies(player);
+    player.progress.activeQuest = "pond";
+    player.talkId = "bernie-thanks";
+    return;
+  }
+  player.progress.activeQuest = "sandwhisker";
+  player.talkId = "bernie-ask";
 }
 
 export function playerById(sim: GameSim, id: PlayerId): PlayerSim | undefined {
@@ -314,20 +375,18 @@ function tickPlayer(
   const nearby = nearestInteractable(player.x, player.y, interactables);
   player.nearbyId = nearby?.id ?? null;
   if (input.interact) {
-    if (player.openId) player.openId = null;
+    if (player.openId) closeDialog(player);
     else if (nearby) {
       player.openId = nearby.id;
-      if (nearby.kind === "mailbox") {
-        player.progress.mailboxRead = true;
-        player.progress.activeQuest = "sandwhisker";
-      }
+      if (nearby.kind === "mailbox") beginSandwhisker(player);
+      else if (nearby.kind === "bernie") talkToBernie(player);
     } else {
       player.meowing = true;
       player.meowElapsed = 0;
       player.meowNonce += 1;
     }
   } else if (player.openId && player.openId !== player.nearbyId) {
-    player.openId = null;
+    closeDialog(player);
   }
 
   if (player.meowing) {

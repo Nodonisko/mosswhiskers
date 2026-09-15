@@ -1,5 +1,16 @@
 import type { QuestId } from "./sim";
 
+const QUEST_COPY: Record<QuestId, { summary: string; objective: string }> = {
+  sandwhisker: {
+    summary: "His woods are dying and the pond is a puddle.",
+    objective: "Bring him fish and mice. He lives in the far northwest of the wood.",
+  },
+  pond: {
+    summary: "Bernie took the fish and mice.",
+    objective: "Investigate why his pond is drying up.",
+  },
+};
+
 function paintQuestBang(canvas: HTMLCanvasElement) {
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Canvas 2D is unavailable");
@@ -26,10 +37,14 @@ export function createQuestHud(root: HTMLElement) {
   const toggle = root.querySelector<HTMLButtonElement>(".quest-toggle");
   const icon = root.querySelector<HTMLCanvasElement>(".quest-icon");
   const panel = root.querySelector<HTMLElement>(".quest-panel");
-  if (!toggle || !icon || !panel) throw new Error("Quest HUD markup is missing");
+  const summary = root.querySelector<HTMLElement>(".quest-summary");
+  const objective = root.querySelector<HTMLElement>(".quest-objective");
+  if (!toggle || !icon || !panel || !summary || !objective) throw new Error("Quest HUD markup is missing");
   const questToggle: HTMLButtonElement = toggle;
   const questIcon: HTMLCanvasElement = icon;
   const questPanel: HTMLElement = panel;
+  const questSummary: HTMLElement = summary;
+  const questObjective: HTMLElement = objective;
 
   paintQuestBang(questIcon);
 
@@ -70,6 +85,11 @@ export function createQuestHud(root: HTMLElement) {
     sync(questId: QuestId | null) {
       hasQuest = questId !== null;
       root.hidden = !hasQuest;
+      if (questId) {
+        const copy = QUEST_COPY[questId];
+        questSummary.textContent = copy.summary;
+        questObjective.textContent = copy.objective;
+      }
       if (!hasQuest) setOpen(false);
     },
     dispose() {

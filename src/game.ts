@@ -7,6 +7,7 @@ import { createMeowLayer } from "./meow-hud";
 import { createNameLayer, playerNameTags } from "./name-hud";
 import { createPackHud } from "./pack-hud";
 import { createQuestHud } from "./quest-hud";
+import { createTalkHud } from "./talk-hud";
 import { paintPixelTexture } from "./pixel-canvas";
 import { createPierModel } from "./pier-model";
 import { createHutFx, updateHutFx } from "./hut-fx";
@@ -445,6 +446,7 @@ function startGame() {
   if (!questRoot) throw new Error("Quest HUD is missing");
   const quest = createQuestHud(questRoot);
   const mail = createMailHud(document.getElementById("game") ?? document.body);
+  const talk = createTalkHud(document.getElementById("game") ?? document.body);
   const meows = createMeowLayer(world);
   const names = createNameLayer(world);
   let viewWidth = 960;
@@ -471,7 +473,7 @@ function startGame() {
     accumulator += frameDt;
     accumulator = drainFixedTicks(accumulator, TICK_DT, MAX_TICKS_PER_FRAME, () => {
       const sample = input.sample();
-      if (mail.consumeDismiss()) sample.interact = true;
+      if (mail.consumeDismiss() || talk.consumeDismiss()) sample.interact = true;
       tickSim(sim, { [LOCAL_PLAYER_ID]: sample }, TICK_DT, walkable);
     });
 
@@ -532,6 +534,7 @@ function startGame() {
       pack.sync(local.inventory);
       quest.sync(local.progress.activeQuest);
       mail.sync(local);
+      talk.sync(local);
       mailboxNotice.visible = !local.progress.mailboxRead;
       const cameraEdgeX = Math.max(0, MAP_WIDTH / 2 - viewWidth / 2);
       const cameraEdgeY = MAP_HEIGHT / 2 - VIEW_HEIGHT / 2;
@@ -552,6 +555,7 @@ function startGame() {
       pack.dispose();
       quest.dispose();
       mail.dispose();
+      talk.dispose();
       meows.dispose();
       names.dispose();
       window.removeEventListener("resize", resize);

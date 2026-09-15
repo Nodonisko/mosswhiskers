@@ -25,9 +25,11 @@ export function createMailHud(root: HTMLElement) {
       return next;
     },
     sync(player: PlayerSim | undefined) {
-      const nearby = player?.nearbyId === "mailbox";
-      open = player?.openId === "mailbox";
-      interactPrompt.hidden = !nearby || open;
+      const nearby = player?.nearbyId;
+      const openId = player?.openId;
+      open = openId === "mailbox";
+      interactPrompt.textContent = nearby === "bernie" ? "E · TALK" : "E · READ MAIL";
+      interactPrompt.hidden = !nearby || Boolean(openId);
       letterHud.hidden = !open;
     },
     dispose() {

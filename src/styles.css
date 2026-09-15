@@ -137,11 +137,21 @@ body { background: #172816; }
   letter-spacing: 0.6px;
 }
 
-.quest-summary {
+.quest-summary,
+.quest-objective {
   margin: 0;
   font-size: 12px;
   line-height: 1.45;
   color: #f4eac8;
+}
+
+.quest-summary {
+  margin-bottom: 8px;
+}
+
+.letter-objective,
+.quest-objective {
+  font-weight: 700;
 }
 
 .pack-grid {
@@ -196,7 +206,8 @@ body { background: #172816; }
   letter-spacing: 1.4px;
 }
 
-.letter-hud {
+.letter-hud,
+.talk-hud {
   position: absolute;
   z-index: 20;
   inset: 0;
@@ -204,11 +215,13 @@ body { background: #172816; }
   background: #17281699;
 }
 
-.letter-hud:not([hidden]) {
+.letter-hud:not([hidden]),
+.talk-hud:not([hidden]) {
   display: grid;
 }
 
-.letter-sheet {
+.letter-sheet,
+.talk-sheet {
   width: min(460px, calc(100vw - 36px));
   padding: 20px 22px 16px;
   background: #fff1c2;
@@ -217,7 +230,9 @@ body { background: #172816; }
 }
 
 .letter-kicker,
-.letter-hint {
+.letter-hint,
+.talk-kicker,
+.talk-hint {
   margin: 0;
   font-size: 12px;
   letter-spacing: 1.6px;
@@ -225,21 +240,19 @@ body { background: #172816; }
   color: #7a5a38;
 }
 
-.letter-sheet h2 {
+.letter-sheet h2,
+.talk-sheet h2 {
   margin: 8px 0 14px;
   font-size: 22px;
   font-weight: 400;
   letter-spacing: 0.4px;
 }
 
-.letter-sheet p {
+.letter-sheet p,
+.talk-sheet p {
   margin: 0 0 12px;
   font-size: 16px;
   line-height: 1.5;
-}
-
-.letter-objective {
-  font-weight: 700;
 }
 
 .letter-sign {
@@ -248,7 +261,9 @@ body { background: #172816; }
 }
 
 .letter-sheet .letter-kicker,
-.letter-sheet .letter-hint {
+.letter-sheet .letter-hint,
+.talk-sheet .talk-kicker,
+.talk-sheet .talk-hint {
   margin: 0;
   font-size: 12px;
   letter-spacing: 1.6px;
@@ -256,7 +271,8 @@ body { background: #172816; }
   color: #7a5a38;
 }
 
-.letter-hint {
+.letter-hint,
+.talk-hint {
   text-align: right;
 }
 

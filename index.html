@@ -30,7 +30,8 @@
         <div class="quest-panel pixel-frame" hidden>
           <h2>Quest</h2>
           <p class="quest-from">Bernie Sandwhisker</p>
-          <p class="quest-summary">His woods are dying and the pond is a puddle. Bring him fish and mice. He lives in the far northwest of the wood.</p>
+          <p class="quest-summary">His woods are dying and the pond is a puddle.</p>
+          <p class="quest-objective">Bring him fish and mice. He lives in the far northwest of the wood.</p>
         </div>
       </section>
       </aside>
@@ -52,7 +53,16 @@
         </article>
       </section>
 
-      <p class="controls" aria-label="Controls">WASD / ARROWS TO WANDER · SPACE TO SWIPE · E TO READ</p>
+      <section class="talk-hud" hidden>
+        <article class="talk-sheet pixel-frame" role="dialog" aria-labelledby="talk-title">
+          <p class="talk-kicker">Bernie Sandwhisker</p>
+          <h2 id="talk-title">Mosswhisker</h2>
+          <div class="talk-body"></div>
+          <p class="talk-hint">E / ESC · CLOSE</p>
+        </article>
+      </section>
+
+      <p class="controls" aria-label="Controls">WASD / ARROWS TO WANDER · SPACE TO SWIPE · E TO TALK</p>
       <div class="screen-shade" aria-hidden="true"></div>
     </main>
     <script type="module" src="./src/game.ts"></script>

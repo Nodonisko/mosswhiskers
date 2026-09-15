@@ -24,6 +24,8 @@ export const CLAW_RANGE = { forward: 46, back: 10, side: 26 };
 /** How close a cat must stand to use E on an interactable. */
 export const INTERACT_RANGE = 54;
 export const MAILBOX = { x: 153, y: 52 };
+/** Tribute Bernie asks for before the pond investigation. */
+export const BERNIE_SUPPLY = { mice: 1, fish: 1 };
 /** Seconds the failed-interact Meow hangs above the cat. */
 export const MEOW_DURATION = 1.15;
 
