@@ -360,8 +360,12 @@ body { background: #172816; }
   color: #f4eac8;
   font-size: 10px;
   letter-spacing: 1.4px;
-  opacity: 0;
-  animation: show-controls 5s 800ms forwards;
+}
+
+@media (pointer: coarse), (hover: none) {
+  .controls {
+    display: none;
+  }
 }
 
 .touch-hud {
@@ -636,8 +640,6 @@ body { background: #172816; }
   text-align: center;
   white-space: nowrap;
 }
-
-@keyframes show-controls { 15%, 70% { opacity: 1; } 100% { opacity: 0.25; } }
 
 @media (max-width: 760px) {
   .colony-banner { left: 50%; width: min(240px, calc(100vw - 132px)); }

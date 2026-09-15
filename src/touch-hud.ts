@@ -53,7 +53,8 @@ export function createTouchHud(root: HTMLElement) {
   const interactBtn = root.querySelector<HTMLButtonElement>(".touch-interact");
   const clawBtn = root.querySelector<HTMLButtonElement>(".touch-claw");
   const fullscreenBtn = root.querySelector<HTMLButtonElement>(".fullscreen-btn");
-  if (!hud || !pad || !base || !knob || !interactBtn || !clawBtn || !fullscreenBtn) {
+  const controlsHint = root.querySelector<HTMLElement>(".controls");
+  if (!hud || !pad || !base || !knob || !interactBtn || !clawBtn || !fullscreenBtn || !controlsHint) {
     throw new Error("Touch HUD markup is missing");
   }
   const touchHud: HTMLElement = hud;
@@ -63,6 +64,7 @@ export function createTouchHud(root: HTMLElement) {
   const interact: HTMLButtonElement = interactBtn;
   const claw: HTMLButtonElement = clawBtn;
   const fullBtn: HTMLButtonElement = fullscreenBtn;
+  const controls: HTMLElement = controlsHint;
 
   let move: MoveInput = { x: 0, y: 0 };
   let clawQueued = false;
@@ -89,6 +91,7 @@ export function createTouchHud(root: HTMLElement) {
     root.classList.toggle("has-touch-controls", on);
     const showFull = on && !isStandalone() && canRequestFullscreen() && !isFullscreen();
     fullBtn.hidden = !showFull;
+    controls.hidden = on;
   }
 
   function onStickMove(event: PointerEvent) {

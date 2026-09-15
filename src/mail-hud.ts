@@ -1,4 +1,27 @@
 import { canStuffIntake, type PlayerSim } from "./sim";
+import { interactButtonLabel } from "./touch-hud";
+
+export function interactPromptCopy(
+  nearbyId: string | null | undefined,
+  stuffing: boolean,
+  touch: boolean,
+) {
+  if (nearbyId === "mailbox") return touch ? "USE · READ MAIL" : "E · READ MAIL";
+  if (stuffing) return touch ? "USE · INSERT CARROT" : "Press E to insert carrot";
+  if (touch) return interactButtonLabel(nearbyId);
+  return "E · TALK";
+}
+
+export function shouldShowInteractPrompt(
+  nearbyId: string | null | undefined,
+  openId: string | null | undefined,
+  copy: string,
+  touch: boolean,
+) {
+  if (!nearbyId || openId) return false;
+  if (touch && copy === "TALK") return false;
+  return true;
+}
 
 export function createMailHud(root: HTMLElement) {
   const prompt = root.querySelector<HTMLElement>(".interact-prompt");
@@ -54,13 +77,11 @@ export function createMailHud(root: HTMLElement) {
       const openId = player?.openId;
       open = openId === "mailbox";
       const stuffing = nearby === "intake" && player != null && canStuffIntake(player);
-      interactPrompt.textContent = nearby === "mailbox"
-        ? "E · READ MAIL"
-        : stuffing
-          ? "Press E to insert carrot"
-          : "E · TALK";
+      const touch = root.classList.contains("has-touch-controls");
+      const copy = interactPromptCopy(nearby, stuffing, touch);
+      interactPrompt.textContent = copy;
       interactPrompt.classList.toggle("intake-hint", stuffing);
-      interactPrompt.hidden = !nearby || Boolean(openId);
+      interactPrompt.hidden = !shouldShowInteractPrompt(nearby, openId, copy, touch);
       letterHud.hidden = !open;
     },
     dispose() {
