@@ -232,6 +232,14 @@ place("log", 910, 390, 1.18, 252);
 place("stone", -970, -570, 1.25, 253);
 place("stone", 790, -640, 1.1, 254);
 
+// A few willows frame the banks, with room to walk between their trunks.
+const lakeWillows: Array<[number, number, number]> = [
+  [LAKE_X - 350, LAKE_Y + 155, 1.12],
+  [LAKE_X + 435, LAKE_Y - 40, 1.05],
+  [LAKE_X - 220, LAKE_Y - 205, 0.98],
+];
+lakeWillows.forEach(([x, y, scale], index) => place("willow", x, y, scale, 280 + index, index));
+
 function seededSceneRandom(seed: number) {
   let state = seed >>> 0;
   return () => {
@@ -251,9 +259,10 @@ while (scattered < 105 && scatterAttempts < 600) {
   const y = (sceneRandom() - 0.5) * (MAP_HEIGHT - 180);
   const insideColony = Math.abs(x) < 610 && y > -340 && y < 330;
   const insideLake = southernLake.containsPoint(x - LAKE_X, y - LAKE_Y, 46);
+  const nearWillow = lakeWillows.some(([willowX, willowY]) => Math.hypot(x - willowX, y - willowY) < 92);
   const onMainPath = Math.abs(y - mainPathY(x)) < 56;
   const onSouthPath = Math.abs(x - southPathX(y)) < 56 && y < mainPathY(655) + 30;
-  if (insideColony || insideLake || onMainPath || onSouthPath) continue;
+  if (insideColony || insideLake || nearWillow || onMainPath || onSouthPath) continue;
 
   const roll = sceneRandom();
   const seed = 500 + scattered;

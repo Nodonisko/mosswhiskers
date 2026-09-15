@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 
 /** Native pixel dimensions are also world dimensions at scale 1. */
-export type WorldModelKind = 'pine' | 'oak' | 'bush' | 'den' | 'mailbox' | 'mailBubble' | 'lamp' | 'flowers' | 'stone' | 'log' | 'cat';
+export type WorldModelKind = 'pine' | 'oak' | 'willow' | 'bush' | 'den' | 'mailbox' | 'mailBubble' | 'lamp' | 'flowers' | 'stone' | 'log' | 'cat';
 export interface WorldModelOptions {
   seed?: number;
   scale?: number;
@@ -14,7 +14,7 @@ type Paint = ReturnType<typeof painter>;
 const textureCache = new Map<string, THREE.CanvasTexture>();
 
 export const WORLD_MODEL_SIZES: Record<WorldModelKind, readonly [number, number]> = {
-  pine: [88, 142], oak: [120, 152], bush: [42, 38], den: [198, 154],
+  pine: [88, 142], oak: [120, 152], willow: [146, 168], bush: [42, 38], den: [198, 154],
   mailbox: [26, 48], mailBubble: [46, 38], lamp: [28, 84], flowers: [40, 40], stone: [32, 22], log: [90, 32], cat: [20, 30],
 };
 
@@ -127,6 +127,46 @@ function oak(p: Paint, variant: number) {
   leafCluster(p, 87, 45, 28, 27, palette);
   leafCluster(p, 59, 29, 31, 26, palette);
   leafCluster(p, 52, 19, 19, 16, palette);
+}
+
+function willow(p: Paint, variant: number) {
+  const palette = variant % 2
+    ? ['#365333', '#45653c', '#557c43', '#688e4b', '#7d9d58', '#91ae68', '#a2bb78']
+    : ['#325239', '#416740', '#517b47', '#648e50', '#79a15e', '#8eaf70', '#a1be81'];
+  p.ellipse(73, 163, 23, 4, '#4b6839');
+  trunk(p, 73, 165, 101, 16);
+  // Open, arching limbs remain visible between the hanging curtains of leaves.
+  p.line(74, 123, 57, 76, '#65563a', 7);
+  p.line(72, 120, 56, 77, '#a08a59', 3);
+  p.line(57, 77, 29, 64, '#79633f', 4);
+  p.line(76, 111, 98, 70, '#65563a', 6);
+  p.line(76, 108, 96, 71, '#9b8152', 2);
+  p.line(98, 70, 121, 68, '#79633f', 3);
+
+  leafCluster(p, 73, 49, 49, 32, palette, 0.85);
+  leafCluster(p, 37, 60, 29, 24, palette, 0.8);
+  leafCluster(p, 109, 60, 29, 25, palette, 0.8);
+  leafCluster(p, 58, 32, 29, 25, palette, 0.9);
+  leafCluster(p, 91, 34, 31, 24, palette, 0.9);
+
+  // Narrow, staggered fronds give the tree its weeping silhouette.
+  for (let index = 0; index < 24; index++) {
+    const x = 12 + index * 5.2;
+    const edge = Math.abs(x - 73) / 64;
+    const startY = 43 + edge * 15 + p.random() * 13;
+    const length = 44 + edge * 16 + p.random() * 25;
+    const bend = (x - 73) * 0.08;
+    const phase = p.random() * Math.PI * 2;
+    for (let step = 0; step < length; step += 3) {
+      const t = step / length;
+      const leafX = x + bend * t + Math.sin(t * 3 + phase) * 2;
+      const width = t > 0.8 ? 2 : 3 + Math.floor(p.random() * 3);
+      p.rect(leafX, startY + step, width, 4, palette[1]!);
+      p.rect(leafX - 1, startY + step, Math.max(1, width - 1), 2, palette[3 + Math.floor(p.random() * 3)]!);
+      if (step % 9 === 0 && t < 0.86) p.rect(leafX + width - 1, startY + step + 2, 2, 3, palette[2]!);
+    }
+  }
+  leafCluster(p, 71, 27, 24, 18, palette, 0.75);
 }
 
 function bush(p: Paint) {
@@ -339,6 +379,7 @@ export function createWorldModel(kind: WorldModelKind, options: WorldModelOption
     switch (kind) {
       case 'pine': pine(p, variant); break;
       case 'oak': oak(p, variant); break;
+      case 'willow': willow(p, variant); break;
       case 'bush': bush(p); break;
       case 'den': den(p); break;
       case 'mailbox': mailbox(p); break;
