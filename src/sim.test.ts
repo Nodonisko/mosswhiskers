@@ -13,7 +13,7 @@ import {
   type GameSim,
   type Walkable,
 } from "./sim";
-import { CAT_SPEED, CLAW_DURATION, LOCAL_PLAYER_ID, MAILBOX, MOUSE_RESPAWN, TICK_DT } from "./world-config";
+import { CAT_SPEED, CLAW_DURATION, LOCAL_PLAYER_ID, MAILBOX, MEOW_DURATION, MOUSE_RESPAWN, TICK_DT } from "./world-config";
 
 const openGround = () => true;
 const blocked = () => false;
@@ -252,6 +252,24 @@ describe("multiplayer-ready sim", () => {
     expect(playerById(sim, "b")!.clawElapsed).toBeCloseTo(0.05);
   });
 
+  test("another player's meow is visible in their own meow state", () => {
+    const sim = createSim({
+      players: [
+        { id: "a", x: 0, y: 0 },
+        { id: "b", x: 80, y: 0 },
+      ],
+      fish: [],
+    });
+    tickSim(sim, {
+      a: { x: 0, y: 0 },
+      b: { x: 0, y: 0, interact: true },
+    }, 0.05, openGround);
+    expect(playerById(sim, "a")!.meowing).toBe(false);
+    expect(playerById(sim, "b")!.meowing).toBe(true);
+    expect(playerById(sim, "b")!.meowElapsed).toBeCloseTo(0.05);
+    expect(playerById(sim, "b")!.meowNonce).toBe(1);
+  });
+
   test("a remote swipe can kill a mouse the local player is not near", () => {
     const sim = createSim({
       players: [
@@ -400,9 +418,10 @@ describe("mailbox interaction", () => {
     expect(cat(sim).openId).toBe("mailbox");
     expect(cat(sim).progress.mailboxRead).toBe(true);
     expect(cat(sim).progress.activeQuest).toBe("sandwhisker");
+    expect(cat(sim).meowing).toBe(false);
   });
 
-  test("E far from the mailbox does nothing", () => {
+  test("E far from the mailbox makes the cat meow", () => {
     const sim = createSim({
       players: [{ id: LOCAL_PLAYER_ID, x: 0, y: -5 }],
       fish: [],
@@ -411,8 +430,21 @@ describe("mailbox interaction", () => {
     tick(sim, { x: 0, y: 0, interact: true }, 0.05);
     expect(cat(sim).nearbyId).toBeNull();
     expect(cat(sim).openId).toBeNull();
+    expect(cat(sim).meowing).toBe(true);
+    expect(cat(sim).meowNonce).toBe(1);
     expect(cat(sim).progress.mailboxRead).toBe(false);
     expect(cat(sim).progress.activeQuest).toBeNull();
+  });
+
+  test("a meow fades after MEOW_DURATION", () => {
+    const sim = createSim({
+      players: [{ id: LOCAL_PLAYER_ID, x: 0, y: -5 }],
+      fish: [],
+    });
+    tick(sim, { x: 0, y: 0, interact: true }, 0.05);
+    expect(cat(sim).meowing).toBe(true);
+    tick(sim, { x: 0, y: 0 }, MEOW_DURATION);
+    expect(cat(sim).meowing).toBe(false);
   });
 
   test("E closes an open letter, and the read flag stays on that player", () => {

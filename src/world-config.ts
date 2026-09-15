@@ -21,6 +21,8 @@ export const CLAW_RANGE = { forward: 46, back: 10, side: 26 };
 /** How close a cat must stand to use E on an interactable. */
 export const INTERACT_RANGE = 54;
 export const MAILBOX = { x: 153, y: 52 };
+/** Seconds the failed-interact Meow hangs above the cat. */
+export const MEOW_DURATION = 1.15;
 
 export const LOCAL_PLAYER_ID = "local";
 export const DEFAULT_SPAWN = { x: 0, y: -5 };

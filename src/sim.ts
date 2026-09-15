@@ -11,6 +11,7 @@ import {
   MAP_HEIGHT,
   MAP_WALK_MARGIN,
   MAP_WIDTH,
+  MEOW_DURATION,
   PREY_RESPAWN,
 } from "./world-config";
 
@@ -63,6 +64,9 @@ export type PlayerSim = {
   inventory: InventorySlot[];
   nearbyId: string | null;
   openId: string | null;
+  meowing: boolean;
+  meowElapsed: number;
+  meowNonce: number;
   progress: PlayerProgress;
 };
 
@@ -209,6 +213,9 @@ export function createPlayer(options: { id: string; x: number; y: number; seed?:
     inventory: [],
     nearbyId: null,
     openId: null,
+    meowing: false,
+    meowElapsed: 0,
+    meowNonce: 0,
     progress: { mailboxRead: false, activeQuest: null },
   };
 }
@@ -311,9 +318,21 @@ function tickPlayer(
         player.progress.mailboxRead = true;
         player.progress.activeQuest = "sandwhisker";
       }
+    } else {
+      player.meowing = true;
+      player.meowElapsed = 0;
+      player.meowNonce += 1;
     }
   } else if (player.openId && player.openId !== player.nearbyId) {
     player.openId = null;
+  }
+
+  if (player.meowing) {
+    player.meowElapsed += dt;
+    if (player.meowElapsed >= MEOW_DURATION) {
+      player.meowing = false;
+      player.meowElapsed = 0;
+    }
   }
 
   if (player.openId) {

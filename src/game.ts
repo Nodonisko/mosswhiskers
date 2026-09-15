@@ -3,6 +3,7 @@ import "./styles.css";
 import { createKeyboardInput } from "./input";
 import { createLakeModel, updateLakeModel } from "./lake-model";
 import { createMailHud } from "./mail-hud";
+import { createMeowLayer } from "./meow-hud";
 import { createPackHud } from "./pack-hud";
 import { createQuestHud } from "./quest-hud";
 import { paintPixelTexture } from "./pixel-canvas";
@@ -376,6 +377,7 @@ function startGame() {
   if (!questRoot) throw new Error("Quest HUD is missing");
   const quest = createQuestHud(questRoot);
   const mail = createMailHud(document.getElementById("game") ?? document.body);
+  const meows = createMeowLayer(world);
   let viewWidth = 960;
   function resize() {
     const width = window.innerWidth;
@@ -405,6 +407,7 @@ function startGame() {
     });
 
     syncPlayers(sim.players);
+    meows.sync(sim.players);
 
     const catHalfW = CAT_SCALE * 20 * 0.3;
     for (const sprite of occluders) {
@@ -474,6 +477,7 @@ function startGame() {
       pack.dispose();
       quest.dispose();
       mail.dispose();
+      meows.dispose();
       window.removeEventListener("resize", resize);
     },
   };
