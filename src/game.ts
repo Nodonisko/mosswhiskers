@@ -51,30 +51,77 @@ function pixelCanvas(width: number, height: number, draw: (ctx: CanvasRenderingC
   return texture;
 }
 
-function makePath(width: number, x: number, y: number, rotation = 0) {
-  const map = pixelCanvas(128, 24, (ctx) => {
-    ctx.fillStyle = "#d9c46e";
-    ctx.fillRect(0, 3, 128, 19);
-    ctx.fillStyle = "#eadb8e";
-    ctx.fillRect(0, 5, 128, 4);
-    ctx.fillStyle = "#b9a35b";
-    for (let x = 2; x < 128; x += 9) ctx.fillRect(x, 17 + (x % 3), 5, 2);
-    ctx.fillStyle = "#f2e49b";
-    for (let x = 5; x < 128; x += 13) ctx.fillRect(x, 10 + (x % 5), 3, 2);
+const mainPathY = (x: number) => -190 + Math.sin(x / 235) * 58 + Math.sin(x / 93) * 22;
+const southPathX = (y: number) => 655 + Math.sin((y + 290) / 145) * 82;
+const denPathX = (y: number) => Math.sin((y + 170) / 56) * 24;
+
+function makeForestPaths() {
+  const textureWidth = 650;
+  const textureHeight = 450;
+  const worldToTextureX = (x: number) => (x + MAP_WIDTH / 2) / 4;
+  const worldToTextureY = (y: number) => (MAP_HEIGHT / 2 - y) / 4;
+  const map = pixelCanvas(textureWidth, textureHeight, (ctx) => {
+    const routes: Array<Array<[number, number]>> = [];
+    const drawRouteStroke = (points: Array<[number, number]>, width: number, color: string) => {
+      ctx.beginPath();
+      points.forEach(([x, y], index) => {
+        const textureX = worldToTextureX(x);
+        const textureY = worldToTextureY(y);
+        if (index === 0) ctx.moveTo(textureX, textureY);
+        else ctx.lineTo(textureX, textureY);
+      });
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.lineWidth = width;
+      ctx.strokeStyle = color;
+      ctx.stroke();
+    };
+
+    const mainRoute: Array<[number, number]> = [];
+    for (let x = -MAP_WIDTH / 2 - 40; x <= MAP_WIDTH / 2 + 40; x += 24) {
+      mainRoute.push([x, mainPathY(x)]);
+    }
+    routes.push(mainRoute);
+
+    const southRoute: Array<[number, number]> = [];
+    for (let y = mainPathY(655); y >= -MAP_HEIGHT / 2 - 30; y -= 22) {
+      southRoute.push([southPathX(y), y]);
+    }
+    routes.push(southRoute);
+
+    const denRoute: Array<[number, number]> = [];
+    for (let y = mainPathY(0); y <= 28; y += 14) {
+      denRoute.push([denPathX(y), y]);
+    }
+    routes.push(denRoute);
+
+    const pathLayers: Array<[number, string]> = [
+      [13, "#625138"],
+      [11, "#8b6c43"],
+      [7, "#a6814e"],
+    ];
+    for (const [width, color] of pathLayers) {
+      for (const route of routes) drawRouteStroke(route, width, color);
+    }
+
+    const dirtColors = ["#594933", "#71583a", "#947348", "#b18c59", "#c19d68"];
+    for (let index = 0; index < 1700; index++) {
+      const x = (index * 239 + 47) % textureWidth;
+      const y = (index * 127 + 83) % textureHeight;
+      if (ctx.getImageData(x, y, 1, 1).data[3] === 0) continue;
+      ctx.fillStyle = dirtColors[index % dirtColors.length] ?? "#71583a";
+      ctx.fillRect(x, y, index % 8 === 0 ? 3 : index % 3 === 0 ? 2 : 1, index % 5 === 0 ? 2 : 1);
+    }
   });
-  map.wrapS = THREE.RepeatWrapping;
-  map.repeat.x = width / 180;
   const mesh = new THREE.Mesh(
-    new THREE.PlaneGeometry(width, 58),
-    new THREE.MeshBasicMaterial({ map, transparent: true, alphaTest: 0.1 }),
+    new THREE.PlaneGeometry(MAP_WIDTH, MAP_HEIGHT),
+    new THREE.MeshBasicMaterial({ map, transparent: true, alphaTest: 0.08 }),
   );
-  mesh.position.set(x, y, -4);
-  mesh.rotation.z = rotation;
+  mesh.position.z = -4;
   mesh.renderOrder = -10;
   return mesh;
 }
-world.add(makePath(MAP_WIDTH, 0, -188));
-world.add(makePath(980, 655, -520, Math.PI / 2));
+world.add(makeForestPaths());
 
 const steppingStoneMap = pixelCanvas(20, 70, (ctx) => {
   const stones = [[4, 1, 12, 9], [1, 17, 15, 10], [5, 34, 13, 9], [2, 50, 16, 11]];
@@ -171,8 +218,8 @@ while (scattered < 105 && scatterAttempts < 600) {
   const x = (sceneRandom() - 0.5) * (MAP_WIDTH - 180);
   const y = (sceneRandom() - 0.5) * (MAP_HEIGHT - 180);
   const insideColony = Math.abs(x) < 610 && y > -340 && y < 330;
-  const onMainPath = Math.abs(y + 188) < 76;
-  const onSouthPath = Math.abs(x - 655) < 75 && y < 10;
+  const onMainPath = Math.abs(y - mainPathY(x)) < 56;
+  const onSouthPath = Math.abs(x - southPathX(y)) < 56 && y < mainPathY(655) + 30;
   if (insideColony || onMainPath || onSouthPath) continue;
 
   const roll = sceneRandom();
