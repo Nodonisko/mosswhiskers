@@ -1,4 +1,6 @@
 import * as THREE from "three";
+import { createPixelCanvas, nearestTexture } from "./pixel-canvas";
+import { seeded } from "./rng";
 
 export interface PierModelOptions {
   width?: number;
@@ -20,20 +22,8 @@ export interface PierModel {
 export function createPierModel(options: PierModelOptions = {}): PierModel {
   const width = options.width ?? 84;
   const height = options.height ?? 136;
-  const canvas = document.createElement("canvas");
-  canvas.width = 42;
-  canvas.height = 68;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("Pier texture requires Canvas 2D");
-  ctx.imageSmoothingEnabled = false;
-
-  let state = (options.seed ?? 719) >>> 0;
-  const random = () => {
-    state += 0x6d2b79f5;
-    let value = Math.imul(state ^ (state >>> 15), 1 | state);
-    value ^= value + Math.imul(value ^ (value >>> 7), 61 | value);
-    return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
-  };
+  const { canvas, context: ctx } = createPixelCanvas(42, 68);
+  const random = seeded(options.seed ?? 719);
   const rect = (x: number, y: number, w: number, h: number, color: string) => {
     ctx.fillStyle = color;
     ctx.fillRect(x, y, w, h);
@@ -77,11 +67,7 @@ export function createPierModel(options: PierModelOptions = {}): PierModel {
     }
   }
 
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.colorSpace = THREE.SRGBColorSpace;
-  texture.magFilter = THREE.NearestFilter;
-  texture.minFilter = THREE.NearestFilter;
-  texture.generateMipmaps = false;
+  const texture = nearestTexture(canvas);
 
   const mesh = new THREE.Mesh(
     new THREE.PlaneGeometry(width, height),

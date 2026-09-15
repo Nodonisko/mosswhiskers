@@ -1,12 +1,19 @@
 import * as THREE from 'three';
+import { seeded } from './rng';
 
 /** Native pixel dimensions are also world dimensions at scale 1. */
-export type WorldModelKind = 'pine' | 'oak' | 'willow' | 'bush' | 'den' | 'mailbox' | 'mailBubble' | 'lamp' | 'flowers' | 'stone' | 'log' | 'cat' | 'pike' | 'perch' | 'bluegill';
+export type WorldModelKind = 'pine' | 'oak' | 'willow' | 'bush' | 'den' | 'mailbox' | 'mailBubble' | 'lamp' | 'flowers' | 'stone' | 'log' | 'cat' | 'pike' | 'perch' | 'bluegill' | 'mouse';
+export type CatView = 'e' | 'w' | 'n' | 's';
+
 export interface WorldModelOptions {
   seed?: number;
   scale?: number;
-  /** Flowers: 0 white, 1 blue, 2 pink. Trees/cats: palette variation. */
+  /** Flowers: 0 white, 1 blue, 2 pink. Trees: palette. Cat: 0 idle, 1–4 walk, 5–7 claw. */
   variant?: number;
+  /** Cat and mouse. West is painted flipped. */
+  facing?: CatView;
+  /** Cat claw: red slash marks after a hit. */
+  hit?: boolean;
 }
 
 type Point = readonly [number, number];
@@ -15,19 +22,16 @@ const textureCache = new Map<string, THREE.CanvasTexture>();
 
 export const WORLD_MODEL_SIZES: Record<WorldModelKind, readonly [number, number]> = {
   pine: [88, 142], oak: [120, 152], willow: [146, 168], bush: [42, 38], den: [198, 154],
-  mailbox: [26, 48], mailBubble: [46, 38], lamp: [28, 84], flowers: [40, 40], stone: [32, 22], log: [90, 32], cat: [20, 30],
-  pike: [52, 18], perch: [36, 20], bluegill: [28, 24],
+  mailbox: [26, 48], mailBubble: [46, 38], lamp: [28, 84], flowers: [40, 40], stone: [32, 22], log: [90, 32], cat: [36, 42],
+  pike: [52, 18], perch: [36, 20], bluegill: [28, 24], mouse: [32, 16],
 };
 
-function seeded(seed: number) {
-  let state = seed >>> 0;
-  return () => {
-    state += 0x6d2b79f5;
-    let t = Math.imul(state ^ (state >>> 15), 1 | state);
-    t ^= t + Math.imul(t ^ (t >>> 7), 61 | t);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
+/** Ground footprint of the trunk only, in native pixels / world units at scale 1. */
+export const TREE_TRUNK_HITBOX: Partial<Record<WorldModelKind, readonly [halfW: number, halfH: number]>> = {
+  pine: [8, 5],
+  oak: [11, 6],
+  willow: [9, 5],
+};
 
 /** Raster primitives deliberately avoid canvas antialiasing. */
 function painter(width: number, height: number, seed: number) {
@@ -71,6 +75,24 @@ function painter(width: number, height: number, seed: number) {
     }
   };
   return { canvas, ctx, random, rect, ellipse, poly, line };
+}
+
+function flipCanvasX(p: Paint) {
+  const { canvas, ctx } = p;
+  const src = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const dst = ctx.createImageData(canvas.width, canvas.height);
+  const width = canvas.width;
+  for (let y = 0; y < canvas.height; y++) {
+    for (let x = 0; x < width; x++) {
+      const from = (y * width + x) * 4;
+      const to = (y * width + (width - 1 - x)) * 4;
+      dst.data[to] = src.data[from]!;
+      dst.data[to + 1] = src.data[from + 1]!;
+      dst.data[to + 2] = src.data[from + 2]!;
+      dst.data[to + 3] = src.data[from + 3]!;
+    }
+  }
+  ctx.putImageData(dst, 0, 0);
 }
 
 const pineColors = ['#294222', '#345125', '#405f2a', '#507231', '#62853c', '#779449', '#899e52'];
@@ -337,35 +359,180 @@ function log(p: Paint) {
   p.ellipse(83, 18, 1, 3, '#7a603b');
 }
 
-function cat(p: Paint, variant: number) {
-  const orange = variant % 2 === 0;
-  const fur = orange ? '#c99751' : '#929286';
-  const shadow = orange ? '#8c693e' : '#626961';
-  const light = orange ? '#e3b86c' : '#b8b7a3';
-  p.ellipse(10, 28, 7, 2, '#536740');
-  p.line(11, 16, 11, 2, shadow, 2);
-  p.line(11, 14, 11, 3, light);
-  p.ellipse(10, 19, 5, 9, shadow);
-  p.ellipse(10, 18, 4, 8, fur);
-  p.rect(6, 25, 3, 4, '#f1e4bd');
-  p.rect(12, 25, 3, 4, '#f1e4bd');
-  p.rect(9, 19, 3, 7, '#f0dfb4');
-  p.rect(6, 19, 3, 2, shadow);
-  p.rect(13, 20, 2, 2, shadow);
-  p.poly([[4, 16], [3, 8], [5, 7], [8, 10], [12, 10], [16, 7], [17, 8], [16, 17], [13, 20], [7, 20]], shadow);
-  p.poly([[5, 16], [5, 10], [8, 12], [12, 12], [15, 10], [15, 17], [12, 19], [7, 18]], light);
-  p.rect(5, 10, 2, 3, '#dcaaa0');
-  p.rect(14, 10, 1, 3, '#dcaaa0');
-  p.rect(7, 12, 2, 3, fur);
-  p.rect(11, 12, 2, 3, fur);
-  p.rect(6, 15, 3, 2, '#d5e4b0');
-  p.rect(12, 15, 3, 2, '#d5e4b0');
-  p.rect(7, 15, 1, 2, '#398774');
-  p.rect(13, 15, 1, 2, '#398774');
-  p.rect(9, 17, 3, 2, '#f6e9c9');
-  p.rect(10, 17, 1, 1, '#a66f67');
-  p.line(4, 17, 1, 16, '#e9dfbb');
-  p.line(15, 17, 19, 16, '#e9dfbb');
+type CatColors = { fur: string; shadow: string; light: string };
+
+function catPose(variant: number) {
+  const claw = variant >= 5 ? (variant - 5) % 3 : -1;
+  const step = variant >= 1 && variant <= 4 ? (variant - 1) % 4 : -1;
+  return {
+    claw,
+    lean: claw < 0 ? 0 : [0, 1, 0][claw]!,
+    bob: step < 0 ? 0 : (step % 2 === 0 ? 0 : -1),
+    tailX: claw >= 0 ? -1 : step < 0 ? 0 : [-1, 0, 1, 0][step]!,
+    tailBend: claw >= 0 ? -1 : step < 0 ? 0 : [0, 1, 0, -1][step]!,
+    leftLift: claw >= 0 ? 0 : step < 0 ? 0 : [2, 0, 0, 1][step]!,
+    rightLift: claw >= 0 ? 0 : step < 0 ? 0 : [0, 1, 2, 0][step]!,
+    leftShift: claw >= 0 ? 0 : step < 0 ? 0 : [-1, 0, 1, 0][step]!,
+    rightShift: claw >= 0 ? 0 : step < 0 ? 0 : [1, 0, -1, 0][step]!,
+  };
+}
+
+type SlashTint = { ink: string; shade: string; inkSoft: string; shadeSoft: string };
+
+function clawTint(hit: boolean): SlashTint {
+  return hit
+    ? { ink: '#d4453a', shade: '#8f201c', inkSoft: '#e07068', shadeSoft: '#b03830' }
+    : { ink: '#8a8580', shade: '#6e6a65', inkSoft: '#9a9590', shadeSoft: '#7a7570' };
+}
+
+function slash(p: Paint, x: number, y: number, length: number, ink: string, shade: string, dir = 1) {
+  p.line(x, y, x + length, y + length * dir, ink, 2);
+  p.line(x + 3, y - 1, x + 3 + length, y - 1 + length * dir, shade, 2);
+  p.line(x + 6, y, x + 6 + length, y + length * dir, ink, 2);
+}
+
+function catFront(p: Paint, variant: number, c: CatColors, tint: SlashTint) {
+  const { fur, shadow, light } = c;
+  const { claw, lean, bob, tailX, tailBend, leftLift, rightLift, leftShift, rightShift } = catPose(variant);
+  const ax = (n: number) => n + 8 + lean;
+  p.ellipse(ax(10), 28, 7, 2, '#536740');
+  p.line(ax(11) + tailX, 16 + bob, ax(11) + tailX + tailBend, 2, shadow, 2);
+  p.line(ax(11) + tailX, 14 + bob, ax(11) + tailX + tailBend, 3, light);
+  p.ellipse(ax(10), 19 + bob, 5, 9, shadow);
+  p.ellipse(ax(10), 18 + bob, 4, 8, fur);
+  p.rect(ax(9), 19 + bob, 3, 7, '#f0dfb4');
+  p.rect(ax(6), 19 + bob, 3, 2, shadow);
+  p.rect(ax(13), 20 + bob, 2, 2, shadow);
+  p.poly([[ax(4), 16 + bob], [ax(3), 8 + bob], [ax(5), 7 + bob], [ax(8), 10 + bob], [ax(12), 10 + bob], [ax(16), 7 + bob], [ax(17), 8 + bob], [ax(16), 17 + bob], [ax(13), 20 + bob], [ax(7), 20 + bob]], shadow);
+  p.poly([[ax(5), 16 + bob], [ax(5), 10 + bob], [ax(8), 12 + bob], [ax(12), 12 + bob], [ax(15), 10 + bob], [ax(15), 17 + bob], [ax(12), 19 + bob], [ax(7), 18 + bob]], light);
+  p.rect(ax(5), 10 + bob, 2, 3, '#dcaaa0');
+  p.rect(ax(14), 10 + bob, 1, 3, '#dcaaa0');
+  p.rect(ax(7), 12 + bob, 2, 3, fur);
+  p.rect(ax(11), 12 + bob, 2, 3, fur);
+  p.rect(ax(6), 15 + bob, 3, 2, '#d5e4b0');
+  p.rect(ax(12), 15 + bob, 3, 2, '#d5e4b0');
+  p.rect(ax(7), 15 + bob, 1, 2, '#398774');
+  p.rect(ax(13), 15 + bob, 1, 2, '#398774');
+  p.rect(ax(9), 17 + bob, 3, 2, '#f6e9c9');
+  p.rect(ax(10), 17 + bob, 1, 1, '#a66f67');
+  p.line(ax(4), 17 + bob, ax(1), 16 + bob, '#e9dfbb');
+  p.line(ax(15), 17 + bob, ax(19), 16 + bob, '#e9dfbb');
+  p.rect(ax(6) + leftShift, 25 - leftLift, 3, 4, '#f1e4bd');
+  if (claw < 0) {
+    p.rect(ax(12) + rightShift, 25 - rightLift, 3, 4, '#f1e4bd');
+    return;
+  }
+  if (claw === 0) {
+    p.rect(ax(10), 21, 4, 4, '#f1e4bd');
+    p.rect(ax(11), 23, 3, 2, '#e8d4b0');
+    p.rect(ax(11), 25, 1, 1, tint.ink);
+    p.rect(ax(13), 25, 1, 1, tint.shade);
+    p.rect(ax(12), 26, 1, 1, tint.ink);
+  } else if (claw === 1) {
+    p.rect(ax(9), 23, 4, 3, '#f1e4bd');
+    p.rect(ax(10), 25, 3, 2, '#e8d4b0');
+    slash(p, ax(7), 33, 6, tint.ink, tint.shade);
+  } else {
+    p.rect(ax(10), 24, 3, 3, '#f1e4bd');
+    slash(p, ax(8), 35, 4, tint.inkSoft, tint.shadeSoft);
+  }
+}
+
+function catSide(p: Paint, variant: number, c: CatColors, tint: SlashTint) {
+  const { fur, shadow, light } = c;
+  const { claw, lean, bob, tailX, tailBend, leftLift, rightLift, leftShift, rightShift } = catPose(variant);
+  const ax = (n: number) => n + 4 + lean;
+  const y = (n: number) => n + bob;
+  p.ellipse(ax(14), 28, 8, 2, '#536740');
+  p.line(ax(8) + tailX, y(18), ax(6) + tailX + tailBend, y(5), shadow, 2);
+  p.line(ax(9) + tailX, y(17), ax(7) + tailX + tailBend, y(6), light);
+  p.rect(ax(7), y(19), 16, 6, shadow);
+  p.rect(ax(8), y(18), 14, 1, shadow);
+  p.rect(ax(8), y(25), 14, 1, shadow);
+  p.rect(ax(8), y(19), 14, 6, fur);
+  p.rect(ax(9), y(18), 12, 1, light);
+  p.rect(ax(11), y(23), 7, 2, '#f0dfb4');
+  p.rect(ax(18), y(16), 6, 5, shadow);
+  p.rect(ax(18), y(17), 6, 4, fur);
+  p.ellipse(ax(24), y(14), 5, 5, shadow);
+  p.ellipse(ax(24), y(14), 4, 4, fur);
+  p.ellipse(ax(25), y(14), 3, 3, light);
+  p.rect(ax(22), y(8), 3, 4, shadow);
+  p.rect(ax(23), y(9), 1, 2, '#dcaaa0');
+  p.rect(ax(20), y(9), 2, 3, shadow);
+  p.rect(ax(25), y(13), 2, 2, '#d5e4b0');
+  p.rect(ax(26), y(13), 1, 2, '#398774');
+  p.rect(ax(28), y(15), 2, 2, '#f6e9c9');
+  p.rect(ax(29), y(15), 1, 1, '#a66f67');
+  p.rect(ax(9) + leftShift, 25 - leftLift, 3, 3, '#f1e4bd');
+  if (claw < 0) {
+    p.rect(ax(18) + rightShift, 25 - rightLift, 3, 3, '#f1e4bd');
+    return;
+  }
+  if (claw === 0) {
+    p.rect(ax(20), 21, 4, 4, '#f1e4bd');
+    p.rect(ax(21), 23, 3, 2, '#e8d4b0');
+    p.rect(ax(22), 25, 1, 1, tint.ink);
+    p.rect(ax(24), 25, 1, 1, tint.shade);
+    p.rect(ax(23), 26, 1, 1, tint.ink);
+  } else if (claw === 1) {
+    p.rect(ax(21), 23, 4, 3, '#f1e4bd');
+    p.rect(ax(22), 25, 3, 2, '#e8d4b0');
+    slash(p, ax(20), 33, 5, tint.ink, tint.shade);
+  } else {
+    p.rect(ax(21), 24, 3, 3, '#f1e4bd');
+    slash(p, ax(21), 35, 4, tint.inkSoft, tint.shadeSoft);
+  }
+}
+
+function catBack(p: Paint, variant: number, c: CatColors, tint: SlashTint) {
+  const { fur, shadow, light } = c;
+  const { claw, bob, tailX, tailBend, leftLift, rightLift, leftShift, rightShift } = catPose(variant);
+  const ax = (n: number) => n + 8;
+  p.ellipse(ax(10), 28, 6, 2, '#536740');
+  p.ellipse(ax(10), 19 + bob, 4, 8, shadow);
+  p.ellipse(ax(10), 18 + bob, 3, 7, fur);
+  p.rect(ax(9), 16 + bob, 2, 8, light);
+  p.poly([[ax(5), 16 + bob], [ax(4), 8 + bob], [ax(6), 7 + bob], [ax(8), 10 + bob], [ax(12), 10 + bob], [ax(14), 7 + bob], [ax(16), 8 + bob], [ax(15), 17 + bob], [ax(12), 19 + bob], [ax(8), 19 + bob]], shadow);
+  p.poly([[ax(6), 15 + bob], [ax(6), 10 + bob], [ax(8), 11 + bob], [ax(12), 11 + bob], [ax(14), 10 + bob], [ax(14), 16 + bob], [ax(12), 18 + bob], [ax(8), 17 + bob]], fur);
+  p.rect(ax(6), 10 + bob, 2, 3, shadow);
+  p.rect(ax(13), 10 + bob, 1, 3, shadow);
+  p.rect(ax(8), 13 + bob, 4, 2, shadow);
+  p.line(ax(10) + tailX, 14 + bob, ax(10) + tailBend, 2, shadow, 2);
+  p.line(ax(10) + tailX, 13 + bob, ax(10) + tailBend, 3, light);
+  if (claw < 0) {
+    p.rect(ax(6) + leftShift, 25 - leftLift, 3, 4, '#f1e4bd');
+    p.rect(ax(11) + rightShift, 25 - rightLift, 3, 4, '#f1e4bd');
+    return;
+  }
+  if (claw === 0) {
+    p.rect(ax(8), 18, 4, 4, '#f1e4bd');
+    p.rect(ax(9), 17, 1, 1, tint.ink);
+    p.rect(ax(11), 17, 1, 1, tint.shade);
+    p.rect(ax(10), 16, 1, 1, tint.ink);
+  } else if (claw === 1) {
+    p.rect(ax(8), 15, 4, 3, '#f1e4bd');
+    slash(p, ax(6), 8, 6, tint.ink, tint.shade, -1);
+  } else {
+    p.rect(ax(9), 17, 3, 3, '#f1e4bd');
+    slash(p, ax(7), 6, 4, tint.inkSoft, tint.shadeSoft, -1);
+  }
+}
+
+function cat(p: Paint, variant: number, seed: number, facing: CatView, hit: boolean) {
+  const orange = seed % 2 === 1;
+  const colors: CatColors = {
+    fur: orange ? '#c99751' : '#929286',
+    shadow: orange ? '#8c693e' : '#626961',
+    light: orange ? '#e3b86c' : '#b8b7a3',
+  };
+  const tint = clawTint(hit);
+  if (facing === 'n') catBack(p, variant, colors, tint);
+  else if (facing === 's') catFront(p, variant, colors, tint);
+  else {
+    catSide(p, variant, colors, tint);
+    if (facing === 'w') flipCanvasX(p);
+  }
 }
 
 /** Northern pike: long olive torpedo, duckbill snout, pale bean spots, fins set far back. */
@@ -461,45 +628,86 @@ function bluegill(p: Paint, variant: number) {
   p.poly([[12, 15], [19, 14], [18, 18], [12, 17]], '#e4a058');
 }
 
+function mouse(p: Paint, variant: number, seed: number) {
+  const palettes = [
+    { fur: '#8a8884', shadow: '#5c5a56', light: '#b4b0aa', belly: '#d8d4cc' },
+    { fur: '#7a7874', shadow: '#4e4c48', light: '#a8a49e', belly: '#ccc8c0' },
+    { fur: '#949088', shadow: '#64625c', light: '#c0bbb4', belly: '#e0dcd4' },
+  ] as const;
+  const c = palettes[Math.abs(seed) % 3]!;
+  const step = variant % 2;
+  p.ellipse(20, 14, 7, 2, '#536740');
+  p.line(1, 6 + step, 8, 9, '#9a9088');
+  p.line(8, 9, 16, 10, '#8a8480');
+  p.ellipse(20, 10, 6, 3, c.shadow);
+  p.ellipse(20, 9, 5, 2, c.fur);
+  p.rect(18, 10, 6, 2, c.belly);
+  p.ellipse(26, 9, 3, 3, c.shadow);
+  p.ellipse(26, 9, 2, 2, c.fur);
+  p.ellipse(27, 9, 1, 1, c.light);
+  p.rect(24, 5, 2, 3, c.shadow);
+  p.rect(26, 4, 2, 3, c.shadow);
+  p.rect(24, 6, 1, 1, '#c4b8b0');
+  p.rect(26, 5, 1, 1, '#c4b8b0');
+  p.rect(28, 9, 3, 2, c.light);
+  p.rect(30, 9, 1, 1, '#c4b8b0');
+  p.rect(27, 8, 1, 1, '#1c1814');
+  p.rect(16 + step, 12, 2, 2, '#c8c0b4');
+  p.rect(22 - step, 12, 2, 2, '#c8c0b4');
+}
+
+export function getWorldModelTexture(kind: WorldModelKind, options: WorldModelOptions = {}): THREE.CanvasTexture {
+  const seed = options.seed ?? 1;
+  const variant = options.variant ?? 0;
+  const facing = options.facing ?? 'e';
+  const hit = options.hit === true;
+  const key = `${kind}:${seed}:${variant}:${facing}:${hit ? 'h' : ''}`;
+  const cached = textureCache.get(key);
+  if (cached) return cached;
+  const [width, height] = WORLD_MODEL_SIZES[kind];
+  const p = painter(width, height, seed);
+  switch (kind) {
+    case 'pine': pine(p, variant); break;
+    case 'oak': oak(p, variant); break;
+    case 'willow': willow(p, variant); break;
+    case 'bush': bush(p); break;
+    case 'den': den(p); break;
+    case 'mailbox': mailbox(p); break;
+    case 'mailBubble': mailBubble(p); break;
+    case 'lamp': lamp(p); break;
+    case 'flowers': flowers(p, variant); break;
+    case 'stone': rock(p, 1, 1, 29, 19, 12); break;
+    case 'log': log(p); break;
+    case 'cat': cat(p, variant, seed, facing, hit); break;
+    case 'pike': pike(p, variant); break;
+    case 'perch': perch(p, variant); break;
+    case 'bluegill': bluegill(p, variant); break;
+    case 'mouse':
+      mouse(p, variant, seed);
+      if (facing === 'w') flipCanvasX(p);
+      break;
+  }
+  const texture = new THREE.CanvasTexture(p.canvas);
+  texture.magFilter = THREE.NearestFilter;
+  texture.minFilter = THREE.NearestFilter;
+  texture.generateMipmaps = false;
+  texture.colorSpace = THREE.SRGBColorSpace;
+  textureCache.set(key, texture);
+  return texture;
+}
+
 /** Create a unique Sprite/material while sharing immutable, seeded pixel textures. */
 export function createWorldModel(kind: WorldModelKind, options: WorldModelOptions = {}): THREE.Sprite {
   const seed = options.seed ?? 1;
   const variant = options.variant ?? 0;
-  const key = `${kind}:${seed}:${variant}`;
   const [width, height] = WORLD_MODEL_SIZES[kind];
-  let texture = textureCache.get(key);
-  if (!texture) {
-    const p = painter(width, height, seed);
-    switch (kind) {
-      case 'pine': pine(p, variant); break;
-      case 'oak': oak(p, variant); break;
-      case 'willow': willow(p, variant); break;
-      case 'bush': bush(p); break;
-      case 'den': den(p); break;
-      case 'mailbox': mailbox(p); break;
-      case 'mailBubble': mailBubble(p); break;
-      case 'lamp': lamp(p); break;
-      case 'flowers': flowers(p, variant); break;
-      case 'stone': rock(p, 1, 1, 29, 19, 12); break;
-      case 'log': log(p); break;
-      case 'cat': cat(p, variant); break;
-      case 'pike': pike(p, variant); break;
-      case 'perch': perch(p, variant); break;
-      case 'bluegill': bluegill(p, variant); break;
-    }
-    texture = new THREE.CanvasTexture(p.canvas);
-    texture.magFilter = THREE.NearestFilter;
-    texture.minFilter = THREE.NearestFilter;
-    texture.generateMipmaps = false;
-    texture.colorSpace = THREE.SRGBColorSpace;
-    textureCache.set(key, texture);
-  }
+  const texture = getWorldModelTexture(kind, options);
   const material = new THREE.SpriteMaterial({ map: texture, transparent: true, alphaTest: 0.5, depthWrite: false, toneMapped: false });
   const sprite = new THREE.Sprite(material);
-  sprite.center.set(0.5, 0);
+  sprite.center.set(0.5, kind === 'cat' ? (height - 30) / height : 0);
   sprite.scale.set(width * (options.scale ?? 1), height * (options.scale ?? 1), 1);
-  sprite.name = `${kind}-${seed}`;
-  sprite.userData = { kind, seed, variant, nativeWidth: width, nativeHeight: height };
+  sprite.name = `${kind}-${seed}-${variant}`;
+  sprite.userData = { id: sprite.name, kind, seed, variant, nativeWidth: width, nativeHeight: height };
   return sprite;
 }
 

@@ -1,4 +1,6 @@
 import * as THREE from "three";
+import { createPixelCanvas, nearestTexture } from "./pixel-canvas";
+import { seeded } from "./rng";
 
 export interface LakeModelOptions {
   width?: number;
@@ -10,78 +12,95 @@ export interface LakeModel {
   mesh: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
   width: number;
   height: number;
+  phase: number;
   /** Coordinates are relative to mesh.position; positive padding includes the bank. */
   containsPoint: (localX: number, localY: number, padding?: number) => boolean;
   frames: readonly THREE.CanvasTexture[];
 }
 
-function seeded(seed: number) {
-  let state = seed >>> 0;
-  return () => {
-    state += 0x6d2b79f5;
-    let value = Math.imul(state ^ (state >>> 15), 1 | state);
-    value ^= value + Math.imul(value ^ (value >>> 7), 61 | value);
-    return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
-  };
+export function lakePhaseFromSeed(seed: number) {
+  return seeded(seed)() * Math.PI * 2;
 }
 
-function makeCanvas(width: number, height: number) {
-  const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
-  const context = canvas.getContext("2d");
-  if (!context) throw new Error("Lake texture requires Canvas 2D");
-  context.imageSmoothingEnabled = false;
-  return { canvas, context };
+export function lakeShoreRadius(angle: number, phase: number) {
+  return 0.855 + Math.sin(angle * 3 + phase) * 0.055
+    + Math.sin(angle * 5 - 0.8) * 0.024
+    + Math.cos(angle * 2 + 0.4) * 0.033
+    + Math.sin(angle * 9 + 1.1) * 0.009;
+}
+
+/** Coordinates are relative to the lake center; positive padding includes the bank. */
+export function lakeContainsLocalPoint(
+  width: number,
+  height: number,
+  phase: number,
+  localX: number,
+  localY: number,
+  padding = 0,
+) {
+  const distance = Math.hypot(localX, localY);
+  if (distance === 0) return true;
+  const nx = localX / (width / 2);
+  const ny = localY / (height / 2);
+  const ratio = Math.hypot(nx, ny) / lakeShoreRadius(Math.atan2(ny, nx), phase);
+  return distance <= distance / ratio + padding;
+}
+
+function hexRgb(hex: string): [number, number, number] {
+  const value = Number.parseInt(hex.slice(1), 16);
+  return [(value >> 16) & 255, (value >> 8) & 255, value & 255];
 }
 
 /** An XY ground plane, drawn at two world units per texel to match the meadow. */
 export function createLakeModel(options: LakeModelOptions = {}): LakeModel {
   const width = options.width ?? 850;
   const height = options.height ?? 500;
-  const random = seeded(options.seed ?? 8417);
+  const seed = options.seed ?? 8417;
+  const random = seeded(seed);
   const phase = random() * Math.PI * 2;
   const textureWidth = Math.ceil(width / 2);
   const textureHeight = Math.ceil(height / 2);
-  const { canvas: base, context: ctx } = makeCanvas(textureWidth, textureHeight);
+  const { canvas: base, context: ctx } = createPixelCanvas(textureWidth, textureHeight);
 
-  // Broad coves and unequal lobes; all paint and collision use this same contour.
-  const shorelineRadius = (angle: number) =>
-    0.855 + Math.sin(angle * 3 + phase) * 0.055
-    + Math.sin(angle * 5 - 0.8) * 0.024
-    + Math.cos(angle * 2 + 0.4) * 0.033
-    + Math.sin(angle * 9 + 1.1) * 0.009;
-  const shoreRatio = (x: number, y: number) => {
-    const nx = x / (width / 2);
-    const ny = y / (height / 2);
-    return Math.hypot(nx, ny) / shorelineRadius(Math.atan2(ny, nx));
+  const pixelRatio = (x: number, y: number) => {
+    const localX = (x + 0.5) / textureWidth * width - width / 2;
+    const localY = height / 2 - (y + 0.5) / textureHeight * height;
+    const nx = localX / (width / 2);
+    const ny = localY / (height / 2);
+    return Math.hypot(nx, ny) / lakeShoreRadius(Math.atan2(ny, nx), phase);
   };
-  const pixelRatio = (x: number, y: number) =>
-    shoreRatio((x + 0.5) / textureWidth * width - width / 2,
-      height / 2 - (y + 0.5) / textureHeight * height);
 
+  const image = ctx.createImageData(textureWidth, textureHeight);
+  const pixels = image.data;
   for (let y = 0; y < textureHeight; y++) {
     for (let x = 0; x < textureWidth; x++) {
       const ratio = pixelRatio(x, y);
       if (ratio > 1) continue;
       const noise = random();
+      let color: string;
       if (ratio > 0.983) {
-        ctx.fillStyle = noise > 0.35 ? "#648044" : "#768f4b";
+        color = noise > 0.35 ? "#648044" : "#768f4b";
       } else if (ratio > 0.96) {
-        ctx.fillStyle = noise > 0.82 ? "#8b8155" : "#82794f";
+        color = noise > 0.82 ? "#8b8155" : "#82794f";
       } else if (ratio > 0.941) {
-        ctx.fillStyle = noise > 0.85 ? "#746c49" : "#696c4c";
+        color = noise > 0.85 ? "#746c49" : "#696c4c";
       } else if (ratio > 0.921) {
-        ctx.fillStyle = noise > 0.72 ? "#76a197" : "#68958a";
+        color = noise > 0.72 ? "#76a197" : "#68958a";
       } else if (ratio > 0.88) {
-        ctx.fillStyle = noise > 0.88 ? "#60928f" : "#5a8d8c";
+        color = noise > 0.88 ? "#60928f" : "#5a8d8c";
       } else {
         const depth = Math.sin(x / 47 + y / 29) + Math.cos(y / 37 - x / 81);
-        ctx.fillStyle = depth > 0.8 ? "#4f858e" : depth < -0.9 ? "#487c89" : "#4b808c";
+        color = depth > 0.8 ? "#4f858e" : depth < -0.9 ? "#487c89" : "#4b808c";
       }
-      ctx.fillRect(x, y, 1, 1);
+      const [r, g, b] = hexRgb(color);
+      const index = (y * textureWidth + x) * 4;
+      pixels[index] = r;
+      pixels[index + 1] = g;
+      pixels[index + 2] = b;
+      pixels[index + 3] = 255;
     }
   }
+  ctx.putImageData(image, 0, 0);
 
   // A few low-contrast square color flecks stay still beneath moving glints.
   for (let i = 0; i < 640; i++) {
@@ -94,14 +113,14 @@ export function createLakeModel(options: LakeModelOptions = {}): LakeModel {
   }
 
   // Separate seed stream keeps the existing water texture and ripple timing intact.
-  const plantRandom = seeded((options.seed ?? 8417) ^ 0x51a7);
+  const plantRandom = seeded(seed ^ 0x51a7);
   const waterPixel = (x: number, y: number, color: string) => {
     if (x < 0 || y < 0 || x >= textureWidth || y >= textureHeight || pixelRatio(x, y) > 0.875) return;
     ctx.fillStyle = color;
     ctx.fillRect(x, y, 1, 1);
   };
   const shorePoint = (angle: number, ratio: number) => {
-    const radius = shorelineRadius(angle) * ratio;
+    const radius = lakeShoreRadius(angle, phase) * ratio;
     return {
       x: Math.round(textureWidth / 2 * (1 + Math.cos(angle) * radius)),
       y: Math.round(textureHeight / 2 * (1 - Math.sin(angle) * radius)),
@@ -165,7 +184,7 @@ export function createLakeModel(options: LakeModelOptions = {}): LakeModel {
 
   // Only the small glints change. The bank, water colors, and texture stay fixed.
   const frames = Array.from({ length: 8 }, (_, frame) => {
-    const { canvas, context } = makeCanvas(textureWidth, textureHeight);
+    const { canvas, context } = createPixelCanvas(textureWidth, textureHeight);
     context.drawImage(base, 0, 0);
     for (const ripple of ripples) {
       const wave = Math.sin(frame / 8 * Math.PI * 2 + ripple.phase);
@@ -175,12 +194,7 @@ export function createLakeModel(options: LakeModelOptions = {}): LakeModel {
       context.fillStyle = `rgba(155, 196, 189, ${0.08 + wave * 0.035})`;
       context.fillRect(ripple.x + drift - 1, ripple.y + 2, 2, 1);
     }
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.colorSpace = THREE.SRGBColorSpace;
-    texture.magFilter = THREE.NearestFilter;
-    texture.minFilter = THREE.NearestFilter;
-    texture.generateMipmaps = false;
-    return texture;
+    return nearestTexture(canvas);
   });
 
   const mesh = new THREE.Mesh(
@@ -192,13 +206,9 @@ export function createLakeModel(options: LakeModelOptions = {}): LakeModel {
   mesh.renderOrder = -9;
 
   return {
-    mesh, width, height, frames,
+    mesh, width, height, phase, frames,
     containsPoint(localX, localY, padding = 0) {
-      // Positive padding follows each radial shoreline normal approximately.
-      const distance = Math.hypot(localX, localY);
-      if (distance === 0) return true;
-      const ratio = shoreRatio(localX, localY);
-      return distance <= distance / ratio + padding;
+      return lakeContainsLocalPoint(width, height, phase, localX, localY, padding);
     },
   };
 }
