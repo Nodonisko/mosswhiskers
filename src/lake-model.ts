@@ -93,6 +93,68 @@ export function createLakeModel(options: LakeModelOptions = {}): LakeModel {
     ctx.fillRect(x, y, size, size);
   }
 
+  // Separate seed stream keeps the existing water texture and ripple timing intact.
+  const plantRandom = seeded((options.seed ?? 8417) ^ 0x51a7);
+  const waterPixel = (x: number, y: number, color: string) => {
+    if (x < 0 || y < 0 || x >= textureWidth || y >= textureHeight || pixelRatio(x, y) > 0.875) return;
+    ctx.fillStyle = color;
+    ctx.fillRect(x, y, 1, 1);
+  };
+  const shorePoint = (angle: number, ratio: number) => {
+    const radius = shorelineRadius(angle) * ratio;
+    return {
+      x: Math.round(textureWidth / 2 * (1 + Math.cos(angle) * radius)),
+      y: Math.round(textureHeight / 2 * (1 - Math.sin(angle) * radius)),
+    };
+  };
+
+  // Sparse, muted silhouettes suggest plants beneath the water in the shallows.
+  for (const angle of [0.35, 0.65, 1.9, 2.15, 3.5, 4.35, 5.55]) {
+    const point = shorePoint(angle + (plantRandom() - 0.5) * 0.15, 0.73 + plantRandom() * 0.07);
+    for (let blade = -1; blade <= 1; blade++) {
+      const bladeHeight = 5 + Math.floor(plantRandom() * 5);
+      for (let y = 0; y < bladeHeight; y++) {
+        const bend = Math.round(Math.sin(y * 0.55 + blade) * 1.1);
+        const x = point.x + blade * 2 + bend;
+        waterPixel(x, point.y - y, "#477f80");
+        if (y < bladeHeight - 2) waterPixel(x + 1, point.y - y, "#548b89");
+      }
+    }
+  }
+
+  // Three small groups leave the broad middle of the lake open.
+  for (const [cluster, angle] of [0.95, 2.85, 5.1].entries()) {
+    const point = shorePoint(angle + (plantRandom() - 0.5) * 0.12, 0.76);
+    const pads = cluster === 1 ? [[0, 0], [10, 5]] : [[0, 0], [11, 3], [-7, 7]];
+    for (const [pad, offset] of pads.entries()) {
+      const x = point.x + offset[0]!;
+      const y = point.y + offset[1]!;
+      const radius = pad === 0 ? 5 : 4;
+      for (let py = -3; py <= 3; py++) {
+        for (let px = -radius; px <= radius; px++) {
+          const edge = (px / radius) ** 2 + (py / 3) ** 2;
+          // A tiny wedge of exposed water makes each pad read as a lily leaf.
+          if (edge > 1 || (px >= 0 && py >= 0 && Math.abs(px - py) <= 1)) continue;
+          waterPixel(x + px, y + py + 1, "#3e7172");
+        }
+      }
+      for (let py = -3; py <= 3; py++) {
+        for (let px = -radius; px <= radius; px++) {
+          const edge = (px / radius) ** 2 + (py / 3) ** 2;
+          if (edge > 1 || (px >= 0 && py >= 0 && Math.abs(px - py) <= 1)) continue;
+          waterPixel(x + px, y + py, edge > 0.64 ? "#4f7950" : py < 0 ? "#81a563" : "#719650");
+        }
+      }
+      if (pad === 0 && cluster !== 1) {
+        waterPixel(x - 2, y - 2, "#d2ada8");
+        waterPixel(x - 3, y - 3, "#e5c5b8");
+        waterPixel(x - 1, y - 3, "#e5c5b8");
+        waterPixel(x - 2, y - 3, "#e3cf8b");
+        waterPixel(x - 2, y - 4, "#dbb6b0");
+      }
+    }
+  }
+
   const ripples: Array<{ x: number; y: number; length: number; phase: number }> = [];
   for (let i = 0; i < 155; i++) {
     const x = Math.floor(random() * textureWidth);
