@@ -1,4 +1,4 @@
-import { countKind, type PlayerSim } from "./sim";
+import { canStuffIntake, type PlayerSim } from "./sim";
 
 export function createMailHud(root: HTMLElement) {
   const prompt = root.querySelector<HTMLElement>(".interact-prompt");
@@ -28,15 +28,13 @@ export function createMailHud(root: HTMLElement) {
       const nearby = player?.nearbyId;
       const openId = player?.openId;
       open = openId === "mailbox";
+      const stuffing = nearby === "intake" && player != null && canStuffIntake(player);
       interactPrompt.textContent = nearby === "mailbox"
         ? "E · READ MAIL"
-        : nearby === "intake"
-          ? player && player.progress.activeQuest === "clog"
-            && countKind(player.inventory, "carrot") > 0
-            && !player.progress.pipeClogged
-            ? "E · STUFF"
-            : "E · LOOK"
+        : stuffing
+          ? "Press E to insert carrot"
           : "E · TALK";
+      interactPrompt.classList.toggle("intake-hint", stuffing);
       interactPrompt.hidden = !nearby || Boolean(openId);
       letterHud.hidden = !open;
     },

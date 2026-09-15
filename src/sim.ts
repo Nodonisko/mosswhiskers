@@ -12,8 +12,10 @@ import {
   MAP_WALK_MARGIN,
   MAP_WIDTH,
   MEOW_DURATION,
+  QUEST_HINT_DURATION,
   PREY_RESPAWN,
   BERNIE_SUPPLY,
+  nearIntakeRim,
 } from "./world-config";
 
 export type FishKind = "pike" | "perch" | "bluegill";
@@ -94,6 +96,8 @@ export type PlayerSim = {
   meowing: boolean;
   meowElapsed: number;
   meowNonce: number;
+  questHint: QuestId | null;
+  questHintElapsed: number;
   progress: PlayerProgress;
 };
 
@@ -245,6 +249,8 @@ export function createPlayer(options: { id: string; name?: string; x: number; y:
     meowing: false,
     meowElapsed: 0,
     meowNonce: 0,
+    questHint: null,
+    questHintElapsed: 0,
     progress: { mailboxRead: false, activeQuest: null, heardSam: false, heardHopsk: false, pipeClogged: false },
   };
 }
@@ -294,11 +300,19 @@ function closeDialog(player: PlayerSim) {
   player.talkId = null;
 }
 
+function setActiveQuest(player: PlayerSim, quest: QuestId | null) {
+  if (player.progress.activeQuest === quest) return;
+  player.progress.activeQuest = quest;
+  if (!quest) return;
+  player.questHint = quest;
+  player.questHintElapsed = 0;
+}
+
 function beginSandwhisker(player: PlayerSim) {
   player.progress.mailboxRead = true;
   if (player.progress.activeQuest !== null) return;
   if (player.progress.heardSam || player.progress.heardHopsk || player.progress.pipeClogged) return;
-  player.progress.activeQuest = "sandwhisker";
+  setActiveQuest(player, "sandwhisker");
 }
 
 function canTalkToSam(player: PlayerSim) {
@@ -309,7 +323,7 @@ function canTalkToSam(player: PlayerSim) {
 
 function talkToSam(player: PlayerSim) {
   if (player.progress.pipeClogged && (player.progress.activeQuest === "blaze" || player.progress.activeQuest === null)) {
-    if (player.progress.activeQuest === "blaze") player.progress.activeQuest = null;
+    if (player.progress.activeQuest === "blaze") setActiveQuest(player, null);
     player.talkId = "sam-blaze";
     return;
   }
@@ -318,7 +332,7 @@ function talkToSam(player: PlayerSim) {
     return;
   }
   player.progress.heardSam = true;
-  if (player.progress.activeQuest === "pond") player.progress.activeQuest = "report";
+  if (player.progress.activeQuest === "pond") setActiveQuest(player, "report");
   player.talkId = "sam-pitch";
 }
 
@@ -343,7 +357,7 @@ function talkToHopsk(player: PlayerSim) {
   if (!player.progress.heardHopsk) {
     player.progress.heardHopsk = true;
     addToInventory(player, "carrot");
-    if (player.progress.activeQuest === "hopsk") player.progress.activeQuest = "clog";
+    if (player.progress.activeQuest === "hopsk") setActiveQuest(player, "clog");
     player.talkId = "hopsk-offer";
     return;
   }
@@ -355,21 +369,27 @@ function talkToIntake(player: PlayerSim) {
     player.talkId = "intake-clogged";
     return;
   }
-  if (player.progress.activeQuest === "clog" && countKind(player.inventory, "carrot") > 0) {
+  if (canStuffIntake(player)) {
     removeFromInventory(player, "carrot", 1);
     player.progress.pipeClogged = true;
-    player.progress.activeQuest = "smoke";
+    setActiveQuest(player, "smoke");
     player.talkId = "intake-stuff";
     return;
   }
   player.talkId = "intake-look";
 }
 
+export function canStuffIntake(player: PlayerSim) {
+  return player.progress.activeQuest === "clog"
+    && countKind(player.inventory, "carrot") > 0
+    && !player.progress.pipeClogged;
+}
+
 function talkToBernie(player: PlayerSim) {
   player.progress.mailboxRead = true;
   if (player.progress.pipeClogged) {
     if (player.progress.activeQuest === "smoke") {
-      player.progress.activeQuest = "blaze";
+      setActiveQuest(player, "blaze");
       player.talkId = "bernie-smoke";
       return;
     }
@@ -381,7 +401,7 @@ function talkToBernie(player: PlayerSim) {
     return;
   }
   if (player.progress.heardHopsk) {
-    if (player.progress.activeQuest === "hopsk") player.progress.activeQuest = "clog";
+    if (player.progress.activeQuest === "hopsk") setActiveQuest(player, "clog");
     player.talkId = "bernie-clog";
     return;
   }
@@ -390,7 +410,7 @@ function talkToBernie(player: PlayerSim) {
       player.talkId = "bernie-hopsk";
       return;
     }
-    player.progress.activeQuest = "hopsk";
+    setActiveQuest(player, "hopsk");
     player.talkId = "bernie-report";
     return;
   }
@@ -400,11 +420,11 @@ function talkToBernie(player: PlayerSim) {
   }
   if (hasBernieSupplies(player.inventory)) {
     takeBernieSupplies(player);
-    player.progress.activeQuest = "pond";
+    setActiveQuest(player, "pond");
     player.talkId = "bernie-thanks";
     return;
   }
-  player.progress.activeQuest = "sandwhisker";
+  setActiveQuest(player, "sandwhisker");
   player.talkId = "bernie-ask";
 }
 
@@ -467,11 +487,15 @@ export function nearestInteractable(
   y: number,
   interactables: readonly Interactable[],
   range = INTERACT_RANGE,
+  allowIntake = true,
 ) {
   let best: Interactable | null = null;
   let bestDist = range;
   for (const item of interactables) {
-    const dist = Math.hypot(item.x - x, item.y - y);
+    if (item.kind === "intake" && !allowIntake) continue;
+    const dist = item.kind === "intake" && nearIntakeRim(x, y)
+      ? 0
+      : Math.hypot(item.x - x, item.y - y);
     if (dist <= bestDist) {
       best = item;
       bestDist = dist;
@@ -487,7 +511,7 @@ function tickPlayer(
   walkable: Walkable,
   interactables: readonly Interactable[],
 ) {
-  const nearby = nearestInteractable(player.x, player.y, interactables);
+  const nearby = nearestInteractable(player.x, player.y, interactables, INTERACT_RANGE, canStuffIntake(player));
   player.nearbyId = nearby?.id ?? null;
   if (input.interact) {
     if (player.openId) closeDialog(player);
@@ -512,6 +536,14 @@ function tickPlayer(
     if (player.meowElapsed >= MEOW_DURATION) {
       player.meowing = false;
       player.meowElapsed = 0;
+    }
+  }
+
+  if (player.questHint) {
+    if (!player.openId) player.questHintElapsed += dt;
+    if (player.questHintElapsed >= QUEST_HINT_DURATION) {
+      player.questHint = null;
+      player.questHintElapsed = 0;
     }
   }
 

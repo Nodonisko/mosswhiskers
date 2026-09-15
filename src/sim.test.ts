@@ -7,6 +7,7 @@ import {
   createSim,
   drainFixedTicks,
   hitsSolid,
+  nearestInteractable,
   playerById,
   removePlayer,
   snapshotSim,
@@ -14,7 +15,7 @@ import {
   type GameSim,
   type Walkable,
 } from "./sim";
-import { BERNIE, CAT_SPEED, CLAW_DURATION, INTAKE, LOCAL_PLAYER_ID, MAILBOX, MEOW_DURATION, MOUSE_RESPAWN, RABBIT, SAM, TICK_DT } from "./world-config";
+import { BERNIE, BERNIE_POND_X, BERNIE_POND_Y, CAT_SPEED, CLAW_DURATION, INTAKE, LOCAL_PLAYER_ID, MAILBOX, MEOW_DURATION, MOUSE_RESPAWN, nearIntakeRim, QUEST_HINT_DURATION, RABBIT, SAM, TICK_DT } from "./world-config";
 
 const openGround = () => true;
 const blocked = () => false;
@@ -442,6 +443,8 @@ describe("mailbox interaction", () => {
     expect(cat(sim).openId).toBe("mailbox");
     expect(cat(sim).progress.mailboxRead).toBe(true);
     expect(cat(sim).progress.activeQuest).toBe("sandwhisker");
+    expect(cat(sim).questHint).toBe("sandwhisker");
+    expect(cat(sim).questHintElapsed).toBe(0);
     expect(cat(sim).meowing).toBe(false);
   });
 
@@ -512,6 +515,21 @@ describe("mailbox interaction", () => {
     expect(cat(sim).openId).toBe("mailbox");
     expect(cat(sim).progress.activeQuest).toBe("pond");
   });
+
+  test("a new quest hint waits until the letter closes, then fades", () => {
+    const sim = simAtMailbox();
+    tick(sim, { x: 0, y: 0, interact: true }, 0.05);
+    expect(cat(sim).questHint).toBe("sandwhisker");
+    tick(sim, { x: 0, y: 0 }, 1);
+    expect(cat(sim).questHint).toBe("sandwhisker");
+    expect(cat(sim).questHintElapsed).toBe(0);
+    tick(sim, { x: 0, y: 0, interact: true }, 0.05);
+    expect(cat(sim).openId).toBeNull();
+    expect(cat(sim).questHintElapsed).toBeCloseTo(0.05);
+    tick(sim, { x: 0, y: 0 }, QUEST_HINT_DURATION);
+    expect(cat(sim).questHint).toBeNull();
+    expect(cat(sim).questHintElapsed).toBe(0);
+  });
 });
 
 describe("Bernie conversation", () => {
@@ -554,6 +572,7 @@ describe("Bernie conversation", () => {
     expect(cat(sim).talkId).toBe("bernie-thanks");
     expect(cat(sim).progress.mailboxRead).toBe(true);
     expect(cat(sim).progress.activeQuest).toBe("pond");
+    expect(cat(sim).questHint).toBe("pond");
     expect(cat(sim).inventory).toEqual([
       { kind: "mouse", count: 1 },
       { kind: "perch", count: 1 },
@@ -726,25 +745,68 @@ describe("Elon Hopsk and the intake", () => {
     expect(cat(sim).progress.heardHopsk).toBe(true);
     expect(cat(sim).progress.activeQuest).toBe("clog");
     expect(cat(sim).inventory).toEqual([{ kind: "carrot", count: 1 }]);
+    expect(cat(sim).questHint).toBe("clog");
     tick(sim, { x: 0, y: 0, interact: true }, 0.05);
     cat(sim).x = INTAKE.x;
     cat(sim).y = INTAKE.y;
     tick(sim, { x: 0, y: 0 }, 0.05);
+    expect(cat(sim).nearbyId).toBe("intake");
     tick(sim, { x: 0, y: 0, interact: true }, 0.05);
     expect(cat(sim).talkId).toBe("intake-stuff");
     expect(cat(sim).progress.pipeClogged).toBe(true);
     expect(cat(sim).progress.activeQuest).toBe("smoke");
+    expect(cat(sim).questHint).toBe("smoke");
     expect(cat(sim).inventory).toEqual([]);
   });
 
-  test("the intake only looks until you have Hopsk's rocket", () => {
+  test("the intake is inert until you have Hopsk's rocket", () => {
     const sim = simOnQuest();
     cat(sim).x = INTAKE.x;
     cat(sim).y = INTAKE.y;
     tick(sim, { x: 0, y: 0 }, 0.05);
+    expect(cat(sim).nearbyId).toBeNull();
     tick(sim, { x: 0, y: 0, interact: true }, 0.05);
-    expect(cat(sim).talkId).toBe("intake-look");
+    expect(cat(sim).talkId).toBeNull();
+    expect(cat(sim).openId).toBeNull();
+    expect(cat(sim).meowing).toBe(true);
     expect(cat(sim).progress.pipeClogged).toBe(false);
+    expect(nearestInteractable(INTAKE.x, INTAKE.y, [intake], 54, false)).toBeNull();
+  });
+
+  test("a clog quest without a carrot still cannot use the intake", () => {
+    const sim = simOnQuest();
+    cat(sim).progress.activeQuest = "clog";
+    cat(sim).x = INTAKE.x;
+    cat(sim).y = INTAKE.y;
+    tick(sim, { x: 0, y: 0 }, 0.05);
+    expect(cat(sim).nearbyId).toBeNull();
+    tick(sim, { x: 0, y: 0, interact: true }, 0.05);
+    expect(cat(sim).talkId).toBeNull();
+    expect(cat(sim).meowing).toBe(true);
+  });
+
+  test("the far puddle shore still reaches the intake", () => {
+    const sim = simOnQuest();
+    cat(sim).progress.heardHopsk = true;
+    cat(sim).progress.activeQuest = "clog";
+    addToInventory(cat(sim), "carrot");
+    let shore: { x: number; y: number } | null = null;
+    for (let dy = 70; dy <= 140; dy += 4) {
+      const x = BERNIE_POND_X;
+      const y = BERNIE_POND_Y - dy;
+      if (nearIntakeRim(x, y) && Math.hypot(x - INTAKE.x, y - INTAKE.y) > 54) {
+        shore = { x, y };
+        break;
+      }
+    }
+    expect(shore).not.toBeNull();
+    expect(nearestInteractable(shore!.x, shore!.y, [intake])?.kind).toBe("intake");
+    cat(sim).x = shore!.x;
+    cat(sim).y = shore!.y;
+    tick(sim, { x: 0, y: 0 }, 0.05);
+    tick(sim, { x: 0, y: 0, interact: true }, 0.05);
+    expect(cat(sim).talkId).toBe("intake-stuff");
+    expect(cat(sim).progress.pipeClogged).toBe(true);
   });
 
   test("Bernie sends you to the burning campus after the clog, then Sam is confused", () => {

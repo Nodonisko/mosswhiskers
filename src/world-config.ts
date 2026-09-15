@@ -1,3 +1,6 @@
+import { lakePhaseFromSeed } from "./lake-shape";
+import { onPuddleShore } from "./pond-shape";
+
 export const VIEW_HEIGHT = 540;
 export const MAP_WIDTH = 4000;
 export const MAP_HEIGHT = 2800;
@@ -28,6 +31,8 @@ export const MAILBOX = { x: 153, y: 52 };
 export const BERNIE_SUPPLY = { mice: 1, fish: 1 };
 /** Seconds the failed-interact Meow hangs above the cat. */
 export const MEOW_DURATION = 1.15;
+/** Seconds a new-quest hint hangs in the middle of the screen. */
+export const QUEST_HINT_DURATION = 3.2;
 
 export const LOCAL_PLAYER_ID = "local";
 export const DEFAULT_SPAWN = { x: 0, y: -5 };
@@ -58,6 +63,7 @@ export const BERNIE_POND_Y = 800;
 export const BERNIE_POND_WIDTH = 680;
 export const BERNIE_POND_HEIGHT = 410;
 export const BERNIE_POND_SEED = 3311;
+const berniePondPhase = lakePhaseFromSeed(BERNIE_POND_SEED);
 /** East-west approach stays south of the dried pond, then turns north to the hut. */
 export const BERNIE_PATH_APPROACH_Y = 500;
 
@@ -208,6 +214,17 @@ export function intakePipeY(x: number) {
 /** Walkable mud just east of the remaining puddle, on the pipe. */
 const INTAKE_X = BERNIE_POND_X + 156;
 export const INTAKE = { x: INTAKE_X, y: intakePipeY(INTAKE_X) };
+
+/** True on the dried bank around the remaining water. */
+export function nearIntakeRim(x: number, y: number) {
+  return onPuddleShore(
+    BERNIE_POND_WIDTH,
+    BERNIE_POND_HEIGHT,
+    berniePondPhase,
+    x - BERNIE_POND_X,
+    y - BERNIE_POND_Y,
+  );
+}
 
 export function intakePipePoints(): Array<[number, number]> {
   const points: Array<[number, number]> = [[BERNIE_POND_X, BERNIE_POND_Y]];

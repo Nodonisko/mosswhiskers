@@ -192,7 +192,8 @@ body { background: #172816; }
   color: #d8cc9e;
 }
 
-.interact-prompt {
+.interact-prompt,
+.quest-toast {
   position: absolute;
   z-index: 14;
   left: 50%;
@@ -204,6 +205,23 @@ body { background: #172816; }
   color: #f4eac8;
   font-size: 11px;
   letter-spacing: 1.4px;
+}
+
+.interact-prompt.intake-hint,
+.quest-toast {
+  top: 50%;
+  bottom: auto;
+  padding: 10px 16px;
+  transform: translate(-50%, -50%);
+  font-size: 13px;
+  letter-spacing: 1px;
+  text-align: center;
+}
+
+.quest-toast {
+  z-index: 16;
+  max-width: min(520px, calc(100vw - 40px));
+  pointer-events: none;
 }
 
 .letter-hud,

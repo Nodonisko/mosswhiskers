@@ -33,6 +33,7 @@ import {
   MAP_HEIGHT,
   MAP_WIDTH,
   mainPathY,
+  nearIntakeRim,
   PIER_X,
   PIER_Y,
   RABBIT,
@@ -254,6 +255,14 @@ describe("createWalkable", () => {
     expect(walkable(INTAKE.x, INTAKE.y)).toBe(true);
     expect(walkable(BERNIE_POND_X, BERNIE_POND_Y)).toBe(false);
     expect(walkable(BERNIE_POND_X + BERNIE_POND_WIDTH * 0.32, BERNIE_POND_Y)).toBe(true);
+    expect(nearIntakeRim(INTAKE.x, INTAKE.y)).toBe(true);
+    expect(nearIntakeRim(BERNIE_POND_X, BERNIE_POND_Y)).toBe(false);
+    expect(nearIntakeRim(0, -5)).toBe(false);
+    let shore = false;
+    for (let dy = 70; dy <= 140; dy += 4) {
+      if (nearIntakeRim(BERNIE_POND_X, BERNIE_POND_Y - dy)) shore = true;
+    }
+    expect(shore).toBe(true);
   });
 
   test("Bernie hut blocks the doorway footprint", () => {

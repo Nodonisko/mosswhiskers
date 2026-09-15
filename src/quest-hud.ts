@@ -1,9 +1,10 @@
-import type { QuestId } from "./sim";
+import type { PlayerSim, QuestId } from "./sim";
 
 const QUEST_COPY: Record<QuestId, { summary: string; objective: string }> = {
   sandwhisker: {
     summary: "His woods are dying and the pond is a puddle.",
-    objective: "Bring him fish and mice. He lives in the far northwest of the wood.",
+    objective:
+      "Bring him fish and mice. He lives in the far northwest of the wood.",
   },
   pond: {
     summary: "Bernie took the fish and mice.",
@@ -15,10 +16,10 @@ const QUEST_COPY: Record<QuestId, { summary: string; objective: string }> = {
   },
   hopsk: {
     summary: "Bernie knows a rabbit who never did like Catman.",
-    objective: "Find Elon Hopsk on the southwest farm.",
+    objective: "Find vegetable farmer on the southwest farm.",
   },
   clog: {
-    summary: "Hopsk lent you one of his rockets.",
+    summary: "Hopsk lent you one of his carrots.",
     objective: "Stuff it in the pipe intake. Bernie's pond, the gulping end.",
   },
   smoke: {
@@ -29,6 +30,16 @@ const QUEST_COPY: Record<QuestId, { summary: string; objective: string }> = {
     summary: "There is a glow over Catman's barn.",
     objective: "Check the data center. Speak with Sam.",
   },
+};
+
+const QUEST_HINT: Record<QuestId, string> = {
+  sandwhisker: "Catch mouse and fish for Bernie",
+  pond: "Investigate why pond is drying",
+  report: "Go back to Bernie",
+  hopsk: "Find vegetable farmer in South",
+  clog: "Insert the carrot in the pipe",
+  smoke: "Go back to Bernie",
+  blaze: "Check the data center",
 };
 
 function paintQuestBang(canvas: HTMLCanvasElement) {
@@ -59,12 +70,16 @@ export function createQuestHud(root: HTMLElement) {
   const panel = root.querySelector<HTMLElement>(".quest-panel");
   const summary = root.querySelector<HTMLElement>(".quest-summary");
   const objective = root.querySelector<HTMLElement>(".quest-objective");
-  if (!toggle || !icon || !panel || !summary || !objective) throw new Error("Quest HUD markup is missing");
+  if (!toggle || !icon || !panel || !summary || !objective)
+    throw new Error("Quest HUD markup is missing");
   const questToggle: HTMLButtonElement = toggle;
   const questIcon: HTMLCanvasElement = icon;
   const questPanel: HTMLElement = panel;
   const questSummary: HTMLElement = summary;
   const questObjective: HTMLElement = objective;
+  const toast = document.querySelector<HTMLElement>(".quest-toast");
+  if (!toast) throw new Error("Quest toast markup is missing");
+  const questToast: HTMLElement = toast;
 
   paintQuestBang(questIcon);
 
@@ -102,7 +117,8 @@ export function createQuestHud(root: HTMLElement) {
   window.addEventListener("keydown", onKeyDown);
 
   return {
-    sync(questId: QuestId | null) {
+    sync(player: PlayerSim | undefined) {
+      const questId = player?.progress.activeQuest ?? null;
       hasQuest = questId !== null;
       root.hidden = !hasQuest;
       if (questId) {
@@ -111,6 +127,10 @@ export function createQuestHud(root: HTMLElement) {
         questObjective.textContent = copy.objective;
       }
       if (!hasQuest) setOpen(false);
+      const hint = player?.questHint;
+      const showToast = Boolean(hint) && !player?.openId;
+      questToast.hidden = !showToast;
+      if (showToast && hint) questToast.textContent = QUEST_HINT[hint];
     },
     dispose() {
       questToggle.removeEventListener("click", onToggle);

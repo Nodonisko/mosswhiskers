@@ -641,7 +641,7 @@ function startGame() {
 
     if (local) {
       pack.sync(local.inventory);
-      quest.sync(local.progress.activeQuest);
+      quest.sync(local);
       mail.sync(local);
       talk.sync(local);
       mailboxNotice.visible = !local.progress.mailboxRead;

@@ -31,3 +31,16 @@ export function pondPuddleContains(
     padding,
   );
 }
+
+/** Walkable mud ringing the remaining water. */
+export function onPuddleShore(
+  width: number,
+  height: number,
+  phase: number,
+  localX: number,
+  localY: number,
+  band = 64,
+) {
+  if (pondPuddleContains(width, height, phase, localX, localY)) return false;
+  return pondPuddleContains(width, height, phase, localX, localY, band);
+}
