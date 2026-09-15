@@ -832,6 +832,8 @@ describe("Elon Hopsk and the intake", () => {
     tick(sim, { x: 0, y: 0 }, 0.05);
     tick(sim, { x: 0, y: 0, interact: true }, 0.05);
     expect(cat(sim).talkId).toBe("bernie-victory");
+    tick(sim, { x: 0, y: 0, interact: true }, 0.05);
+    expect(cat(sim).talkId).toBeNull();
   });
 
   test("Hopsk does not share the rocket with another player still waiting on Bernie", () => {

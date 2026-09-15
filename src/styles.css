@@ -234,7 +234,8 @@ body { background: #172816; }
 }
 
 .letter-hud:not([hidden]),
-.talk-hud:not([hidden]) {
+.talk-hud:not([hidden]),
+.ending-hud:not([hidden]) {
   display: grid;
 }
 
@@ -335,6 +336,49 @@ body { background: #172816; }
   inset: 0;
   pointer-events: none;
   box-shadow: inset 0 0 90px 18px #233b1c73;
+}
+
+.ending-hud {
+  position: absolute;
+  z-index: 40;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: #000;
+  color: #fff8dd;
+  font-family: "Press Start 2P", ui-monospace, monospace;
+  -webkit-font-smoothing: none;
+  font-smooth: never;
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+
+.ending-hud.is-on {
+  pointer-events: auto;
+}
+
+.ending-line {
+  margin: 0;
+  padding: 0 28px;
+  max-width: min(820px, calc(100vw - 48px));
+  font-size: 16px;
+  line-height: 2;
+  letter-spacing: 1px;
+  text-align: center;
+}
+
+.ending-prompt {
+  position: absolute;
+  left: 50%;
+  bottom: 28px;
+  margin: 0;
+  transform: translateX(-50%);
+  color: #bdb38a;
+  font-size: 8px;
+  line-height: 1.6;
+  letter-spacing: 0.4px;
+  text-align: center;
+  white-space: nowrap;
 }
 
 @keyframes show-controls { 15%, 70% { opacity: 1; } 100% { opacity: 0.25; } }

@@ -1,6 +1,5 @@
 import * as THREE from "three";
 import { paintPixelTexture } from "./pixel-canvas";
-import { WORLD_MODEL_SIZES } from "./world-models";
 
 type Overlay = {
   sprite: THREE.Sprite;
@@ -14,29 +13,38 @@ export type HutFx = {
 
 const LANTERN_ORIGIN = { x: 31, y: 78 };
 const WINDOW_ORIGIN = { x: 78, y: 70 };
-const SMOKE_ORIGIN = { x: 94, y: -28 };
+const HUT_SMOKE_ORIGIN = { x: 94, y: -28 };
+const SHED_SMOKE_ORIGIN = { x: 118, y: -34 };
+const SMOKE_SIZE = { width: 24, height: 48 };
 
-function hutPixelCenter(hut: THREE.Sprite, px: number, py: number) {
-  const [width, height] = WORLD_MODEL_SIZES.hut;
-  const scaleX = hut.scale.x / width;
-  const scaleY = hut.scale.y / height;
+function buildingSize(building: THREE.Sprite) {
   return {
-    x: hut.position.x + (px - width / 2) * scaleX,
-    y: hut.position.y + (height - py) * scaleY,
+    width: Number(building.userData.nativeWidth) || 1,
+    height: Number(building.userData.nativeHeight) || 1,
+  };
+}
+
+function buildingPixelCenter(building: THREE.Sprite, px: number, py: number) {
+  const { width, height } = buildingSize(building);
+  const scaleX = building.scale.x / width;
+  const scaleY = building.scale.y / height;
+  return {
+    x: building.position.x + (px - width / 2) * scaleX,
+    y: building.position.y + (height - py) * scaleY,
   };
 }
 
 function overlay(
-  hut: THREE.Sprite,
+  building: THREE.Sprite,
   origin: { x: number; y: number },
   frames: THREE.CanvasTexture[],
   nativeWidth: number,
   nativeHeight: number,
   step: number,
 ): Overlay {
-  const [hutW, hutH] = WORLD_MODEL_SIZES.hut;
-  const scaleX = hut.scale.x / hutW;
-  const scaleY = hut.scale.y / hutH;
+  const { width, height } = buildingSize(building);
+  const scaleX = building.scale.x / width;
+  const scaleY = building.scale.y / height;
   const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
     map: frames[0],
     transparent: true,
@@ -46,26 +54,25 @@ function overlay(
     toneMapped: false,
   }));
   sprite.scale.set(nativeWidth * scaleX, nativeHeight * scaleY, 1);
-  const center = hutPixelCenter(hut, origin.x + nativeWidth / 2, origin.y + nativeHeight / 2);
+  const center = buildingPixelCenter(building, origin.x + nativeWidth / 2, origin.y + nativeHeight / 2);
   sprite.position.set(center.x, center.y, 1.4);
-  sprite.renderOrder = hut.renderOrder + 2;
+  sprite.renderOrder = building.renderOrder + 2;
   sprite.center.set(0.5, 0.5);
   return { sprite, frames, step };
 }
 
 function smokeOverlay(
-  hut: THREE.Sprite,
+  building: THREE.Sprite,
+  origin: { x: number; y: number },
   frames: THREE.CanvasTexture[],
-  nativeWidth: number,
-  nativeHeight: number,
   step: number,
 ): Overlay {
-  const item = overlay(hut, SMOKE_ORIGIN, frames, nativeWidth, nativeHeight, step);
+  const item = overlay(building, origin, frames, SMOKE_SIZE.width, SMOKE_SIZE.height, step);
   const material = item.sprite.material as THREE.SpriteMaterial;
   material.alphaTest = 0;
   material.depthTest = false;
   item.sprite.position.z = 2.2;
-  item.sprite.renderOrder = hut.renderOrder + 8;
+  item.sprite.renderOrder = building.renderOrder + 8;
   return item;
 }
 
@@ -142,11 +149,25 @@ function smokeFrames() {
   ];
 }
 
+function getSmokeFrames() {
+  return smokeFrameCache ??= smokeFrames();
+}
+
+let smokeFrameCache: THREE.CanvasTexture[] | undefined;
+
 export function createHutFx(hut: THREE.Sprite, world: THREE.Object3D): HutFx {
   const overlays = [
     overlay(hut, LANTERN_ORIGIN, lanternFrames(), 9, 11, 0.34),
     overlay(hut, WINDOW_ORIGIN, windowFrames(), 20, 16, 1.15),
-    smokeOverlay(hut, smokeFrames(), 24, 48, 0.42),
+    smokeOverlay(hut, HUT_SMOKE_ORIGIN, getSmokeFrames(), 0.42),
+  ];
+  for (const item of overlays) world.add(item.sprite);
+  return { overlays };
+}
+
+export function createShedFx(shed: THREE.Sprite, world: THREE.Object3D): HutFx {
+  const overlays = [
+    smokeOverlay(shed, SHED_SMOKE_ORIGIN, getSmokeFrames(), 0.48),
   ];
   for (const item of overlays) world.add(item.sprite);
   return { overlays };

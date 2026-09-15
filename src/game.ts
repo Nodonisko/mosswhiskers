@@ -7,11 +7,12 @@ import { createMeowLayer } from "./meow-hud";
 import { createNameLayer, playerNameTags } from "./name-hud";
 import { createPackHud } from "./pack-hud";
 import { createQuestHud } from "./quest-hud";
+import { createEndingHud } from "./ending-hud";
 import { createTalkHud } from "./talk-hud";
 import { paintPixelTexture } from "./pixel-canvas";
 import { createPierModel } from "./pier-model";
 import { createIntakePipeModel, updateIntakePipeModel } from "./pipe-model";
-import { createHutFx, updateHutFx } from "./hut-fx";
+import { createHutFx, createShedFx, updateHutFx } from "./hut-fx";
 import { createDataCenterFx, updateDataCenterFx } from "./datacenter-fx";
 import { createDriedPondModel, updateDriedPondModel } from "./pond-model";
 import { seeded } from "./rng";
@@ -42,6 +43,7 @@ import {
   DEFAULT_CAT_SEED,
   FARM,
   FARM_PLOT,
+  FARM_SHED,
   DEFAULT_SPAWN,
   LAKE_HEIGHT,
   LAKE_SEED,
@@ -343,6 +345,7 @@ function startGame() {
   const lanterns: THREE.Sprite[] = [];
   let mailNotice: THREE.Sprite | undefined;
   let bernieHut: THREE.Sprite | undefined;
+  let hopskShed: THREE.Sprite | undefined;
   let dataHall: THREE.Sprite | undefined;
   const rackSprites: THREE.Sprite[] = [];
 
@@ -364,6 +367,7 @@ function startGame() {
     }
     if (prop.kind === "lamp") lanterns.push(model);
     if (prop.kind === "hut") bernieHut = model;
+    if (prop.kind === "shed") hopskShed = model;
     if (prop.kind === "datacenter") dataHall = model;
     if (prop.kind === "racks") rackSprites.push(model);
     if (prop.kind === "mailBubble") {
@@ -377,10 +381,13 @@ function startGame() {
   for (const prop of layout.props) place(prop);
   if (!mailNotice) throw new Error("Mailbox notice is missing from the world layout");
   if (!bernieHut) throw new Error("Bernie hut is missing from the world layout");
+  if (!hopskShed) throw new Error("Hopsk shed is missing from the world layout");
   if (!dataHall) throw new Error("Data center is missing from the world layout");
   const mailboxNotice: THREE.Sprite = mailNotice;
   const hutSprite: THREE.Sprite = bernieHut;
   const hutFx = createHutFx(hutSprite, world);
+  const shedSprite: THREE.Sprite = hopskShed;
+  const shedFx = createShedFx(shedSprite, world);
   const dataCenterFx = createDataCenterFx(dataHall, rackSprites, world);
   const clogCarrot = createWorldModel("carrot", { scale: 0.86, seed: 88, variant: 10 });
   clogCarrot.position.set(BERNIE_POND_X + 6, BERNIE_POND_Y - 4, 0);
@@ -436,6 +443,13 @@ function startGame() {
     mice: layout.mice,
     interactables: layout.interactables,
   });
+  if (location.hash === "#farm") {
+    const preview = playerById(sim, LOCAL_PLAYER_ID);
+    if (preview) {
+      preview.x = FARM_SHED.x;
+      preview.y = FARM_SHED.y - 140;
+    }
+  }
 
   const textureCache = new Map<number, CatTextures>();
   type PlayerView = { sprite: THREE.Sprite; scaleX: number };
@@ -550,6 +564,7 @@ function startGame() {
   const quest = createQuestHud(questRoot);
   const mail = createMailHud(document.getElementById("game") ?? document.body);
   const talk = createTalkHud(document.getElementById("game") ?? document.body);
+  const ending = createEndingHud(document.getElementById("game") ?? document.body);
   const meows = createMeowLayer(world);
   const names = createNameLayer(world);
   let viewWidth = 960;
@@ -576,7 +591,16 @@ function startGame() {
     accumulator += frameDt;
     accumulator = drainFixedTicks(accumulator, TICK_DT, MAX_TICKS_PER_FRAME, () => {
       const sample = input.sample();
-      if (mail.consumeDismiss() || talk.consumeDismiss()) sample.interact = true;
+      if (ending.blocking()) {
+        mail.consumeDismiss();
+        talk.consumeDismiss();
+        sample.x = 0;
+        sample.y = 0;
+        sample.claw = false;
+        sample.interact = false;
+      } else if (mail.consumeDismiss() || talk.consumeDismiss()) {
+        sample.interact = true;
+      }
       tickSim(sim, { [LOCAL_PLAYER_ID]: sample }, TICK_DT, walkable);
     });
 
@@ -615,6 +639,7 @@ function startGame() {
     clogCarrot.visible = clogged;
     updateIntakePipeModel(intakePipe, sim.elapsed, clogged);
     updateHutFx(hutFx, hutSprite, sim.elapsed);
+    updateHutFx(shedFx, shedSprite, sim.elapsed + 0.9);
     updateDataCenterFx(dataCenterFx, sim.elapsed, clogged);
     for (const fish of sim.fish) {
       const view = fishViews.get(fish.id);
@@ -644,6 +669,7 @@ function startGame() {
       quest.sync(local);
       mail.sync(local);
       talk.sync(local);
+      ending.sync(local);
       mailboxNotice.visible = !local.progress.mailboxRead;
       const cameraEdgeX = Math.max(0, MAP_WIDTH / 2 - viewWidth / 2);
       const cameraEdgeY = MAP_HEIGHT / 2 - VIEW_HEIGHT / 2;
@@ -653,6 +679,7 @@ function startGame() {
       camera.position.x = THREE.MathUtils.lerp(camera.position.x, cameraTargetX, cameraFollow);
       camera.position.y = THREE.MathUtils.lerp(camera.position.y, cameraTargetY, cameraFollow);
     }
+    ending.tick(frameDt);
     renderer.render(scene, camera);
   }
   animate();
@@ -665,6 +692,7 @@ function startGame() {
       quest.dispose();
       mail.dispose();
       talk.dispose();
+      ending.dispose();
       meows.dispose();
       names.dispose();
       window.removeEventListener("resize", resize);
