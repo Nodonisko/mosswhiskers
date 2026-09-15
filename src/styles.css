@@ -36,7 +36,7 @@ body { background: #172816; }
   z-index: 10;
   top: clamp(14px, 2.1vh, 28px);
   left: 50%;
-  width: min(470px, 43vw);
+  width: min(500px, 36vw);
   transform: translateX(-50%);
   color: #fff8dd;
   text-align: center;
@@ -45,7 +45,7 @@ body { background: #172816; }
 
 .colony-banner h1 {
   margin: 0 0 4px;
-  font: 400 clamp(31px, 3.15vw, 54px)/0.9 "Marker Felt", "Chalkboard SE", "Comic Sans MS", cursive;
+  font: 400 clamp(28px, 2.55vw, 48px)/0.9 "Marker Felt", "Chalkboard SE", "Comic Sans MS", cursive;
   letter-spacing: 1px;
   white-space: nowrap;
 }
@@ -98,7 +98,7 @@ body { background: #172816; }
   z-index: 10;
   top: 7px;
   right: 8px;
-  width: clamp(142px, 18vw, 230px);
+  width: clamp(150px, 12.5vw, 240px);
   color: #5a472f;
   filter: drop-shadow(0 3px 0 #333e20aa);
 }
@@ -113,9 +113,9 @@ body { background: #172816; }
 
 .clock-card { padding: 4px 8px 6px; }
 .clock { display: flex; align-items: center; justify-content: space-between; gap: 7px; }
-.clock strong { font: 400 clamp(20px, 2.5vw, 38px)/1 "Marker Felt", "Chalkboard SE", cursive; white-space: nowrap; }
-.sun-icon { color: #ffd548; font-size: clamp(22px, 2.5vw, 34px); text-shadow: 1px 1px #8c6830; }
-.season { display: flex; align-items: center; justify-content: space-between; font-size: clamp(10px, 1.25vw, 16px); }
+.clock strong { font: 400 clamp(19px, 1.9vw, 32px)/1 "Marker Felt", "Chalkboard SE", cursive; white-space: nowrap; }
+.sun-icon { color: #ffd548; font-size: clamp(20px, 2vw, 30px); text-shadow: 1px 1px #8c6830; }
+.season { display: flex; align-items: center; justify-content: space-between; font-size: clamp(9px, .95vw, 14px); }
 .season b { font-size: 1.4em; }
 
 .coin-row {
@@ -128,12 +128,12 @@ body { background: #172816; }
   text-shadow: 2px 2px #5e4a2c, -1px 0 #5e4a2c, 0 -1px #5e4a2c;
 }
 
-.coin-row strong { font: 400 clamp(22px, 3vw, 42px)/1 "Marker Felt", "Chalkboard SE", cursive; }
+.coin-row strong { font: 400 clamp(22px, 2.25vw, 38px)/1 "Marker Felt", "Chalkboard SE", cursive; }
 .coin { display: grid; width: 27px; height: 27px; place-items: center; border: 3px solid #806338; border-radius: 50%; background: #d8b54b; color: #fff1a0; }
 
 .minimap {
   position: relative;
-  height: clamp(105px, 14vw, 165px);
+  height: clamp(100px, 11.5vw, 160px);
   overflow: hidden;
   background-color: #86a84c;
   background-image:
@@ -158,14 +158,14 @@ body { background: #172816; }
   top: 24%;
   left: calc(50% + clamp(90px, 11vw, 165px));
   display: grid;
-  width: 68px;
-  height: 55px;
+  width: 54px;
+  height: 45px;
   place-items: center;
-  border: 5px solid #63513a;
+  border: 4px solid #63513a;
   border-radius: 8px;
   background: #fff3c5;
   color: #76583b;
-  font-size: 35px;
+  font-size: 27px;
   filter: drop-shadow(0 4px #8ba75a);
   animation: bob-mail 1.9s steps(4, end) infinite;
 }
@@ -173,10 +173,10 @@ body { background: #172816; }
 .letter-bubble::after {
   content: "";
   position: absolute;
-  bottom: -18px;
+  bottom: -16px;
   width: 0;
   height: 0;
-  border: 10px solid transparent;
+  border: 8px solid transparent;
   border-top-color: #63513a;
 }
 

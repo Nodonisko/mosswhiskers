@@ -63,7 +63,7 @@ function makePath() {
   map.wrapS = THREE.RepeatWrapping;
   map.repeat.x = 7;
   const mesh = new THREE.Mesh(
-    new THREE.PlaneGeometry(1240, 110),
+    new THREE.PlaneGeometry(1240, 58),
     new THREE.MeshBasicMaterial({ map, transparent: true, alphaTest: 0.1 }),
   );
   mesh.position.set(0, -188, -4);
@@ -85,7 +85,7 @@ const steppingStoneMap = pixelCanvas(20, 70, (ctx) => {
 });
 const steps = new THREE.Sprite(new THREE.SpriteMaterial({ map: steppingStoneMap, transparent: true }));
 steps.center.set(0.5, 0);
-steps.scale.set(56, 196, 1);
+steps.scale.set(38, 136, 1);
 steps.position.set(0, -282, 0);
 steps.renderOrder = -5;
 world.add(steps);
@@ -101,7 +101,7 @@ function place(kind: WorldModelKind, x: number, y: number, scale = 1, seed = 1, 
 
 // Deep background canopy.
 for (let i = 0; i < 11; i++) {
-  place(i % 3 === 0 ? "pine" : "oak", -540 + i * 108, 230 + (i % 3) * 55, 1.2 + (i % 2) * 0.12, 70 + i, i);
+  place(i % 3 === 0 ? "pine" : "oak", -540 + i * 108, 170 + (i % 3) * 34, 1.2 + (i % 2) * 0.12, 70 + i, i);
 }
 
 // Side framing and the colony clearing.
@@ -109,8 +109,8 @@ place("pine", -455, 112, 1.18, 13, 1);
 place("oak", -404, 8, 1.12, 14, 2);
 place("oak", 455, 115, 1.24, 15, 3);
 place("pine", 415, -20, 1.1, 16, 4);
-place("den", 0, 142, 1.4, 22);
-place("mailbox", 153, 141, 1.17, 23);
+place("den", 0, 46, 1.12, 22);
+place("mailbox", 153, 52, 1.28, 23);
 place("lamp", -230, -86, 1.12, 24);
 place("lamp", 230, -86, 1.12, 25);
 
@@ -123,6 +123,10 @@ for (const x of [-112, 112]) {
 place("log", -420, -112, 1.12, 31);
 place("stone", 330, -140, 0.9, 32);
 place("stone", -340, 118, 0.75, 33);
+place("bush", -382, -32, 1.2, 36);
+place("bush", 385, 10, 1.18, 37);
+place("pine", -500, -164, 1.08, 38, 1);
+place("oak", 510, -185, 1.14, 39, 2);
 
 const flowerGroups: Array<[number, number, number, number]> = [
   [-342, 137, 1.1, 0], [-450, 90, 1.05, 1],
@@ -132,7 +136,7 @@ const flowerGroups: Array<[number, number, number, number]> = [
 ];
 flowerGroups.forEach(([x, y, scale, variant], index) => place("flowers", x, y, scale, 100 + index, variant));
 
-const cat = place("cat", 0, -5, 1.28, 5, 0);
+const cat = place("cat", 0, -5, 2.05, 5, 0);
 cat.renderOrder = 20000;
 
 const keys = new Set<string>();

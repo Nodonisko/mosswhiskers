@@ -1,4 +1,6 @@
-# just-game
+# Mosswhisker Hollow
+
+A small Three.js woodland world rendered with an orthographic camera, generated pixel textures, and procedural sprite models. Walk the cat with WASD or the arrow keys.
 
 To install dependencies:
 
@@ -6,10 +8,17 @@ To install dependencies:
 bun install
 ```
 
-To run:
+To run the development server:
 
 ```bash
-bun run index.ts
+bun run dev
 ```
 
-This project was created using `bun init` in bun v1.3.14. [Bun](https://bun.com) is a fast all-in-one JavaScript runtime.
+Then open [http://localhost:3000](http://localhost:3000) in Chrome.
+
+To check types and create a production bundle:
+
+```bash
+bun run typecheck
+bun build ./index.html --outdir ./dist
+```
