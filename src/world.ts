@@ -178,6 +178,8 @@ export const FISH_SPECS: FishSpec[] = [
   { id: "fish-pike-2", kind: "pike", originX: LAKE_X - 160, originY: LAKE_Y + 50, radiusX: 150, radiusY: 58, speed: 0.13, phase: 5.2, tailStep: 0.8 },
   { id: "fish-perch-2", kind: "perch", originX: LAKE_X - 90, originY: LAKE_Y - 110, radiusX: 130, radiusY: 50, speed: 0.15, phase: 0.9, tailStep: 0.65 },
   { id: "fish-bluegill-2", kind: "bluegill", originX: LAKE_X + 40, originY: LAKE_Y + 95, radiusX: 100, radiusY: 42, speed: 0.21, phase: 4.6, tailStep: 0.5 },
+  { id: "fish-bluegill-3", kind: "bluegill", originX: LAKE_X - 200, originY: LAKE_Y - 20, radiusX: 95, radiusY: 40, speed: 0.18, phase: 2.2, tailStep: 0.52 },
+  { id: "fish-bluegill-4", kind: "bluegill", originX: LAKE_X + 210, originY: LAKE_Y + 30, radiusX: 88, radiusY: 38, speed: 0.22, phase: 5.8, tailStep: 0.48 },
 ];
 
 export function createMouseSpecs(count = 12): MouseSpec[] {

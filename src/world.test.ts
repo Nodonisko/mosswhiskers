@@ -59,6 +59,8 @@ describe("createWorldLayout", () => {
       "fish-pike-2",
       "fish-perch-2",
       "fish-bluegill-2",
+      "fish-bluegill-3",
+      "fish-bluegill-4",
     ]);
     expect(a.interactables).toEqual([
       { id: "mailbox", kind: "mailbox", x: MAILBOX.x, y: MAILBOX.y },
@@ -72,7 +74,7 @@ describe("createWorldLayout", () => {
   test("lake fish stay in the water", () => {
     const layout = createWorldLayout();
     const phase = lakePhaseFromSeed(LAKE_SEED);
-    expect(layout.fish).toHaveLength(6);
+    expect(layout.fish).toHaveLength(8);
     for (const fish of layout.fish) {
       for (let i = 0; i < 24; i++) {
         const t = (i / 24) * Math.PI * 2;
