@@ -54,6 +54,42 @@
       </section>
       </aside>
 
+      <aside class="right-hud">
+        <section class="settings-hud" aria-label="Settings">
+          <button type="button" class="settings-toggle pixel-frame" aria-label="Open settings" aria-expanded="false">
+            <img class="settings-icon" src="/assets/cog.png" width="24" height="24" alt="" aria-hidden="true" />
+          </button>
+          <div class="settings-panel pixel-frame" hidden>
+            <h2>Settings</h2>
+            <div class="settings-item">
+              <h3>Music</h3>
+              <div class="settings-slider" data-setting="music" role="radiogroup" aria-label="Music volume">
+                <span class="settings-slider-track" aria-hidden="true"></span>
+                <span class="settings-slider-fill" aria-hidden="true"></span>
+                <button type="button" class="settings-slider-point" role="radio" data-level="1" aria-label="Level 1, mute" aria-checked="false"></button>
+                <button type="button" class="settings-slider-point" role="radio" data-level="2" aria-label="Level 2" aria-checked="false"></button>
+                <button type="button" class="settings-slider-point" role="radio" data-level="3" aria-label="Level 3" aria-checked="true"></button>
+                <button type="button" class="settings-slider-point" role="radio" data-level="4" aria-label="Level 4" aria-checked="false"></button>
+                <button type="button" class="settings-slider-point" role="radio" data-level="5" aria-label="Level 5" aria-checked="false"></button>
+              </div>
+            </div>
+            <div class="settings-item">
+              <h3>Sounds</h3>
+              <div class="settings-slider" data-setting="sfx" role="radiogroup" aria-label="Sound effects volume">
+                <span class="settings-slider-track" aria-hidden="true"></span>
+                <span class="settings-slider-fill" aria-hidden="true"></span>
+                <button type="button" class="settings-slider-point" role="radio" data-level="1" aria-label="Level 1, mute" aria-checked="false"></button>
+                <button type="button" class="settings-slider-point" role="radio" data-level="2" aria-label="Level 2" aria-checked="false"></button>
+                <button type="button" class="settings-slider-point" role="radio" data-level="3" aria-label="Level 3" aria-checked="false"></button>
+                <button type="button" class="settings-slider-point" role="radio" data-level="4" aria-label="Level 4" aria-checked="false"></button>
+                <button type="button" class="settings-slider-point" role="radio" data-level="5" aria-label="Level 5" aria-checked="true"></button>
+              </div>
+            </div>
+          </div>
+        </section>
+        <button type="button" class="fullscreen-btn pixel-frame" hidden aria-label="Enter fullscreen">FULL</button>
+      </aside>
+
       <section class="colony-banner" aria-label="World title">
         <h1>Mosswhiskers Meadow</h1>
       </section>
@@ -88,7 +124,6 @@
       </section>
 
       <p class="controls" hidden aria-label="Controls">WASD / ARROWS TO WANDER · SPACE TO SWIPE · E TO TALK</p>
-      <button type="button" class="fullscreen-btn pixel-frame" hidden aria-label="Enter fullscreen">FULL</button>
       <div class="touch-hud" hidden aria-hidden="true">
         <div class="touch-joystick" role="group" aria-label="Move">
           <div class="touch-joystick-base">

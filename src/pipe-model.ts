@@ -13,8 +13,8 @@ const FLANGE_EVERY = 92;
 const SUPPORT_EVERY = 128;
 const BULGE_WIDTH = 26;
 const BULGE_HEIGHT = 14;
-const BALL_COUNT = 5;
-const BALL_SPEED = 210;
+export const PIPE_BALL_COUNT = 5;
+export const PIPE_BALL_SPEED = 210;
 
 type PipeSample = {
   tx: number;
@@ -86,16 +86,24 @@ function writePixel(pixels: Uint8ClampedArray, width: number, tx: number, ty: nu
 }
 
 function bulgeAt(along: number, length: number, elapsed: number) {
-  const wrapped = ((elapsed * BALL_SPEED) % length + length) % length;
-  const spacing = length / BALL_COUNT;
+  const wrapped = ((elapsed * PIPE_BALL_SPEED) % length + length) % length;
+  const spacing = length / PIPE_BALL_COUNT;
   let extra = 0;
-  for (let i = 0; i < BALL_COUNT; i++) {
+  for (let i = 0; i < PIPE_BALL_COUNT; i++) {
     const pos = (wrapped + i * spacing) % length;
     let delta = Math.abs(along - pos);
     delta = Math.min(delta, length - delta);
     extra = Math.max(extra, Math.exp(-((delta / BULGE_WIDTH) ** 2)) * BULGE_HEIGHT);
   }
   return extra;
+}
+
+/** How many swallows have reached the pond intake. */
+export const GULP_SOUND_LEAD = 0.3;
+
+export function intakeGulpIndex(elapsed: number, length: number, lead = GULP_SOUND_LEAD) {
+  if (length <= 0) return 0;
+  return Math.floor((elapsed + lead) * PIPE_BALL_SPEED * PIPE_BALL_COUNT / length);
 }
 
 function pipeColor(dist: number, radius: number, ny: number, flange: boolean, bulge: number) {

@@ -4,15 +4,18 @@ import { createKeyboardInput, createPlayerInput } from "./input";
 import { createTouchHud } from "./touch-hud";
 import { createLakeModel, updateLakeModel } from "./lake-model";
 import { createMailHud } from "./mail-hud";
-import { createMeowLayer } from "./meow-hud";
+import { createMeowLayer, type SpeechPop } from "./meow-hud";
 import { createNameLayer, playerNameTags } from "./name-hud";
+import { createBackgroundMusic } from "./music";
 import { createPackHud } from "./pack-hud";
 import { createQuestHud } from "./quest-hud";
+import { createSettingsHud } from "./settings-hud";
+import { createSfxPlayer, FIRE_FADE_RANGE, GULP_FADE_RANGE, gulpDistance, ROCKET_SOUND_DELAY } from "./sfx";
 import { createEndingHud } from "./ending-hud";
 import { createTalkHud } from "./talk-hud";
 import { paintPixelTexture } from "./pixel-canvas";
 import { createPierModel } from "./pier-model";
-import { createIntakePipeModel, updateIntakePipeModel } from "./pipe-model";
+import { createIntakePipeModel, intakeGulpIndex, updateIntakePipeModel } from "./pipe-model";
 import { createRocketFx, updateRocketFx } from "./rocket-fx";
 import { createHutFx, createShedFx, updateHutFx } from "./hut-fx";
 import { createDataCenterFx, updateDataCenterFx } from "./datacenter-fx";
@@ -58,6 +61,7 @@ import {
   MAP_HEIGHT,
   MAP_WIDTH,
   MAX_TICKS_PER_FRAME,
+  INTAKE,
   PIER_SEED,
   PIER_X,
   PIER_Y,
@@ -99,41 +103,11 @@ function catTextures(seed: number, cache: Map<number, CatTextures>): CatTextures
   return created;
 }
 
-function createBackgroundMusic(src = "/assets/background.mp3") {
-  const audio = new Audio(src);
-  audio.loop = true;
-  audio.preload = "auto";
-  audio.volume = 0.4;
-  audio.setAttribute("aria-hidden", "true");
-  document.body.append(audio);
-
-  const unlock = () => {
-    void audio.play().catch(() => {});
-    window.removeEventListener("pointerdown", unlock);
-    window.removeEventListener("keydown", unlock);
-  };
-
-  void audio.play().catch(() => {
-    window.addEventListener("pointerdown", unlock);
-    window.addEventListener("keydown", unlock);
-  });
-
-  return {
-    dispose() {
-      window.removeEventListener("pointerdown", unlock);
-      window.removeEventListener("keydown", unlock);
-      audio.pause();
-      audio.removeAttribute("src");
-      audio.load();
-      audio.remove();
-    },
-  };
-}
-
 function startGame() {
   const canvas = document.querySelector<HTMLCanvasElement>("#world");
   if (!canvas) throw new Error("World canvas is missing");
   const music = createBackgroundMusic();
+  const sfx = createSfxPlayer(() => music.sfxVolume());
 
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: false });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -635,11 +609,85 @@ function startGame() {
   const questRoot = document.querySelector<HTMLElement>(".quest-hud");
   if (!questRoot) throw new Error("Quest HUD is missing");
   const quest = createQuestHud(questRoot);
+  const settingsRoot = document.querySelector<HTMLElement>(".settings-hud");
+  if (!settingsRoot) throw new Error("Settings HUD is missing");
+  const settings = createSettingsHud(settingsRoot, music);
   const mail = createMailHud(gameRoot);
   const talk = createTalkHud(gameRoot);
   const ending = createEndingHud(gameRoot);
   const meows = createMeowLayer(world);
   const names = createNameLayer(world);
+  const heardMeow = new Map<string, number>();
+  const heardClaw = new Map<string, number>();
+  const heardHiss = new Map<string, number>();
+  const heardRockets = new Set<number>();
+  const heardMice = new Set<string>();
+  const heardFish = new Set<string>();
+  function hear(map: Map<string, number>, id: string, nonce: number, play: () => void) {
+    if (nonce <= (map.get(id) ?? 0)) return;
+    map.set(id, nonce);
+    play();
+  }
+  function syncSfx() {
+    for (const player of sim.players) {
+      hear(heardMeow, player.id, player.meowNonce, () => sfx.playMeow());
+      hear(heardClaw, player.id, player.clawNonce, () => sfx.playClaw());
+    }
+    for (const hiss of sim.hisses) {
+      hear(heardHiss, hiss.id, hiss.hissNonce, () => sfx.playHiss());
+    }
+    for (const [index, rocket] of sim.rocketCarrots.entries()) {
+      if (!rocket.launched || rocket.elapsed < ROCKET_SOUND_DELAY || heardRockets.has(index)) continue;
+      heardRockets.add(index);
+      sfx.playRocket();
+    }
+    for (const mouse of sim.mice) {
+      if (mouse.alive) {
+        heardMice.delete(mouse.id);
+        continue;
+      }
+      if (heardMice.has(mouse.id)) continue;
+      heardMice.add(mouse.id);
+      sfx.playMouse();
+    }
+    for (const fish of sim.fish) {
+      if (fish.alive) {
+        heardFish.delete(fish.id);
+        continue;
+      }
+      if (heardFish.has(fish.id)) continue;
+      heardFish.add(fish.id);
+      sfx.playSplash();
+    }
+    const listener = playerById(sim, LOCAL_PLAYER_ID) ?? sim.players[0];
+    const campusDistance = listener
+      ? Math.hypot(listener.x - DATA_CENTER.x, listener.y - DATA_CENTER.y)
+      : FIRE_FADE_RANGE;
+    const burning = Boolean(listener?.progress.pipeClogged);
+    sfx.syncGulp({
+      gulpIndex: intakeGulpIndex(sim.elapsed, intakePipe.length),
+      clogged: burning,
+      distance: listener
+        ? gulpDistance(listener.x - INTAKE.x, listener.y - INTAKE.y)
+        : GULP_FADE_RANGE,
+    });
+    sfx.syncFire({ burning, distance: campusDistance });
+    sfx.syncBeep({ humming: Boolean(listener) && !burning, distance: campusDistance });
+  }
+  function speechPops() {
+    const pops: SpeechPop[] = [];
+    for (const player of sim.players) {
+      if (!player.meowing) continue;
+      pops.push({ id: player.id, x: player.x, y: player.y, elapsed: player.meowElapsed, label: "Meow" });
+    }
+    for (const hiss of sim.hisses) {
+      if (!hiss.hissing) continue;
+      const npc = sim.interactables.find((item) => item.id === hiss.id);
+      if (!npc) continue;
+      pops.push({ id: `hiss-${hiss.id}`, x: npc.x, y: npc.y, elapsed: hiss.hissElapsed, label: "SSSSS" });
+    }
+    return pops;
+  }
   let viewWidth = 960;
   function viewportBox() {
     const view = window.visualViewport;
@@ -691,9 +739,10 @@ function startGame() {
       syncWalkable();
       tickSim(sim, { [LOCAL_PLAYER_ID]: sample }, TICK_DT, walkable);
     });
+    syncSfx();
 
     syncPlayers(sim.players);
-    meows.sync(sim.players);
+    meows.sync(speechPops());
     names.sync([
       { id: "npc-bernie", name: BERNIE_NAME, x: BERNIE.x, y: BERNIE.y },
       { id: "npc-sam", name: SAM_NAME, x: SAM.x, y: SAM.y },
@@ -791,7 +840,9 @@ function startGame() {
   return {
     dispose() {
       cancelAnimationFrame(raf);
+      settings.dispose();
       music.dispose();
+      sfx.dispose();
       input.dispose();
       pack.dispose();
       quest.dispose();

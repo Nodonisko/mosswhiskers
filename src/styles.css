@@ -49,12 +49,28 @@ body { background: #172816; }
   gap: 8px;
 }
 
+.right-hud {
+  position: absolute;
+  z-index: 12;
+  top: 14px;
+  right: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
 .pack-hud,
-.quest-hud {
+.quest-hud,
+.settings-hud {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 8px;
+}
+
+.settings-hud {
+  align-items: flex-end;
 }
 
 [hidden] {
@@ -72,7 +88,8 @@ body { background: #172816; }
 }
 
 .pack-toggle,
-.quest-toggle {
+.quest-toggle,
+.settings-toggle {
   position: relative;
   display: grid;
   place-items: center;
@@ -89,12 +106,15 @@ body { background: #172816; }
 .pack-toggle:hover,
 .pack-toggle[aria-expanded="true"],
 .quest-toggle:hover,
-.quest-toggle[aria-expanded="true"] {
+.quest-toggle[aria-expanded="true"],
+.settings-toggle:hover,
+.settings-toggle[aria-expanded="true"] {
   background: #3d5c32f0;
 }
 
 .pack-icon,
-.quest-icon {
+.quest-icon,
+.settings-icon {
   width: 40px;
   height: 40px;
   image-rendering: pixelated;
@@ -115,7 +135,8 @@ body { background: #172816; }
 }
 
 .pack-panel,
-.quest-panel {
+.quest-panel,
+.settings-panel {
   width: min(280px, calc(100vw - 28px));
   padding: 10px 10px 12px;
   background: #2a4124f2;
@@ -123,7 +144,8 @@ body { background: #172816; }
 }
 
 .pack-panel h2,
-.quest-panel h2 {
+.quest-panel h2,
+.settings-panel h2 {
   margin: 0 0 8px;
   font-size: 12px;
   font-weight: 400;
@@ -136,6 +158,76 @@ body { background: #172816; }
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.6px;
+}
+
+.settings-item + .settings-item {
+  margin-top: 14px;
+}
+
+.settings-item h3 {
+  margin: 0 0 8px;
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+}
+
+.settings-slider {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: 28px;
+  padding: 0 4px;
+  touch-action: none;
+  cursor: pointer;
+}
+
+.settings-slider-track,
+.settings-slider-fill {
+  position: absolute;
+  left: 11px;
+  right: 11px;
+  top: 50%;
+  height: 4px;
+  margin-top: -2px;
+  pointer-events: none;
+}
+
+.settings-slider-track {
+  background: #1f3218;
+  box-shadow: 0 0 0 2px #67523a;
+}
+
+.settings-slider-fill {
+  right: auto;
+  width: calc((100% - 22px) * 0.5);
+  background: #d4b57a;
+}
+
+.settings-slider[data-setting="sfx"] .settings-slider-fill {
+  width: calc((100% - 22px) * 1);
+}
+
+.settings-slider-point {
+  position: relative;
+  z-index: 1;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  appearance: none;
+  border: 2px solid #3a2a14;
+  background: #1f3218;
+  cursor: pointer;
+}
+
+.settings-slider-point.is-on {
+  background: #d4b57a;
+}
+
+.settings-slider-point[aria-checked="true"] {
+  background: #f0c44c;
+  box-shadow: inset 0 0 0 2px #fff8dd;
 }
 
 .quest-summary,
@@ -479,14 +571,21 @@ body { background: #172816; }
   left: max(10px, env(safe-area-inset-left));
 }
 
+#game.has-touch-controls .right-hud {
+  top: max(10px, env(safe-area-inset-top));
+  right: max(10px, env(safe-area-inset-right));
+}
+
 #game.has-touch-controls .pack-toggle,
-#game.has-touch-controls .quest-toggle {
+#game.has-touch-controls .quest-toggle,
+#game.has-touch-controls .settings-toggle {
   width: 48px;
   height: 48px;
 }
 
 #game.has-touch-controls .pack-icon,
-#game.has-touch-controls .quest-icon {
+#game.has-touch-controls .quest-icon,
+#game.has-touch-controls .settings-icon {
   width: 34px;
   height: 34px;
 }
@@ -564,10 +663,8 @@ body { background: #172816; }
 }
 
 .fullscreen-btn {
-  position: absolute;
+  position: relative;
   z-index: 12;
-  top: max(10px, env(safe-area-inset-top));
-  right: max(10px, env(safe-area-inset-right));
   width: 48px;
   height: 48px;
   margin: 0;

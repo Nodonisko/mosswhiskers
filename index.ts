@@ -1,38 +1,30 @@
 import index from "./index.html";
 
 const port = Number(Bun.env.PORT ?? 3000);
+const assetsRoot = new URL("./assets/", import.meta.url);
+
+async function assetResponse(relPath: string) {
+  if (!relPath || relPath.includes("\0") || relPath.includes("..") || relPath.startsWith("/") || relPath.includes("\\")) {
+    return new Response("Not Found", { status: 404 });
+  }
+  const file = Bun.file(new URL(relPath, assetsRoot));
+  if (!(await file.exists())) return new Response("Not Found", { status: 404 });
+  const headers: Record<string, string> = { "Cache-Control": "public, max-age=31536000" };
+  if (relPath.endsWith(".ttf")) {
+    headers["Content-Type"] = "font/ttf";
+    headers["Access-Control-Allow-Origin"] = "*";
+  }
+  return new Response(file, { headers });
+}
 
 Bun.serve({
   port,
   routes: {
     "/": index,
-    "/assets/meadow-texture.png": new Response(
-      Bun.file(new URL("./assets/meadow-texture.png", import.meta.url)),
-    ),
-    "/assets/background.mp3": new Response(
-      Bun.file(new URL("./assets/background.mp3", import.meta.url)),
-      { headers: { "Content-Type": "audio/mpeg", "Cache-Control": "public, max-age=31536000" } },
-    ),
-    "/assets/PressStart2P-Regular.ttf": new Response(
-      Bun.file(new URL("./assets/PressStart2P-Regular.ttf", import.meta.url)),
-      { headers: { "Content-Type": "font/ttf", "Cache-Control": "public, max-age=31536000", "Access-Control-Allow-Origin": "*" } },
-    ),
-    "/assets/apple-touch-icon.png": new Response(
-      Bun.file(new URL("./assets/apple-touch-icon.png", import.meta.url)),
-      { headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=31536000" } },
-    ),
-    "/assets/favicon-32.png": new Response(
-      Bun.file(new URL("./assets/favicon-32.png", import.meta.url)),
-      { headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=31536000" } },
-    ),
-    "/assets/icon-192.png": new Response(
-      Bun.file(new URL("./assets/icon-192.png", import.meta.url)),
-      { headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=31536000" } },
-    ),
-    "/assets/icon-512.png": new Response(
-      Bun.file(new URL("./assets/icon-512.png", import.meta.url)),
-      { headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=31536000" } },
-    ),
+    "/assets/*": (req) => {
+      const relPath = decodeURIComponent(new URL(req.url).pathname.slice("/assets/".length));
+      return assetResponse(relPath);
+    },
     "/favicon.svg": new Response(
       Bun.file(new URL("./favicon.svg", import.meta.url)),
       { headers: { "Content-Type": "image/svg+xml", "Cache-Control": "public, max-age=31536000" } },

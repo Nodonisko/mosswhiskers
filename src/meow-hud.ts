@@ -1,11 +1,21 @@
 import * as THREE from "three";
 import { createPixelCanvas, nearestTexture, whenPixelFontReady } from "./pixel-canvas";
-import type { PlayerSim } from "./sim";
-import { MEOW_DURATION } from "./world-config";
+import { MEOW_DURATION, MEOW_TEXT_DELAY, HISS_TEXT_DELAY } from "./world-config";
 
 const MEOW_WIDTH = 96;
 const MEOW_HEIGHT = 32;
 const MEOW_SCALE = 0.72;
+
+export const SPEECH_LABELS = ["Meow", "SSSSS"] as const;
+export type SpeechLabel = (typeof SPEECH_LABELS)[number];
+
+export type SpeechPop = {
+  id: string;
+  x: number;
+  y: number;
+  elapsed: number;
+  label: SpeechLabel;
+};
 
 /** Bounce, rise, and fade from sim time so every client paints the same meow. */
 export function meowPose(elapsed: number) {
@@ -25,7 +35,7 @@ export function meowPose(elapsed: number) {
   return { rise, scaleX: stretch, scaleY: squash, rotation: tilt, opacity };
 }
 
-function paintMeow(ctx: CanvasRenderingContext2D) {
+function paintSpeech(ctx: CanvasRenderingContext2D, label: SpeechLabel) {
   ctx.clearRect(0, 0, MEOW_WIDTH, MEOW_HEIGHT);
   ctx.imageSmoothingEnabled = false;
   ctx.font = '16px "Press Start 2P"';
@@ -36,39 +46,53 @@ function paintMeow(ctx: CanvasRenderingContext2D) {
   ctx.lineWidth = 4;
   ctx.strokeStyle = "#3a2a14";
   ctx.fillStyle = "#fff8dd";
-  ctx.strokeText("Meow", MEOW_WIDTH / 2, MEOW_HEIGHT / 2);
-  ctx.fillText("Meow", MEOW_WIDTH / 2, MEOW_HEIGHT / 2);
+  ctx.strokeText(label, MEOW_WIDTH / 2, MEOW_HEIGHT / 2);
+  ctx.fillText(label, MEOW_WIDTH / 2, MEOW_HEIGHT / 2);
 }
 
+type SpeechTexture = {
+  canvas: HTMLCanvasElement;
+  context: CanvasRenderingContext2D;
+  texture: THREE.CanvasTexture;
+};
+
 export function createMeowLayer(world: THREE.Group) {
-  const { canvas, context } = createPixelCanvas(MEOW_WIDTH, MEOW_HEIGHT);
-  paintMeow(context);
-  const texture = nearestTexture(canvas);
-  const views = new Map<string, THREE.Sprite>();
+  const textures = {} as Record<SpeechLabel, SpeechTexture>;
+  for (const label of SPEECH_LABELS) {
+    const { canvas, context } = createPixelCanvas(MEOW_WIDTH, MEOW_HEIGHT);
+    paintSpeech(context, label);
+    textures[label] = { canvas, context, texture: nearestTexture(canvas) };
+  }
+  const views = new Map<string, { sprite: THREE.Sprite; label: SpeechLabel }>();
 
   whenPixelFontReady(() => {
-    paintMeow(context);
-    texture.needsUpdate = true;
+    for (const label of SPEECH_LABELS) {
+      const painted = textures[label];
+      paintSpeech(painted.context, label);
+      painted.texture.needsUpdate = true;
+    }
   });
 
   function discard(id: string) {
-    const sprite = views.get(id);
-    if (!sprite) return;
-    world.remove(sprite);
-    sprite.material.dispose();
+    const view = views.get(id);
+    if (!view) return;
+    world.remove(view.sprite);
+    view.sprite.material.dispose();
     views.delete(id);
   }
 
   return {
-    sync(players: readonly PlayerSim[]) {
+    sync(pops: readonly SpeechPop[]) {
       const living = new Set<string>();
-      for (const player of players) {
-        if (!player.meowing) continue;
-        living.add(player.id);
-        let sprite = views.get(player.id);
-        if (!sprite) {
-          sprite = new THREE.Sprite(new THREE.SpriteMaterial({
-            map: texture,
+      for (const pop of pops) {
+        const delay = pop.label === "Meow" ? MEOW_TEXT_DELAY : HISS_TEXT_DELAY;
+        const poseElapsed = pop.elapsed - delay;
+        if (poseElapsed < 0) continue;
+        living.add(pop.id);
+        let view = views.get(pop.id);
+        if (!view) {
+          const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
+            map: textures[pop.label].texture,
             transparent: true,
             depthTest: false,
             depthWrite: false,
@@ -77,15 +101,19 @@ export function createMeowLayer(world: THREE.Group) {
           sprite.center.set(0.5, 0);
           sprite.scale.set(MEOW_WIDTH * MEOW_SCALE, MEOW_HEIGHT * MEOW_SCALE, 1);
           world.add(sprite);
-          views.set(player.id, sprite);
+          view = { sprite, label: pop.label };
+          views.set(pop.id, view);
+        } else if (view.label !== pop.label) {
+          view.label = pop.label;
+          view.sprite.material.map = textures[pop.label].texture;
         }
-        const pose = meowPose(player.meowElapsed);
-        sprite.visible = pose.opacity > 0.02;
-        sprite.position.set(player.x, player.y + pose.rise, 12);
-        sprite.scale.set(MEOW_WIDTH * MEOW_SCALE * pose.scaleX, MEOW_HEIGHT * MEOW_SCALE * pose.scaleY, 1);
-        sprite.material.rotation = pose.rotation;
-        sprite.material.opacity = pose.opacity;
-        sprite.renderOrder = 30010;
+        const pose = meowPose(poseElapsed);
+        view.sprite.visible = pose.opacity > 0.02;
+        view.sprite.position.set(pop.x, pop.y + pose.rise, 12);
+        view.sprite.scale.set(MEOW_WIDTH * MEOW_SCALE * pose.scaleX, MEOW_HEIGHT * MEOW_SCALE * pose.scaleY, 1);
+        view.sprite.material.rotation = pose.rotation;
+        view.sprite.material.opacity = pose.opacity;
+        view.sprite.renderOrder = 30010;
       }
       for (const id of views.keys()) {
         if (!living.has(id)) discard(id);
@@ -93,7 +121,7 @@ export function createMeowLayer(world: THREE.Group) {
     },
     dispose() {
       for (const id of [...views.keys()]) discard(id);
-      texture.dispose();
+      for (const painted of Object.values(textures)) painted.texture.dispose();
     },
   };
 }

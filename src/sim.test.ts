@@ -7,6 +7,7 @@ import {
   createSim,
   drainFixedTicks,
   hitsSolid,
+  hissById,
   nearestInteractable,
   playerById,
   removePlayer,
@@ -16,7 +17,7 @@ import {
   type GameSim,
   type Walkable,
 } from "./sim";
-import { BERNIE, BERNIE_POND_X, BERNIE_POND_Y, CAT_SPEED, CLAW_DURATION, FARM_CARROTS, INTAKE, LOCAL_PLAYER_ID, MAILBOX, MEOW_DURATION, MOUSE_RESPAWN, nearIntakeRim, QUEST_HINT_DURATION, RABBIT, ROCKET_CARROT, ROCKET_IGNITE, SAM, TICK_DT } from "./world-config";
+import { BERNIE, BERNIE_POND_X, BERNIE_POND_Y, CAT_SPEED, CLAW_DURATION, FARM_CARROTS, HISS_TEXT_DELAY, INTAKE, LOCAL_PLAYER_ID, MAILBOX, MEOW_DURATION, MEOW_TEXT_DELAY, MOUSE_RESPAWN, nearIntakeRim, QUEST_HINT_DURATION, RABBIT, ROCKET_CARROT, ROCKET_IGNITE, SAM, TICK_DT } from "./world-config";
 
 const openGround = () => true;
 const blocked = () => false;
@@ -123,6 +124,7 @@ describe("tickSim", () => {
     const sim = simAtOrigin();
     tick(sim, { x: 0, y: 0, claw: true }, 0.05);
     expect(cat(sim).clawing).toBe(true);
+    expect(cat(sim).clawNonce).toBe(1);
     const started = cat(sim).clawElapsed;
     tick(sim, { x: 0, y: 0, claw: true }, 0.05);
     expect(cat(sim).clawElapsed).toBeCloseTo(started + 0.05);
@@ -191,6 +193,76 @@ describe("tickSim", () => {
     expect(cat(sim).clawHit).toBe(false);
     expect(cat(sim).inventory).toEqual([]);
   });
+
+  test("a claw in front of an NPC makes them hiss", () => {
+    const sim = createSim({
+      players: [{ x: BERNIE.x - 28, y: BERNIE.y }],
+      fish: [],
+      interactables: [{ id: "bernie", kind: "bernie", x: BERNIE.x, y: BERNIE.y }],
+    });
+    cat(sim).facing = "e";
+    tick(sim, { x: 0, y: 0, claw: true }, 0.12);
+    const hiss = hissById(sim, "bernie");
+    expect(hiss?.hissing).toBe(true);
+    expect(hiss?.hissNonce).toBe(1);
+    expect(hiss?.hissElapsed).toBeCloseTo(0.12);
+    expect(cat(sim).clawHissed).toBe(true);
+    expect(cat(sim).clawHit).toBe(false);
+    tick(sim, { x: 0, y: 0 }, 0.05);
+    expect(hissById(sim, "bernie")?.hissNonce).toBe(1);
+  });
+
+  test("a claw does not make an NPC behind the cat hiss", () => {
+    const sim = createSim({
+      players: [{ x: BERNIE.x + 28, y: BERNIE.y }],
+      fish: [],
+      interactables: [{ id: "bernie", kind: "bernie", x: BERNIE.x, y: BERNIE.y }],
+    });
+    cat(sim).facing = "e";
+    tick(sim, { x: 0, y: 0, claw: true }, 0.12);
+    expect(hissById(sim, "bernie")?.hissing).toBe(false);
+    expect(cat(sim).clawHissed).toBe(false);
+  });
+
+  test("clawing a mailbox does not hiss", () => {
+    const sim = createSim({
+      players: [{ x: MAILBOX.x - 28, y: MAILBOX.y }],
+      fish: [],
+      interactables: [{ id: "mailbox", kind: "mailbox", x: MAILBOX.x, y: MAILBOX.y }],
+    });
+    cat(sim).facing = "e";
+    tick(sim, { x: 0, y: 0, claw: true }, 0.12);
+    expect(sim.hisses).toEqual([]);
+    expect(cat(sim).clawHissed).toBe(false);
+  });
+
+  test("clawing Elon Hopsk does not hiss", () => {
+    const sim = createSim({
+      players: [{ x: RABBIT.x - 28, y: RABBIT.y }],
+      fish: [],
+      interactables: [{ id: "rabbit", kind: "rabbit", x: RABBIT.x, y: RABBIT.y }],
+    });
+    cat(sim).facing = "e";
+    tick(sim, { x: 0, y: 0, claw: true }, 0.12);
+    expect(sim.hisses).toEqual([]);
+    expect(cat(sim).clawHissed).toBe(false);
+  });
+
+  test("an NPC hiss fades after MEOW_DURATION plus the text delay", () => {
+    const sim = createSim({
+      players: [{ x: SAM.x - 28, y: SAM.y }],
+      fish: [],
+      interactables: [{ id: "sam", kind: "sam", x: SAM.x, y: SAM.y }],
+    });
+    cat(sim).facing = "e";
+    tick(sim, { x: 0, y: 0, claw: true }, 0.12);
+    expect(hissById(sim, "sam")?.hissing).toBe(true);
+    tick(sim, { x: 0, y: 0 }, MEOW_DURATION);
+    expect(hissById(sim, "sam")?.hissing).toBe(true);
+    tick(sim, { x: 0, y: 0 }, HISS_TEXT_DELAY);
+    expect(hissById(sim, "sam")?.hissing).toBe(false);
+  });
+
 
   test("a killed mouse respawns after MOUSE_RESPAWN", () => {
     const sim = createSim({
@@ -464,7 +536,7 @@ describe("mailbox interaction", () => {
     expect(cat(sim).progress.activeQuest).toBeNull();
   });
 
-  test("a meow fades after MEOW_DURATION", () => {
+  test("a meow fades after MEOW_DURATION plus the text delay", () => {
     const sim = createSim({
       players: [{ id: LOCAL_PLAYER_ID, x: 0, y: -5 }],
       fish: [],
@@ -472,6 +544,8 @@ describe("mailbox interaction", () => {
     tick(sim, { x: 0, y: 0, interact: true }, 0.05);
     expect(cat(sim).meowing).toBe(true);
     tick(sim, { x: 0, y: 0 }, MEOW_DURATION);
+    expect(cat(sim).meowing).toBe(true);
+    tick(sim, { x: 0, y: 0 }, MEOW_TEXT_DELAY);
     expect(cat(sim).meowing).toBe(false);
   });
 

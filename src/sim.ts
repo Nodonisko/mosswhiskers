@@ -12,6 +12,8 @@ import {
   MAP_WALK_MARGIN,
   MAP_WIDTH,
   MEOW_DURATION,
+  MEOW_TEXT_DELAY,
+  HISS_TEXT_DELAY,
   QUEST_HINT_DURATION,
   PREY_RESPAWN,
   FARM_CARROTS,
@@ -90,6 +92,8 @@ export type PlayerSim = {
   clawing: boolean;
   clawElapsed: number;
   clawHit: boolean;
+  clawNonce: number;
+  clawHissed: boolean;
   seed: number;
   inventory: InventorySlot[];
   nearbyId: string | null;
@@ -174,6 +178,13 @@ export type RocketCarrotPose = {
   gone: boolean;
 };
 
+export type NpcHissSim = {
+  id: string;
+  hissing: boolean;
+  hissElapsed: number;
+  hissNonce: number;
+};
+
 export type GameSim = {
   elapsed: number;
   tick: number;
@@ -181,8 +192,19 @@ export type GameSim = {
   fish: FishSim[];
   mice: MouseSim[];
   interactables: Interactable[];
+  hisses: NpcHissSim[];
   rocketCarrots: RocketCarrotSim[];
 };
+
+export const HISS_KINDS = new Set<InteractableKind>(["bernie", "sam"]);
+
+export function canHiss(item: Interactable) {
+  return HISS_KINDS.has(item.kind);
+}
+
+export function hissById(sim: GameSim, id: string) {
+  return sim.hisses.find((hiss) => hiss.id === id);
+}
 
 export type Walkable = (x: number, y: number) => boolean;
 
@@ -285,6 +307,8 @@ export function createPlayer(options: { id: string; name?: string; x: number; y:
     clawing: false,
     clawElapsed: 0,
     clawHit: false,
+    clawNonce: 0,
+    clawHissed: false,
     seed: options.seed ?? DEFAULT_CAT_SEED,
     inventory: [],
     nearbyId: null,
@@ -504,6 +528,12 @@ export function createSim(options: {
     fish: options.fish.map((spec) => fishAt(spec, 0, 1)),
     mice: (options.mice ?? []).map((spec) => mouseAt(spec, 0, 1)),
     interactables: options.interactables ?? [],
+    hisses: (options.interactables ?? []).filter(canHiss).map((item) => ({
+      id: item.id,
+      hissing: false,
+      hissElapsed: 0,
+      hissNonce: 0,
+    })),
     rocketCarrots: FARM_CARROTS.map(() => ({ launched: false, elapsed: 0 })),
   };
 }
@@ -521,6 +551,7 @@ export function applySnapshot(sim: GameSim, snapshot: GameSim) {
   sim.fish = next.fish;
   sim.mice = next.mice;
   sim.interactables = next.interactables;
+  sim.hisses = next.hisses ?? [];
   sim.rocketCarrots = next.rocketCarrots;
 }
 
@@ -575,7 +606,7 @@ function tickPlayer(
 
   if (player.meowing) {
     player.meowElapsed += dt;
-    if (player.meowElapsed >= MEOW_DURATION) {
+    if (player.meowElapsed >= MEOW_DURATION + MEOW_TEXT_DELAY) {
       player.meowing = false;
       player.meowElapsed = 0;
     }
@@ -606,6 +637,8 @@ function tickPlayer(
     player.clawing = true;
     player.clawElapsed = 0;
     player.clawHit = false;
+    player.clawNonce += 1;
+    player.clawHissed = false;
   }
   if (player.clawing) player.clawElapsed += dt;
   if (player.moving) {
@@ -689,6 +722,29 @@ function resolveClaws(sim: GameSim) {
       rocket.elapsed = 0;
       player.clawHit = true;
     }
+    if (player.clawHissed) continue;
+    for (const item of sim.interactables) {
+      if (!canHiss(item)) continue;
+      if (!clawHitsTarget(player, { x: item.x, y: item.y, alive: true })) continue;
+      const hiss = hissById(sim, item.id);
+      if (!hiss) continue;
+      player.clawHissed = true;
+      hiss.hissing = true;
+      hiss.hissElapsed = 0;
+      hiss.hissNonce += 1;
+      break;
+    }
+  }
+}
+
+function tickHisses(sim: GameSim, dt: number) {
+  for (const hiss of sim.hisses) {
+    if (!hiss.hissing) continue;
+    hiss.hissElapsed += dt;
+    if (hiss.hissElapsed >= MEOW_DURATION + HISS_TEXT_DELAY) {
+      hiss.hissing = false;
+      hiss.hissElapsed = 0;
+    }
   }
 }
 
@@ -700,6 +756,7 @@ export function tickSim(sim: GameSim, inputs: PlayerInputs, dt: number, walkable
   }
   tickPrey(sim, dt);
   resolveClaws(sim);
+  tickHisses(sim, dt);
   finishClaws(sim);
   for (const rocket of sim.rocketCarrots) {
     if (rocket.launched) rocket.elapsed += dt;

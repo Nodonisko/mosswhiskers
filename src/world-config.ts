@@ -31,6 +31,10 @@ export const MAILBOX = { x: 153, y: 52 };
 export const BERNIE_SUPPLY = { mice: 1, fish: 1 };
 /** Seconds the failed-interact Meow hangs above the cat. */
 export const MEOW_DURATION = 1.15;
+/** Wait this long after the meow sound before the Meow text pops. */
+export const MEOW_TEXT_DELAY = 0.3;
+/** Wait this long after the hiss sound before the SSSSS text pops. */
+export const HISS_TEXT_DELAY = 0.3;
 /** Seconds a new-quest hint hangs in the middle of the screen. */
 export const QUEST_HINT_DURATION = 3.2;
 /** Shake and ignite before the rocket carrot leaves the soil. */
@@ -92,7 +96,13 @@ export const FARM_SHED_SCALE = 1.22;
 export const RABBIT = { x: FARM_SHED.x + 50, y: FARM_SHED.y - 10 };
 export const RABBIT_NAME = "Elon Hopsk";
 /** Biggest carrot in the plot. All farm carrots launch if you claw them. */
-export const ROCKET_CARROT = { x: FARM.x + 38, y: FARM.y - 22, scale: 1.44, seed: 65, variant: 0 } as const;
+export const ROCKET_CARROT = {
+  x: FARM.x + 38,
+  y: FARM.y - 22,
+  scale: 1.44,
+  seed: 65,
+  variant: 0,
+} as const;
 export const FARM_CARROTS = [
   { x: FARM.x - 128, y: FARM.y + 58, scale: 1.22, seed: 61, variant: 0 },
   { x: FARM.x - 8, y: FARM.y + 82, scale: 1.38, seed: 62, variant: 1 },
