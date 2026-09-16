@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { createPixelCanvas, nearestTexture } from "./pixel-canvas";
+import { createPixelCanvas, nearestTexture, whenPixelFontReady } from "./pixel-canvas";
 import type { PlayerSim } from "./sim";
 import { MEOW_DURATION } from "./world-config";
 
@@ -46,7 +46,7 @@ export function createMeowLayer(world: THREE.Group) {
   const texture = nearestTexture(canvas);
   const views = new Map<string, THREE.Sprite>();
 
-  void document.fonts.load('16px "Press Start 2P"').then(() => {
+  whenPixelFontReady(() => {
     paintMeow(context);
     texture.needsUpdate = true;
   });

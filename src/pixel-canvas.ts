@@ -1,5 +1,19 @@
 import * as THREE from "three";
 
+const PIXEL_FONT_URL = "/assets/PressStart2P-Regular.ttf";
+let pixelFont: Promise<void> | undefined;
+
+export function whenPixelFontReady(run: () => void) {
+  pixelFont ??= new FontFace("Press Start 2P", `url("${PIXEL_FONT_URL}")`, {
+    style: "normal",
+    weight: "400",
+    display: "block",
+  }).load().then((face) => {
+    document.fonts.add(face);
+  }).catch(() => undefined);
+  void pixelFont.then(run);
+}
+
 export function createPixelCanvas(width: number, height: number) {
   const canvas = document.createElement("canvas");
   canvas.width = width;

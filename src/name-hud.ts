@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { createPixelCanvas, nearestTexture } from "./pixel-canvas";
+import { createPixelCanvas, nearestTexture, whenPixelFontReady } from "./pixel-canvas";
 import type { PlayerSim } from "./sim";
 import { LOCAL_PLAYER_ID } from "./world-config";
 
@@ -86,7 +86,7 @@ export function createNameLayer(world: THREE.Group) {
     for (const view of views.values()) apply(view.sprite, textureFor(view.name));
   }
 
-  void document.fonts.load(FONT).then(refresh);
+  whenPixelFontReady(refresh);
 
   return {
     sync(tags: readonly NameTag[]) {
