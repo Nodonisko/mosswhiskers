@@ -99,9 +99,41 @@ function catTextures(seed: number, cache: Map<number, CatTextures>): CatTextures
   return created;
 }
 
+function createBackgroundMusic(src = "/assets/background.mp3") {
+  const audio = new Audio(src);
+  audio.loop = true;
+  audio.preload = "auto";
+  audio.volume = 0.4;
+  audio.setAttribute("aria-hidden", "true");
+  document.body.append(audio);
+
+  const unlock = () => {
+    void audio.play().catch(() => {});
+    window.removeEventListener("pointerdown", unlock);
+    window.removeEventListener("keydown", unlock);
+  };
+
+  void audio.play().catch(() => {
+    window.addEventListener("pointerdown", unlock);
+    window.addEventListener("keydown", unlock);
+  });
+
+  return {
+    dispose() {
+      window.removeEventListener("pointerdown", unlock);
+      window.removeEventListener("keydown", unlock);
+      audio.pause();
+      audio.removeAttribute("src");
+      audio.load();
+      audio.remove();
+    },
+  };
+}
+
 function startGame() {
   const canvas = document.querySelector<HTMLCanvasElement>("#world");
   if (!canvas) throw new Error("World canvas is missing");
+  const music = createBackgroundMusic();
 
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: false });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -759,6 +791,7 @@ function startGame() {
   return {
     dispose() {
       cancelAnimationFrame(raf);
+      music.dispose();
       input.dispose();
       pack.dispose();
       quest.dispose();
