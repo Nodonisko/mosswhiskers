@@ -68,6 +68,26 @@ export function shouldPlayMusic(visible: boolean, level: number) {
   return visible && level > 1;
 }
 
+export type GameAudioSessionType = "playback" | "ambient";
+
+export function audioSessionType(visible: boolean, level: number): GameAudioSessionType {
+  return shouldPlayMusic(visible, level) ? "playback" : "ambient";
+}
+
+type NavigatorAudioSession = {
+  type: "auto" | "playback" | "transient" | "transient-solo" | "ambient" | "play-and-record";
+};
+
+function setAudioSession(type: GameAudioSessionType) {
+  const session = (navigator as Navigator & { audioSession?: NavigatorAudioSession }).audioSession;
+  if (!session) return;
+  try {
+    session.type = type;
+  } catch {
+    // Safari can reject a type if another API holds the session.
+  }
+}
+
 function createAudioContext() {
   const Ctor = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
   return new Ctor();
@@ -134,7 +154,11 @@ export function createBackgroundMusic(src = "/assets/background.mp3"): Backgroun
     window.removeEventListener("pointerdown", unlock);
     window.removeEventListener("keydown", unlock);
     if (closed) return;
-    void ctx.resume().then(syncPlayback).catch(armUnlock);
+    setAudioSession("playback");
+    void ctx.resume().then(() => {
+      syncPlayback();
+      if (ctx.state !== "running") armUnlock();
+    }).catch(armUnlock);
   }
 
   function syncPlayback() {
@@ -142,6 +166,7 @@ export function createBackgroundMusic(src = "/assets/background.mp3"): Backgroun
     applyGain();
     const want = shouldPlayMusic(isPageVisible(), settings.level);
     if (want) {
+      setAudioSession("playback");
       startSource();
       if (ctx.state !== "running") {
         void ctx.resume().then(() => {
@@ -152,13 +177,14 @@ export function createBackgroundMusic(src = "/assets/background.mp3"): Backgroun
     }
     stopSource();
     if (ctx.state === "running") void ctx.suspend();
+    setAudioSession("ambient");
     clearMediaSession();
   }
 
+  armUnlock();
   void ctx.resume().then(() => {
     if (ctx.state === "running") syncPlayback();
-    else armUnlock();
-  }).catch(armUnlock);
+  }).catch(() => {});
 
   const unwatch = watchPageVisible(() => syncPlayback());
 
@@ -191,6 +217,7 @@ export function createBackgroundMusic(src = "/assets/background.mp3"): Backgroun
       window.removeEventListener("keydown", unlock);
       stopSource();
       void ctx.close();
+      setAudioSession("ambient");
       clearMediaSession();
     },
   };
