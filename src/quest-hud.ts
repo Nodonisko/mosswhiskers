@@ -15,12 +15,13 @@ const QUEST_COPY: Record<QuestId, { summary: string; objective: string }> = {
     objective: "Tell Bernie. He is in the far northwest of the wood.",
   },
   hopsk: {
-    summary: "Bernie knows a rabbit who never did like Catman.",
+    summary: "Bernie knows a guy who never did like Catman.",
     objective: "Find vegetable farmer on the southwest farm.",
   },
   clog: {
     summary: "Hopsk lent you one of his carrots.",
-    objective: "Stuff it in the pipe intake. Bernie's pond, the gulping end.",
+    objective:
+      "Stuff carrot in the pipe intake. Bernie's pond, the gulping end.",
   },
   smoke: {
     summary: "The pipe has stopped drinking.",

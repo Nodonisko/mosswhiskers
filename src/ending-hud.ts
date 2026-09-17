@@ -48,6 +48,7 @@ export function createEndingHud(root: HTMLElement) {
 
   function onPointerDown(event: PointerEvent) {
     if (!sequence.blocking() || event.button !== 0) return;
+    if (event.target instanceof Element && event.target.closest("a")) return;
     event.preventDefault();
     sequence.tryDismiss();
   }

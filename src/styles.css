@@ -309,6 +309,12 @@ html:not(.is-playing) #game {
   letter-spacing: 1.4px;
 }
 
+.interact-prompt {
+  width: max-content;
+  max-width: calc(100vw - 24px);
+  white-space: nowrap;
+}
+
 .interact-prompt.intake-hint,
 .quest-toast {
   top: 50%;
@@ -322,6 +328,7 @@ html:not(.is-playing) #game {
 
 .quest-toast {
   z-index: 16;
+  top: 32%;
   max-width: min(520px, calc(100vw - 40px));
   pointer-events: none;
 }
@@ -422,25 +429,6 @@ html:not(.is-playing) #game {
 .letter-hint,
 .talk-hint {
   text-align: right;
-}
-
-.colony-banner {
-  position: absolute;
-  z-index: 10;
-  top: clamp(14px, 2.1vh, 28px);
-  left: 50%;
-  width: min(500px, 36vw);
-  transform: translateX(-50%);
-  color: #fff8dd;
-  text-align: center;
-  filter: drop-shadow(0 3px 0 #53613d) drop-shadow(0 5px 3px #1f3218aa);
-}
-
-.colony-banner h1 {
-  margin: 0 0 4px;
-  font: 400 clamp(12px, 2vw, 18px)/1.4 "Press Start 2P", ui-monospace, monospace;
-  letter-spacing: 0;
-  white-space: nowrap;
 }
 
 .controls {
@@ -571,8 +559,13 @@ html:not(.is-playing) #game {
   display: none;
 }
 
-#game.has-touch-controls .interact-prompt:not(.intake-hint) {
-  bottom: calc(132px + env(safe-area-inset-bottom, 0px));
+#game.has-touch-controls .interact-prompt {
+  top: 28%;
+  bottom: auto;
+  padding: 10px 16px;
+  transform: translate(-50%, -50%);
+  font-size: 13px;
+  letter-spacing: 1px;
 }
 
 #game.has-touch-controls .left-hud {
@@ -597,18 +590,6 @@ html:not(.is-playing) #game {
 #game.has-touch-controls .settings-icon {
   width: 34px;
   height: 34px;
-}
-
-#game.has-touch-controls .colony-banner {
-  left: 50%;
-  top: max(12px, env(safe-area-inset-top));
-  width: min(220px, calc(100vw - 128px));
-}
-
-#game.has-touch-controls .colony-banner h1 {
-  white-space: normal;
-  font-size: clamp(20px, 5.8vw, 28px);
-  line-height: 0.95;
 }
 
 #game.has-touch-controls .letter-hud,
@@ -702,14 +683,7 @@ html:not(.is-playing) #game {
   position: absolute;
   z-index: 40;
   inset: 0;
-  display: grid;
-  place-items: center;
-  background: #000;
-  color: #fff8dd;
   font-family: "Press Start 2P", ui-monospace, monospace;
-  -webkit-font-smoothing: none;
-  font-smooth: never;
-  image-rendering: pixelated;
   pointer-events: none;
 }
 
@@ -724,24 +698,14 @@ html:not(.is-playing) #game {
   font-size: 16px;
   line-height: 2;
   letter-spacing: 1px;
-  text-align: center;
 }
 
 .ending-prompt {
-  position: absolute;
-  left: 50%;
-  bottom: 28px;
   margin: 0;
-  transform: translateX(-50%);
   color: #bdb38a;
   font-size: 8px;
   line-height: 1.6;
   letter-spacing: 0.4px;
-  text-align: center;
   white-space: nowrap;
 }
 
-@media (max-width: 760px) {
-  .colony-banner { left: 50%; width: min(240px, calc(100vw - 132px)); }
-  .colony-banner h1 { white-space: normal; }
-}

@@ -27,18 +27,13 @@
         background: #000;
         color: #fff8dd;
         font-family: "Press Start 2P", ui-monospace, monospace;
-        -webkit-font-smoothing: none;
-        font-smooth: never;
       }
 
       html:not(.is-playing) #game {
         pointer-events: none;
       }
 
-      #boot {
-        position: fixed;
-        inset: 0;
-        z-index: 9999;
+      .title-screen {
         display: grid;
         grid-template-rows: auto 1fr auto;
         align-items: center;
@@ -49,8 +44,12 @@
         user-select: none;
         -webkit-user-select: none;
         image-rendering: pixelated;
-        -webkit-font-smoothing: none;
-        font-smooth: never;
+      }
+
+      #boot {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
         touch-action: manipulation;
       }
 
@@ -58,13 +57,13 @@
         display: none !important;
       }
 
-      #boot-title {
+      .screen-title {
         margin: 0;
         font: 400 clamp(12px, 3.4vw, 18px)/1.5 "Press Start 2P", ui-monospace, monospace;
         letter-spacing: 0;
       }
 
-      #boot-center {
+      .screen-center {
         display: grid;
         justify-items: center;
         gap: 18px;
@@ -100,7 +99,7 @@
       }
 
       @media (pointer: coarse), (hover: none) {
-        #boot-title {
+        .screen-title {
           font-size: clamp(16px, 5.4vw, 22px);
           line-height: 1.35;
         }
@@ -123,13 +122,13 @@
         63%, 100% { opacity: 0; }
       }
 
-      #boot-credit {
+      .screen-credit {
         margin: 0;
         color: #bdb38a;
         font: 400 8px/1.8 "Press Start 2P", ui-monospace, monospace;
       }
 
-      #boot-credit a {
+      .screen-credit a {
         color: #fff8dd;
         text-decoration: none;
         pointer-events: auto;
@@ -137,8 +136,8 @@
         -webkit-user-select: text;
       }
 
-      #boot-credit a:hover,
-      #boot-credit a:focus-visible {
+      .screen-credit a:hover,
+      .screen-credit a:focus-visible {
         color: #ffe58a;
         text-decoration: underline;
       }
@@ -154,9 +153,9 @@
     <title>Mosswhiskers Meadow</title>
   </head>
   <body>
-    <div id="boot" role="status" aria-live="polite" aria-busy="true" aria-label="Mosswhiskers Meadow">
-      <h1 id="boot-title">Mosswhiskers Meadow</h1>
-      <div id="boot-center">
+    <div id="boot" class="title-screen" role="status" aria-live="polite" aria-busy="true" aria-label="Mosswhiskers Meadow">
+      <h1 id="boot-title" class="screen-title">Mosswhiskers Meadow</h1>
+      <div id="boot-center" class="screen-center">
         <p id="boot-status">LOADING</p>
         <p id="boot-percent">0%</p>
         <p id="boot-start" hidden>
@@ -165,7 +164,7 @@
         </p>
         <p id="boot-hint">Turn on sound for the best experience</p>
       </div>
-      <p id="boot-credit">
+      <p id="boot-credit" class="screen-credit">
         Made with <span class="boot-heart">❤️</span> by Daniel Suchy.<br />
         <a href="https://x.com/SuchyDaniel" target="_blank" rel="noopener noreferrer">@SuchyDaniel</a>
       </p>
@@ -235,10 +234,6 @@
         <button type="button" class="fullscreen-btn pixel-frame" hidden aria-label="Enter fullscreen">FULL</button>
       </aside>
 
-      <section class="colony-banner" aria-label="World title">
-        <h1>Mosswhiskers Meadow</h1>
-      </section>
-
       <p class="interact-prompt pixel-frame" hidden>E · READ MAIL</p>
       <p class="quest-toast pixel-frame" hidden></p>
       <section class="letter-hud" hidden>
@@ -263,9 +258,16 @@
         </article>
       </section>
 
-      <section class="ending-hud" hidden aria-hidden="true">
-        <p class="ending-line"></p>
-        <p class="ending-prompt">Press Space to return to game</p>
+      <section class="ending-hud title-screen" hidden aria-hidden="true">
+        <h1 class="screen-title">Mosswhiskers Meadow</h1>
+        <div class="ending-center screen-center">
+          <p class="ending-line"></p>
+          <p class="ending-prompt">Press Space to return to game</p>
+        </div>
+        <p class="screen-credit">
+          Made with <span class="boot-heart">❤️</span> by Daniel Suchy.<br />
+          <a href="https://x.com/SuchyDaniel" target="_blank" rel="noopener noreferrer">@SuchyDaniel</a>
+        </p>
       </section>
 
       <p class="controls" hidden aria-label="Controls">WASD / ARROWS TO WANDER · SPACE TO SWIPE · E TO TALK</p>

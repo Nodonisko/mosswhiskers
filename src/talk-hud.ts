@@ -50,12 +50,12 @@ const TALK: Record<TalkId, TalkCopy> = {
       "Ah. Not a drought, then. Catman has a pipe in my pond. He is using the water to keep his barn cool.",
     ],
     objective:
-      "I have a friend on the southwest farm who never really liked Catman. Grows vegetables. Enormous ones. He may have a thought.",
+      "There is a farmer on the southwest farm who never really liked Catman. Grows vegetables. Enormous ones. Billionaire class, I'm afraid. He may have a thought.",
   },
   "bernie-hopsk": {
     name: BERNIE_NAME,
     paragraphs: [
-      "The rabbit. Southwest farm. You cannot miss the crop. Or whatever he is calling it this week.",
+      "Southwest farm. You cannot miss the crop. Or whatever he is calling it this week.",
     ],
     objective:
       "Ask him nicely. He is proud of the things, and he has never liked Catman.",
@@ -80,7 +80,7 @@ const TALK: Record<TalkId, TalkCopy> = {
       "Hello Whiskers. Do you like carrots? Mine are nearly as big as rockets. You can take this rocket. Sorry. This carrot. Catman has been nicking the water, and this one should bung up his pipe.",
     ],
     objective:
-      "Stuff it in the intake. The pond end, where the pipe is gulping. Nose first, if you would.",
+      "Stuff carrot into the intake. The pond end, where the pipe is gulping. Nose first, if you would.",
   },
   "hopsk-nudge": {
     name: RABBIT_NAME,

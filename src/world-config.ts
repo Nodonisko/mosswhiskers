@@ -35,7 +35,7 @@ export const MEOW_DURATION = 1.15;
 export const MEOW_TEXT_DELAY = 0.3;
 /** Wait this long after the hiss sound before the SSSSS text pops. */
 export const HISS_TEXT_DELAY = 0.3;
-/** Seconds a new-quest hint hangs in the middle of the screen. */
+/** Seconds a new-quest hint hangs above the player. */
 export const QUEST_HINT_DURATION = 3.2;
 /** Shake and ignite before the rocket carrot leaves the soil. */
 export const ROCKET_IGNITE = 0.62;
