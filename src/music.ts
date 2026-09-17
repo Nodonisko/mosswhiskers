@@ -115,15 +115,26 @@ function decodeAudioBuffer(context: AudioContext, data: ArrayBuffer) {
   });
 }
 
+const UNLOCK_EVENTS = ["pointerdown", "touchend", "click", "keydown"] as const;
+
 function createAudioContext() {
   const Ctor = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
   return new Ctor();
 }
 
+function primeContext(context: AudioContext) {
+  const osc = context.createOscillator();
+  const silent = context.createGain();
+  silent.gain.value = 0;
+  osc.connect(silent);
+  silent.connect(context.destination);
+  osc.start();
+  osc.stop(context.currentTime + 0.05);
+}
+
 export function createBackgroundMusic(src = "/assets/background.mp3"): BackgroundMusic {
-  let ctx = createAudioContext();
-  let gain = ctx.createGain();
-  gain.connect(ctx.destination);
+  let ctx: AudioContext | null = null;
+  let gain: GainNode | null = null;
 
   let settings = loadMusicSettings();
   let fileBytes: ArrayBuffer | null = null;
@@ -131,42 +142,73 @@ export function createBackgroundMusic(src = "/assets/background.mp3"): Backgroun
   let source: AudioBufferSourceNode | null = null;
   let waitingForGesture = false;
   let closed = false;
-  let loading = false;
   let loadId = 0;
+  let inflightDecode: Promise<void> | null = null;
 
-  applyGain();
-  void loadBuffer();
+  void fetch(src)
+    .then((response) => {
+      if (!response.ok) throw new Error("music missing");
+      return response.arrayBuffer();
+    })
+    .then((data) => {
+      fileBytes = data;
+    })
+    .catch(() => {});
 
   function applyGain() {
+    if (!gain) return;
     gain.gain.value = volumeForLevel(settings.level);
   }
 
-  function loadBuffer() {
-    if (loading || closed) return;
-    loading = true;
+  function listenUnlock(on: boolean) {
+    for (const type of UNLOCK_EVENTS) {
+      if (on) window.addEventListener(type, unlock);
+      else window.removeEventListener(type, unlock);
+    }
+  }
+
+  function armUnlock() {
+    if (waitingForGesture || closed) return;
+    waitingForGesture = true;
+    listenUnlock(true);
+  }
+
+  function ensureContext() {
+    if (ctx && ctx.state !== "closed") return ctx;
+    ctx = createAudioContext();
+    gain = ctx.createGain();
+    gain.connect(ctx.destination);
+    applyGain();
+    return ctx;
+  }
+
+  function decodeIntoContext() {
+    if (!ctx || buffer) return Promise.resolve();
+    if (inflightDecode) return inflightDecode;
     const id = loadId;
-    const request = fileBytes
+    const audioCtx = ctx;
+    inflightDecode = (fileBytes
       ? Promise.resolve(fileBytes)
       : fetch(src).then((response) => {
           if (!response.ok) throw new Error("music missing");
           return response.arrayBuffer();
-        });
-    void request
+        }))
       .then((data) => {
         fileBytes = data;
-        if (id !== loadId || closed) return null;
-        return decodeAudioBuffer(ctx, data);
+        if (id !== loadId || closed || ctx !== audioCtx) return null;
+        return decodeAudioBuffer(audioCtx, data);
       })
       .then((decoded) => {
-        loading = false;
-        if (!decoded || id !== loadId || closed) return;
+        if (!decoded || id !== loadId || closed || ctx !== audioCtx) return;
         buffer = decoded;
-        syncPlayback();
       })
       .catch(() => {
-        loading = false;
         if (id === loadId) buffer = null;
+      })
+      .finally(() => {
+        inflightDecode = null;
       });
+    return inflightDecode;
   }
 
   function stopSource() {
@@ -181,7 +223,7 @@ export function createBackgroundMusic(src = "/assets/background.mp3"): Backgroun
   }
 
   function startSource() {
-    if (!buffer || closed || source) return;
+    if (!ctx || !gain || !buffer || closed || source) return;
     if (!canStartBufferSource(ctx.state)) return;
     source = ctx.createBufferSource();
     source.buffer = buffer;
@@ -190,55 +232,34 @@ export function createBackgroundMusic(src = "/assets/background.mp3"): Backgroun
     source.start();
   }
 
-  function contextAlive() {
-    return ctx.state !== "closed";
-  }
-
   function rebuildContext() {
     loadId += 1;
-    loading = false;
+    inflightDecode = null;
     stopSource();
-    if (contextAlive()) void ctx.close().catch(() => {});
-    ctx = createAudioContext();
-    gain = ctx.createGain();
-    gain.connect(ctx.destination);
+    if (ctx && ctx.state !== "closed") void ctx.close().catch(() => {});
+    ctx = null;
+    gain = null;
     buffer = null;
-    applyGain();
-    loadBuffer();
-  }
-
-  function armUnlock() {
-    if (waitingForGesture || closed) return;
-    waitingForGesture = true;
-    window.addEventListener("pointerdown", unlock);
-    window.addEventListener("keydown", unlock);
   }
 
   function resumeContext() {
-    if (!contextAlive()) {
-      rebuildContext();
-      return ctx.resume();
-    }
-    if (ctx.state === "interrupted") return ctx.resume();
-    if (ctx.state === "suspended") return ctx.resume();
+    const audioCtx = ensureContext();
+    if (audioCtx.state === "interrupted" || audioCtx.state === "suspended") return audioCtx.resume();
     return Promise.resolve();
   }
 
   function unlock() {
     waitingForGesture = false;
-    window.removeEventListener("pointerdown", unlock);
-    window.removeEventListener("keydown", unlock);
+    listenUnlock(false);
     if (closed) return;
     setAudioSession("playback");
+    const audioCtx = ensureContext();
+    primeContext(audioCtx);
     void resumeContext()
+      .then(() => decodeIntoContext())
       .then(() => {
-        if (ctx.state === "closed") {
-          rebuildContext();
-          armUnlock();
-          return;
-        }
         syncPlayback();
-        if (!canStartBufferSource(ctx.state)) armUnlock();
+        if (!ctx || !canStartBufferSource(ctx.state) || !source) armUnlock();
       })
       .catch(() => {
         rebuildContext();
@@ -252,19 +273,28 @@ export function createBackgroundMusic(src = "/assets/background.mp3"): Backgroun
     const want = shouldPlayMusic(isPageVisible(), settings.level);
     if (!want) {
       stopSource();
-      if (canStartBufferSource(ctx.state)) void ctx.suspend().catch(() => {});
+      if (ctx && canStartBufferSource(ctx.state)) void ctx.suspend().catch(() => {});
       setAudioSession("ambient");
       clearMediaSession();
+      return;
+    }
+    if (!ctx) {
+      armUnlock();
       return;
     }
     setAudioSession("playback");
     if (!canStartBufferSource(ctx.state)) {
       void resumeContext()
+        .then(() => decodeIntoContext())
         .then(() => {
-          if (canStartBufferSource(ctx.state)) startSource();
+          if (ctx && canStartBufferSource(ctx.state)) startSource();
           else armUnlock();
         })
         .catch(armUnlock);
+      return;
+    }
+    if (!buffer) {
+      void decodeIntoContext().then(() => startSource());
       return;
     }
     startSource();
@@ -298,10 +328,9 @@ export function createBackgroundMusic(src = "/assets/background.mp3"): Backgroun
     dispose() {
       closed = true;
       unwatch();
-      window.removeEventListener("pointerdown", unlock);
-      window.removeEventListener("keydown", unlock);
+      listenUnlock(false);
       stopSource();
-      void ctx.close();
+      if (ctx && ctx.state !== "closed") void ctx.close().catch(() => {});
       setAudioSession("ambient");
       clearMediaSession();
     },
