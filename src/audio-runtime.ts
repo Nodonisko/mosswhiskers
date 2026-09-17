@@ -78,7 +78,7 @@ function contextState() {
   return Howler.ctx?.state as string | undefined;
 }
 
-type HowlEmitter = { _emit?: (event: string) => void };
+type HowlEmitter = { _emit?: (event: string) => void; _html5?: boolean };
 type HowlerResumeApi = {
   state?: string;
   _howls?: HowlEmitter[];
@@ -133,12 +133,23 @@ function reviveDeadContext() {
   try {
     ctxWatch?.removeEventListener("statechange", onContextState);
     ctxWatch = null;
+    const api = howlerResumeApi();
+    const html5 = (api._howls ?? []).filter((howl) => howl._html5);
+    for (const howl of html5) {
+      const index = api._howls?.indexOf(howl) ?? -1;
+      if (index >= 0) api._howls?.splice(index, 1);
+    }
     try {
       Howler.unload();
     } catch {
-      // Closing a zombie iOS context can throw; setupAudioContext still runs if ctx is null.
+      try {
+        Howler.ctx?.close();
+      } catch {
+        // Zombie contexts can reject close().
+      }
+      (Howler as unknown as { ctx: AudioContext | null }).ctx = null;
     }
-    const api = howlerResumeApi();
+    api._howls = [...(api._howls ?? []), ...html5];
     api._audioUnlocked = false;
     Howler.autoUnlock = true;
     Howler.autoSuspend = false;
@@ -258,6 +269,7 @@ export function watchGameAudio(onChange: VisibleListener) {
       unwatch = null;
       listenUnlock(false);
       waitingForGesture = false;
+      audioGraphStale = false;
       ctxWatch?.removeEventListener("statechange", onContextState);
       ctxWatch = null;
       Howler.mute(false);

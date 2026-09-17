@@ -110,6 +110,7 @@ export function createBackgroundMusic(src = "/assets/background.mp3"): Backgroun
 
   const unwatch = watchGameAudio((visible) => syncPlayback(visible));
   const unrevive = onAudioRevive(() => {
+    if (music && music.state() !== "unloaded") return;
     music = null;
     if (!closed) syncPlayback();
   });

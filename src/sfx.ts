@@ -1,4 +1,4 @@
-import { Howl, Howler } from "howler";
+import { Howl } from "howler";
 import { onAudioRevive, resumeHowlerContext, watchGameAudio, webAudioReadyForSfx } from "./audio-runtime";
 import { isPageVisible } from "./page-visible";
 
@@ -93,6 +93,11 @@ export function createSfxPlayer(getVolume: () => number): SfxPlayer {
   let lastGulpIndex = -1;
 
   function rebuild() {
+    for (const sound of [...shots.values(), gulp, fire, beep]) {
+      if (!sound) continue;
+      sound.stop();
+      sound.unload();
+    }
     shots.clear();
     for (const src of shotSrcs) shots.set(src, loadSound(src));
     gulp = loadSound(GULP_SOUND);
@@ -108,10 +113,6 @@ export function createSfxPlayer(getVolume: () => number): SfxPlayer {
       playWhenReady();
       return;
     }
-    if (!Howler.ctx) {
-      playWhenReady();
-      return;
-    }
     void resumeHowlerContext().then(() => {
       if (!isPageVisible() || !webAudioReadyForSfx()) return;
       playWhenReady();
@@ -121,16 +122,17 @@ export function createSfxPlayer(getVolume: () => number): SfxPlayer {
   function play(src: string, startAt = 0) {
     const volume = getVolume();
     if (volume <= 0 || !isPageVisible()) return;
-    const sound = shots.get(src);
-    if (!sound) return;
-    sound.volume(volume);
     whenWebAudioReady(() => {
+      const sound = shots.get(src);
+      if (!sound) return;
+      sound.volume(volume);
       const id = sound.play();
       if (startAt > 0) sound.seek(startAt, id);
     });
   }
 
-  function loopAmbient(sound: Howl, gain: number) {
+  function loopAmbient(which: "fire" | "beep", gain: number) {
+    const sound = which === "fire" ? fire : beep;
     const volume = Math.max(0, Math.min(1, getVolume() * gain));
     sound.volume(volume);
     if (volume <= 0 || !isPageVisible()) {
@@ -138,15 +140,15 @@ export function createSfxPlayer(getVolume: () => number): SfxPlayer {
       return;
     }
     whenWebAudioReady(() => {
-      if (!sound.playing()) sound.play();
+      const current = which === "fire" ? fire : beep;
+      if (!current.playing()) current.play();
     });
   }
 
-  const unwatch = watchGameAudio((visible) => {
+  const unwatch = watchGameAudio(() => {
     if (gulp.playing()) gulp.pause();
     if (fire.playing()) fire.pause();
     if (beep.playing()) beep.pause();
-    if (!visible) return;
   });
   const unrevive = onAudioRevive(rebuild);
 
@@ -188,10 +190,10 @@ export function createSfxPlayer(getVolume: () => number): SfxPlayer {
       });
     },
     syncFire({ burning, distance }) {
-      loopAmbient(fire, burning ? fireProximity(distance) : 0);
+      loopAmbient("fire", burning ? fireProximity(distance) : 0);
     },
     syncBeep({ humming, distance }) {
-      loopAmbient(beep, humming ? beepProximity(distance) : 0);
+      loopAmbient("beep", humming ? beepProximity(distance) : 0);
     },
     dispose() {
       unwatch();
