@@ -35,7 +35,7 @@ export function clearMediaSession() {
   }
 }
 
-const UNLOCK_EVENTS = ["pointerdown", "touchend", "click", "keydown"] as const;
+const UNLOCK_EVENTS = ["pointerdown", "touchstart", "touchend", "click", "keydown"] as const;
 
 type VisibleListener = (visible: boolean) => void;
 
@@ -45,6 +45,8 @@ let unwatch: (() => void) | null = null;
 let waitingForGesture = false;
 let ctxWatch: AudioContext | null = null;
 let reviving = false;
+/** iOS can keep ctx.state at "running" after background while Web Audio is silent. */
+let audioGraphStale = false;
 
 export function onAudioRevive(fn: () => void) {
   revivers.add(fn);
@@ -68,6 +70,10 @@ export function webAudioIsRunning(state: string | undefined) {
   return state === "running";
 }
 
+export function webAudioReadyForSfx() {
+  return !audioGraphStale && webAudioIsRunning(Howler.ctx?.state as string | undefined);
+}
+
 function contextState() {
   return Howler.ctx?.state as string | undefined;
 }
@@ -76,6 +82,8 @@ type HowlEmitter = { _emit?: (event: string) => void };
 type HowlerResumeApi = {
   state?: string;
   _howls?: HowlEmitter[];
+  _audioUnlocked?: boolean;
+  _unlockAudio?: () => void;
 };
 
 function howlerResumeApi() {
@@ -114,9 +122,9 @@ function watchContext() {
 }
 
 function onContextState() {
-  if (webAudioIsRunning(contextState()) || !isPageVisible()) return;
-  void resumeHowlerContext();
-  armUnlock();
+  if (!isPageVisible()) return;
+  if (audioGraphStale || !webAudioIsRunning(contextState())) armUnlock();
+  if (!audioGraphStale) void resumeHowlerContext();
 }
 
 function reviveDeadContext() {
@@ -125,9 +133,17 @@ function reviveDeadContext() {
   try {
     ctxWatch?.removeEventListener("statechange", onContextState);
     ctxWatch = null;
-    Howler.unload();
+    try {
+      Howler.unload();
+    } catch {
+      // Closing a zombie iOS context can throw; setupAudioContext still runs if ctx is null.
+    }
+    const api = howlerResumeApi();
+    api._audioUnlocked = false;
     Howler.autoUnlock = true;
     Howler.autoSuspend = false;
+    api._unlockAudio?.();
+    Howler.mute(false);
     for (const fn of revivers) fn();
     watchContext();
   } finally {
@@ -139,6 +155,10 @@ export function resumeHowlerContext() {
   watchContext();
   const ctx = Howler.ctx;
   if (!ctx) return Promise.resolve();
+  if (audioGraphStale) {
+    armUnlock();
+    return Promise.resolve();
+  }
   if (webAudioIsRunning(ctx.state)) {
     markHowlerRunning();
     return Promise.resolve();
@@ -178,9 +198,25 @@ function unlock() {
     return;
   }
   setAudioSession("playback");
+  if (audioGraphStale) {
+    audioGraphStale = false;
+    reviveDeadContext();
+  }
   playUnlockBuffer();
+  const ctx = Howler.ctx;
+  if (ctx && ctx.state !== "closed") {
+    try {
+      void ctx.resume();
+    } catch {
+      armUnlock();
+    }
+  }
   void resumeHowlerContext().then(() => {
-    if (!isPageVisible() || !webAudioIsRunning(contextState())) return;
+    if (!isPageVisible()) return;
+    if (!webAudioIsRunning(contextState())) {
+      armUnlock();
+      return;
+    }
     markHowlerRunning();
     for (const listener of listeners) listener(true);
   });
@@ -189,11 +225,15 @@ function unlock() {
 function applyVisible(visible: boolean) {
   if (visible) {
     setAudioSession("playback");
-    void resumeHowlerContext().then(() => {
-      if (isPageVisible() && webAudioIsRunning(contextState())) markHowlerRunning();
-    });
+    Howler.mute(false);
+    if (!audioGraphStale) {
+      void resumeHowlerContext().then(() => {
+        if (isPageVisible() && webAudioIsRunning(contextState())) markHowlerRunning();
+      });
+    }
     armUnlock();
   } else {
+    audioGraphStale = true;
     Howler.mute(true);
     setAudioSession("ambient");
     clearMediaSession();

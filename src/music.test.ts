@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { audioSessionType, webAudioIsRunning } from "./audio-runtime";
+import { audioSessionType, webAudioIsRunning, webAudioReadyForSfx } from "./audio-runtime";
 import {
   clampLevel,
   DEFAULT_MUSIC_LEVEL,
@@ -52,4 +52,5 @@ test("treats only a running audio context as ready for SFX", () => {
   expect(webAudioIsRunning("suspended")).toBe(false);
   expect(webAudioIsRunning("closed")).toBe(false);
   expect(webAudioIsRunning(undefined)).toBe(false);
+  expect(webAudioReadyForSfx()).toBe(false);
 });

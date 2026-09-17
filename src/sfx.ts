@@ -1,5 +1,5 @@
 import { Howl, Howler } from "howler";
-import { onAudioRevive, resumeHowlerContext, watchGameAudio, webAudioIsRunning } from "./audio-runtime";
+import { onAudioRevive, resumeHowlerContext, watchGameAudio, webAudioReadyForSfx } from "./audio-runtime";
 import { isPageVisible } from "./page-visible";
 
 export const CLAW_SOUNDS = [
@@ -98,19 +98,22 @@ export function createSfxPlayer(getVolume: () => number): SfxPlayer {
     gulp = loadSound(GULP_SOUND);
     fire = loadSound(FIRE_SOUND, true);
     beep = loadSound(BEEP_SOUND, true);
+    lastGulpIndex = -1;
   }
 
   rebuild();
 
   function whenWebAudioReady(playWhenReady: () => void) {
-    const ctx = Howler.ctx;
-    if (!ctx || webAudioIsRunning(ctx.state)) {
+    if (webAudioReadyForSfx()) {
+      playWhenReady();
+      return;
+    }
+    if (!Howler.ctx) {
       playWhenReady();
       return;
     }
     void resumeHowlerContext().then(() => {
-      if (!isPageVisible()) return;
-      if (Howler.ctx && !webAudioIsRunning(Howler.ctx.state)) return;
+      if (!isPageVisible() || !webAudioReadyForSfx()) return;
       playWhenReady();
     });
   }
