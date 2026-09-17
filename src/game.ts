@@ -79,7 +79,7 @@ function catTextures(seed: number, cache: Map<number, CatTextures>): CatTextures
   return created;
 }
 
-function startGame() {
+export function createGame() {
   const canvas = document.querySelector<HTMLCanvasElement>("#world");
   if (!canvas) throw new Error("World canvas is missing");
   const music = createBackgroundMusic();
@@ -470,9 +470,10 @@ function startGame() {
   window.visualViewport?.addEventListener("scroll", resize);
   resize();
 
-  const clock = new THREE.Clock();
+  const clock = new THREE.Clock(false);
   let accumulator = 0;
   let raf = 0;
+  let started = false;
   function animate() {
     raf = requestAnimationFrame(animate);
     const frameDt = Math.min(clock.getDelta(), 0.05);
@@ -591,10 +592,19 @@ function startGame() {
     ending.tick(frameDt);
     renderer.render(scene, camera);
   }
-  animate();
+  syncPlayers(sim.players);
+  renderer.render(scene, camera);
 
   return {
+    start() {
+      if (started) return;
+      started = true;
+      music.arm();
+      clock.start();
+      animate();
+    },
     dispose() {
+      started = false;
       cancelAnimationFrame(raf);
       settings.dispose();
       music.dispose();
@@ -612,9 +622,4 @@ function startGame() {
       window.visualViewport?.removeEventListener("scroll", resize);
     },
   };
-}
-
-const game = startGame();
-if (import.meta.hot) {
-  import.meta.hot.dispose(() => game.dispose());
 }

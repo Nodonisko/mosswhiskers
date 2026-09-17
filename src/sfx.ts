@@ -34,6 +34,18 @@ export const BEEP_FADE_RANGE = 240;
 export const ROCKET_SOUND = "/assets/sounds/rocket_launch.mp3";
 export const ROCKET_SOUND_SKIP = 1.5;
 export const ROCKET_SOUND_DELAY = 0.5;
+export const SFX_URLS = [
+  ...CLAW_SOUNDS,
+  CLAW_WOOD_SOUND,
+  ...MEOW_SOUNDS,
+  HISS_SOUND,
+  MOUSE_SOUND,
+  SPLASH_SOUND,
+  GULP_SOUND,
+  FIRE_SOUND,
+  BEEP_SOUND,
+  ROCKET_SOUND,
+] as const;
 
 export type SfxPlayer = {
   playClaw(): void;

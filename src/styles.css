@@ -1,7 +1,7 @@
 :root {
   color-scheme: only light;
   font-family: ui-monospace, "Courier New", monospace;
-  background: #172816;
+  background: #000;
   image-rendering: pixelated;
 }
 
@@ -18,7 +18,16 @@ body {
   touch-action: none;
 }
 
-body { background: #172816; }
+body { background: #000; }
+
+html.is-playing,
+html.is-playing body {
+  background: #172816;
+}
+
+html:not(.is-playing) #game {
+  pointer-events: none;
+}
 
 #game {
   position: fixed;

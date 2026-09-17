@@ -1261,13 +1261,17 @@ export function paintWorldModel(kind: WorldModelKind, options: WorldModelOptions
   return p.canvas;
 }
 
-export function getWorldModelTexture(kind: WorldModelKind, options: WorldModelOptions = {}): THREE.CanvasTexture {
+export function worldModelTextureKey(kind: WorldModelKind, options: WorldModelOptions = {}) {
   const seed = options.seed ?? 1;
   const variant = options.variant ?? 0;
   const facing = options.facing ?? 'e';
   const hit = options.hit === true;
   const sick = options.sick === true;
-  const key = `${kind}:${seed}:${variant}:${facing}:${hit ? 'h' : ''}:${sick ? 's' : ''}`;
+  return `${kind}:${seed}:${variant}:${facing}:${hit ? 'h' : ''}:${sick ? 's' : ''}`;
+}
+
+export function getWorldModelTexture(kind: WorldModelKind, options: WorldModelOptions = {}): THREE.CanvasTexture {
+  const key = worldModelTextureKey(kind, options);
   const cached = textureCache.get(key);
   if (cached) return cached;
   const canvas = paintWorldModel(kind, options);

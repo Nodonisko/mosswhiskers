@@ -13,12 +13,15 @@ export type MusicSettings = {
   sfxLevel: number;
 };
 
+export const MUSIC_URL = "/assets/background.mp3";
+
 export type BackgroundMusic = {
   level(): number;
   setLevel(level: number): void;
   sfxLevel(): number;
   setSfxLevel(level: number): void;
   sfxVolume(): number;
+  arm(): void;
   dispose(): void;
 };
 
@@ -69,10 +72,11 @@ export function shouldPlayMusic(visible: boolean, level: number) {
   return visible && level > 1;
 }
 
-export function createBackgroundMusic(src = "/assets/background.mp3"): BackgroundMusic {
+export function createBackgroundMusic(src = MUSIC_URL): BackgroundMusic {
   let settings = loadMusicSettings();
   let music: Howl | null = null;
   let closed = false;
+  let armed = false;
 
   function createHowl() {
     const track = new Howl({
@@ -98,7 +102,7 @@ export function createBackgroundMusic(src = "/assets/background.mp3"): Backgroun
   }
 
   function syncPlayback(visible = isPageVisible()) {
-    if (closed) return;
+    if (closed || !armed) return;
     if (!shouldPlayMusic(visible, settings.level)) {
       drop();
       return;
@@ -122,6 +126,11 @@ export function createBackgroundMusic(src = "/assets/background.mp3"): Backgroun
   }
 
   return {
+    arm() {
+      if (armed || closed) return;
+      armed = true;
+      syncPlayback();
+    },
     level() {
       return settings.level;
     },

@@ -4,6 +4,7 @@ import {
   clampLevel,
   DEFAULT_MUSIC_LEVEL,
   DEFAULT_SFX_LEVEL,
+  MUSIC_URL,
   parseMusicSettings,
   shouldPlayMusic,
   volumeForLevel,
@@ -44,6 +45,10 @@ test("keeps music off in a hidden tab", () => {
 test("uses a playback session while the tab is visible", () => {
   expect(audioSessionType(true)).toBe("playback");
   expect(audioSessionType(false)).toBe("ambient");
+});
+
+test("background music lives at the meadow track url", () => {
+  expect(MUSIC_URL).toBe("/assets/background.mp3");
 });
 
 test("treats only a running audio context as ready for SFX", () => {
