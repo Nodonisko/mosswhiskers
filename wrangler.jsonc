@@ -2,7 +2,12 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "mosswhisker-hollow",
   "compatibility_date": "2026-09-15",
+  "workers_dev": true,
   "assets": {
     "directory": "./dist"
-  }
+  },
+  "routes": [
+    { "pattern": "mosswhiskers.com", "custom_domain": true },
+    { "pattern": "www.mosswhiskers.com", "custom_domain": true }
+  ]
 }
