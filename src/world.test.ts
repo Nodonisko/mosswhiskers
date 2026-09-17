@@ -39,6 +39,7 @@ import {
   RABBIT,
   ROCKET_CARROT,
   SAM,
+  TREE_TRUNK_HITBOX,
   isAuthorableWorldKind,
   isUniqueNpcKind,
 } from "./world-config";
@@ -315,5 +316,33 @@ describe("createWalkable", () => {
     expect(walkable(RABBIT.x, RABBIT.y)).toBe(false);
     expect(walkable(FARM_CARROTS[4]!.x, FARM_CARROTS[4]!.y)).toBe(false);
     expect(walkable(FARM_SHED.x, FARM_SHED.y)).toBe(false);
+  });
+
+  test("logs and stumps block their ground footprint", () => {
+    const bernie = WORLD_PROPS.find((prop) => prop.kind === "bernie");
+    const sam = WORLD_PROPS.find((prop) => prop.kind === "sam");
+    const rabbit = WORLD_PROPS.find((prop) => prop.kind === "rabbit");
+    if (!bernie || !sam || !rabbit) throw new Error("NPCs are missing from authored props");
+    const blocked = createWalkable(createWorldLayout([
+      bernie,
+      sam,
+      rabbit,
+      { kind: "log", x: 80, y: 40, scale: 1, seed: 1, variant: 0 },
+      { kind: "mossLog", x: 80, y: 140, scale: 1, seed: 1, variant: 0, rot: 90 },
+      { kind: "stump", x: 80, y: 240, scale: 1, seed: 1, variant: 0 },
+    ]).trunks);
+    const logLift = WORLD_MODEL_SIZES.log[1] / 2;
+    const mossLift = WORLD_MODEL_SIZES.mossLog[1] / 2;
+    const stumpOffset = TREE_TRUNK_HITBOX.stump?.[2] ?? 0;
+    expect(blocked(80, 40 + logLift)).toBe(false);
+    expect(blocked(80, 40)).toBe(false);
+    expect(blocked(80, 40 - 4)).toBe(false);
+    expect(blocked(80, 140 + mossLift)).toBe(false);
+    expect(blocked(80 + 50, 140 + mossLift)).toBe(true);
+    expect(blocked(80, 140 + mossLift + 30)).toBe(false);
+    expect(blocked(80, 240 + stumpOffset)).toBe(false);
+    expect(blocked(80, 240)).toBe(false);
+    expect(blocked(80, 240 - 8)).toBe(false);
+    expect(blocked(200, 40)).toBe(true);
   });
 });

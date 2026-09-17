@@ -291,7 +291,7 @@ export function nextRotation(value: unknown, step = 15): number {
 /** Props whose trunk box should play the wood claw sound. */
 export const TREE_KINDS = new Set<WorldModelKind>(["pine", "oak", "willow"]);
 
-/** Ground footprint. Optional offsetY shifts the box north so a south-origin building stays solid. */
+/** Ground footprint. Optional offsetY shifts the box north so a south-origin sprite stays solid. */
 export const TREE_TRUNK_HITBOX: Partial<
   Record<
     WorldModelKind,
@@ -310,7 +310,9 @@ export const TREE_TRUNK_HITBOX: Partial<
   rabbit: [8, 6],
   fence: [22, 5],
   shed: [56, 16],
-  stump: [10, 6],
+  log: [34, 11, 5],
+  mossLog: [34, 13, 6],
+  stump: [14, 12, 2],
 };
 
 export const mainPathY = (x: number) =>

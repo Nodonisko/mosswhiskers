@@ -138,7 +138,7 @@ function trunksFromProps(props: readonly WorldProp[], kinds?: ReadonlySet<WorldM
         const rot = normalizeRotation(prop.rot) * Math.PI / 180;
         const c = Math.cos(rot);
         const s = Math.sin(rot);
-        const localY = -lift;
+        const localY = -lift + offsetY;
         trunks.push({
           x: prop.x - localY * s,
           y: prop.y + lift + localY * c,
