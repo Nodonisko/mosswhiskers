@@ -83,6 +83,14 @@
         font-size: 10px;
       }
 
+      #boot-hint {
+        margin: 0;
+        max-width: min(320px, calc(100vw - 40px));
+        color: #8e8666;
+        font: 400 8px/1.8 "Press Start 2P", ui-monospace, monospace;
+        letter-spacing: 0.4px;
+      }
+
       #boot-start {
         min-height: 2.4em;
       }
@@ -155,6 +163,7 @@
           <span class="boot-start-key">Press any key to start</span>
           <span class="boot-start-touch">Tap to start</span>
         </p>
+        <p id="boot-hint">Turn on sound for the best experience</p>
       </div>
       <p id="boot-credit">
         Made with <span class="boot-heart">❤️</span> by Daniel Suchy.<br />
