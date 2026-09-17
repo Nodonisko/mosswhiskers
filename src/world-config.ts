@@ -153,6 +153,9 @@ export type WorldModelKind =
   | "bluegill"
   | "mouse";
 
+/** Props whose trunk box should play the wood claw sound. */
+export const TREE_KINDS = new Set<WorldModelKind>(["pine", "oak", "willow"]);
+
 /** Ground footprint. Optional offsetY shifts the box north so a south-origin building stays solid. */
 export const TREE_TRUNK_HITBOX: Partial<
   Record<

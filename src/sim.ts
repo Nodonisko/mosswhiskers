@@ -94,6 +94,7 @@ export type PlayerSim = {
   clawHit: boolean;
   clawNonce: number;
   clawHissed: boolean;
+  clawWood: boolean;
   seed: number;
   inventory: InventorySlot[];
   nearbyId: string | null;
@@ -258,13 +259,21 @@ function mouseAt(spec: MouseSpec, elapsed: number, previousFacing: 1 | -1, previ
   };
 }
 
-export function clawHitsTarget(player: PlayerSim, target: { x: number; y: number; alive: boolean }) {
-  if (!target.alive) return false;
-  const dx = target.x - player.x;
-  const dy = target.y - player.y;
+export function clawHitsSolid(player: PlayerSim, solid: Solid) {
+  const dx = solid.x - player.x;
+  const dy = solid.y - player.y;
   const forward = player.facing === "e" ? dx : player.facing === "w" ? -dx : player.facing === "n" ? dy : -dy;
   const side = player.facing === "e" || player.facing === "w" ? dy : dx;
-  return forward > -CLAW_RANGE.back && forward < CLAW_RANGE.forward && Math.abs(side) < CLAW_RANGE.side;
+  const forwardPad = player.facing === "e" || player.facing === "w" ? solid.halfW : solid.halfH;
+  const sidePad = player.facing === "e" || player.facing === "w" ? solid.halfH : solid.halfW;
+  return forward > -CLAW_RANGE.back - forwardPad
+    && forward < CLAW_RANGE.forward + forwardPad
+    && Math.abs(side) < CLAW_RANGE.side + sidePad;
+}
+
+export function clawHitsTarget(player: PlayerSim, target: { x: number; y: number; alive: boolean }) {
+  if (!target.alive) return false;
+  return clawHitsSolid(player, { x: target.x, y: target.y, halfW: 0, halfH: 0 });
 }
 
 export function rocketCarrotPose(
@@ -309,6 +318,7 @@ export function createPlayer(options: { id: string; name?: string; x: number; y:
     clawHit: false,
     clawNonce: 0,
     clawHissed: false,
+    clawWood: false,
     seed: options.seed ?? DEFAULT_CAT_SEED,
     inventory: [],
     nearbyId: null,
@@ -639,6 +649,7 @@ function tickPlayer(
     player.clawHit = false;
     player.clawNonce += 1;
     player.clawHissed = false;
+    player.clawWood = false;
   }
   if (player.clawing) player.clawElapsed += dt;
   if (player.moving) {
@@ -697,9 +708,16 @@ function finishClaws(sim: GameSim) {
   }
 }
 
-function resolveClaws(sim: GameSim) {
+function resolveClaws(sim: GameSim, trees: readonly Solid[]) {
   for (const player of sim.players) {
     if (!player.clawing || player.clawElapsed / CLAW_DURATION < CLAW_HIT_AT) continue;
+    if (!player.clawWood) {
+      for (const tree of trees) {
+        if (!clawHitsSolid(player, tree)) continue;
+        player.clawWood = true;
+        break;
+      }
+    }
     for (const mouse of sim.mice) {
       if (!clawHitsTarget(player, mouse)) continue;
       mouse.alive = false;
@@ -748,14 +766,20 @@ function tickHisses(sim: GameSim, dt: number) {
   }
 }
 
-export function tickSim(sim: GameSim, inputs: PlayerInputs, dt: number, walkable: Walkable) {
+export function tickSim(
+  sim: GameSim,
+  inputs: PlayerInputs,
+  dt: number,
+  walkable: Walkable,
+  trees: readonly Solid[] = [],
+) {
   sim.elapsed += dt;
   sim.tick += 1;
   for (const player of sim.players) {
     tickPlayer(player, inputs[player.id] ?? IDLE_INPUT, dt, walkable, sim.interactables);
   }
   tickPrey(sim, dt);
-  resolveClaws(sim);
+  resolveClaws(sim, trees);
   tickHisses(sim, dt);
   finishClaws(sim);
   for (const rocket of sim.rocketCarrots) {

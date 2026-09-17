@@ -50,7 +50,10 @@ describe("createWorldLayout", () => {
     expect(a.mice).toEqual(b.mice);
     expect(a.fish).toEqual(b.fish);
     expect(a.trunks).toEqual(b.trunks);
+    expect(a.trees).toEqual(b.trees);
     expect(a.interactables).toEqual(b.interactables);
+    expect(a.trees.length).toBeGreaterThan(0);
+    expect(a.trees.length).toBeLessThan(a.trunks.length);
     expect(a.mice.length).toBeGreaterThan(0);
     expect(a.fish.map((fish) => fish.id)).toEqual([
       "fish-pike",

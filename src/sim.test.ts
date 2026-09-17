@@ -26,8 +26,14 @@ function cat(sim: GameSim) {
   return sim.players[0]!;
 }
 
-function tick(sim: GameSim, input: MoveInput, dt: number, walkable: Walkable = openGround) {
-  tickSim(sim, { [cat(sim).id]: input }, dt, walkable);
+function tick(
+  sim: GameSim,
+  input: MoveInput,
+  dt: number,
+  walkable: Walkable = openGround,
+  trees: Parameters<typeof tickSim>[4] = [],
+) {
+  tickSim(sim, { [cat(sim).id]: input }, dt, walkable, trees);
 }
 
 function simAtOrigin() {
@@ -246,6 +252,28 @@ describe("tickSim", () => {
     tick(sim, { x: 0, y: 0, claw: true }, 0.12);
     expect(sim.hisses).toEqual([]);
     expect(cat(sim).clawHissed).toBe(false);
+  });
+
+  test("a claw in front of a tree trunk marks wood", () => {
+    const sim = createSim({ players: [{ x: 0, y: 0 }], fish: [] });
+    cat(sim).facing = "e";
+    tick(sim, { x: 0, y: 0, claw: true }, 0.12, openGround, [{ x: 28, y: 0, halfW: 8, halfH: 5 }]);
+    expect(cat(sim).clawWood).toBe(true);
+    expect(cat(sim).clawHit).toBe(false);
+  });
+
+  test("a claw does not mark wood for a tree behind the cat", () => {
+    const sim = createSim({ players: [{ x: 0, y: 0 }], fish: [] });
+    cat(sim).facing = "e";
+    tick(sim, { x: 0, y: 0, claw: true }, 0.12, openGround, [{ x: -40, y: 0, halfW: 8, halfH: 5 }]);
+    expect(cat(sim).clawWood).toBe(false);
+  });
+
+  test("clawing air does not mark wood", () => {
+    const sim = createSim({ players: [{ x: 0, y: 0 }], fish: [] });
+    cat(sim).facing = "e";
+    tick(sim, { x: 0, y: 0, claw: true }, 0.12);
+    expect(cat(sim).clawWood).toBe(false);
   });
 
   test("an NPC hiss fades after MEOW_DURATION plus the text delay", () => {

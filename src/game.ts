@@ -619,6 +619,7 @@ function startGame() {
   const names = createNameLayer(world);
   const heardMeow = new Map<string, number>();
   const heardClaw = new Map<string, number>();
+  const heardClawWood = new Map<string, number>();
   const heardHiss = new Map<string, number>();
   const heardRockets = new Set<number>();
   const heardMice = new Set<string>();
@@ -632,6 +633,7 @@ function startGame() {
     for (const player of sim.players) {
       hear(heardMeow, player.id, player.meowNonce, () => sfx.playMeow());
       hear(heardClaw, player.id, player.clawNonce, () => sfx.playClaw());
+      if (player.clawWood) hear(heardClawWood, player.id, player.clawNonce, () => sfx.playClawWood());
     }
     for (const hiss of sim.hisses) {
       hear(heardHiss, hiss.id, hiss.hissNonce, () => sfx.playHiss());
@@ -737,7 +739,7 @@ function startGame() {
         sample.interact = true;
       }
       syncWalkable();
-      tickSim(sim, { [LOCAL_PLAYER_ID]: sample }, TICK_DT, walkable);
+      tickSim(sim, { [LOCAL_PLAYER_ID]: sample }, TICK_DT, walkable, layout.trees);
     });
     syncSfx();
 

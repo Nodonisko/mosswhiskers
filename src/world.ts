@@ -48,6 +48,7 @@ import {
   mainPathY,
   onIntakePipe,
   southPathX,
+  TREE_KINDS,
   TREE_TRUNK_HITBOX,
   type WorldModelKind,
 } from "./world-config";
@@ -67,6 +68,7 @@ export type WorldLayout = {
   fish: FishSpec[];
   mice: MouseSpec[];
   trunks: Solid[];
+  trees: Solid[];
   interactables: Interactable[];
 };
 
@@ -155,9 +157,10 @@ export function createWalkable(solids: readonly Solid[]): Walkable {
   };
 }
 
-function trunksFromProps(props: readonly WorldProp[]): Solid[] {
+function trunksFromProps(props: readonly WorldProp[], kinds?: ReadonlySet<WorldModelKind>): Solid[] {
   const trunks: Solid[] = [];
   for (const prop of props) {
+    if (kinds && !kinds.has(prop.kind)) continue;
     const trunk = TREE_TRUNK_HITBOX[prop.kind];
     if (trunk) {
       trunks.push({
@@ -333,6 +336,7 @@ export function createWorldLayout(): WorldLayout {
     fish: FISH_SPECS,
     mice: createMouseSpecs(),
     trunks: trunksFromProps(props),
+    trees: trunksFromProps(props, TREE_KINDS),
     interactables: [
       { id: "mailbox", kind: "mailbox", x: MAILBOX.x, y: MAILBOX.y },
       { id: "bernie", kind: "bernie", x: BERNIE.x, y: BERNIE.y },
