@@ -4,6 +4,7 @@ import {
   DEFAULT_MUSIC_LEVEL,
   DEFAULT_SFX_LEVEL,
   parseMusicSettings,
+  shouldPlayMusic,
   volumeForLevel,
 } from "./music";
 
@@ -30,4 +31,11 @@ test("parses stored music settings", () => {
   expect(parseMusicSettings(JSON.stringify({ muted: true }))).toEqual({ level: 1, sfxLevel: DEFAULT_SFX_LEVEL });
   expect(parseMusicSettings(JSON.stringify({ volume: 0.4 }))).toEqual({ level: 3, sfxLevel: DEFAULT_SFX_LEVEL });
   expect(parseMusicSettings(JSON.stringify({ level: 2, sfxLevel: 5 }))).toEqual({ level: 2, sfxLevel: 5 });
+});
+
+test("keeps music off in a hidden tab", () => {
+  expect(shouldPlayMusic(true, 3)).toBe(true);
+  expect(shouldPlayMusic(true, 1)).toBe(false);
+  expect(shouldPlayMusic(false, 5)).toBe(false);
+  expect(shouldPlayMusic(false, 1)).toBe(false);
 });

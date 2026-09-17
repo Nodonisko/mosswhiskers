@@ -1,3 +1,5 @@
+import { isPageVisible, watchPageVisible } from "./page-visible";
+
 export const MUSIC_LEVELS = 5;
 export const DEFAULT_MUSIC_LEVEL = 3;
 export const DEFAULT_SFX_LEVEL = 5;
@@ -61,37 +63,65 @@ export function saveMusicSettings(settings: MusicSettings) {
   }
 }
 
+export function shouldPlayMusic(visible: boolean, level: number) {
+  return visible && level > 1;
+}
+
+function clearMediaSession() {
+  const session = navigator.mediaSession;
+  if (!session) return;
+  try {
+    session.metadata = null;
+    session.playbackState = "none";
+  } catch {
+    // Safari can throw if the session is already idle.
+  }
+}
+
 export function createBackgroundMusic(src = "/assets/background.mp3"): BackgroundMusic {
   const audio = new Audio(src);
   audio.loop = true;
   audio.preload = "auto";
+  audio.hidden = true;
   audio.setAttribute("aria-hidden", "true");
+  audio.disableRemotePlayback = true;
   document.body.append(audio);
 
   let settings = loadMusicSettings();
-  apply();
+  let waitingForGesture = false;
 
-  const unlock = () => {
-    void audio.play().catch(() => {});
-    window.removeEventListener("pointerdown", unlock);
-    window.removeEventListener("keydown", unlock);
-  };
-
-  void audio.play().catch(() => {
+  function armUnlock() {
+    if (waitingForGesture) return;
+    waitingForGesture = true;
     window.addEventListener("pointerdown", unlock);
     window.addEventListener("keydown", unlock);
-  });
+  }
 
-  function apply() {
+  function unlock() {
+    waitingForGesture = false;
+    window.removeEventListener("pointerdown", unlock);
+    window.removeEventListener("keydown", unlock);
+    syncPlayback();
+  }
+
+  function syncPlayback() {
     const level = settings.level;
     audio.volume = volumeForLevel(level);
     audio.muted = level === 1;
+    if (!shouldPlayMusic(isPageVisible(), level)) {
+      audio.pause();
+      clearMediaSession();
+      return;
+    }
+    void audio.play().catch(armUnlock);
   }
+
+  syncPlayback();
+  const unwatch = watchPageVisible(() => syncPlayback());
 
   function persist(next: MusicSettings) {
     settings = next;
     saveMusicSettings(settings);
-    apply();
     unlock();
   }
 
@@ -112,12 +142,14 @@ export function createBackgroundMusic(src = "/assets/background.mp3"): Backgroun
       return volumeForLevel(settings.sfxLevel);
     },
     dispose() {
+      unwatch();
       window.removeEventListener("pointerdown", unlock);
       window.removeEventListener("keydown", unlock);
       audio.pause();
       audio.removeAttribute("src");
       audio.load();
       audio.remove();
+      clearMediaSession();
     },
   };
 }

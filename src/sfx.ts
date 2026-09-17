@@ -1,3 +1,5 @@
+import { isPageVisible, watchPageVisible } from "./page-visible";
+
 export const CLAW_SOUNDS = [
   "/assets/sounds/claw1.mp3",
   "/assets/sounds/claw2.mp3",
@@ -80,17 +82,29 @@ export function createSfxPlayer(getVolume: () => number): SfxPlayer {
   const live = new Set<HTMLAudioElement>();
   const gulp = new Audio(GULP_SOUND);
   gulp.preload = "auto";
+  gulp.disableRemotePlayback = true;
   const fire = new Audio(FIRE_SOUND);
   fire.preload = "auto";
   fire.loop = true;
+  fire.disableRemotePlayback = true;
   const beep = new Audio(BEEP_SOUND);
   beep.preload = "auto";
   beep.loop = true;
+  beep.disableRemotePlayback = true;
   let lastGulpIndex = -1;
+
+  function hush() {
+    if (!gulp.paused) gulp.pause();
+    if (!fire.paused) fire.pause();
+    if (!beep.paused) beep.pause();
+    for (const audio of live) {
+      if (!audio.paused) audio.pause();
+    }
+  }
 
   function play(src: string, startAt = 0) {
     const volume = getVolume();
-    if (volume <= 0) return;
+    if (volume <= 0 || !isPageVisible()) return;
     const audio = new Audio(src);
     audio.volume = volume;
     live.add(audio);
@@ -114,12 +128,16 @@ export function createSfxPlayer(getVolume: () => number): SfxPlayer {
 
   function loopAmbient(audio: HTMLAudioElement, gain: number) {
     audio.volume = Math.max(0, Math.min(1, getVolume() * gain));
-    if (audio.volume <= 0) {
+    if (audio.volume <= 0 || !isPageVisible()) {
       if (!audio.paused) audio.pause();
       return;
     }
     if (audio.paused) void audio.play().catch(() => {});
   }
+
+  const unwatch = watchPageVisible((visible) => {
+    if (!visible) hush();
+  });
 
   return {
     playClaw() {
@@ -150,7 +168,7 @@ export function createSfxPlayer(getVolume: () => number): SfxPlayer {
       }
       if (gulpIndex === lastGulpIndex) return;
       lastGulpIndex = gulpIndex;
-      if (clogged || gulp.volume <= 0) return;
+      if (clogged || gulp.volume <= 0 || !isPageVisible()) return;
       gulp.currentTime = 0;
       void gulp.play().catch(() => {});
     },
@@ -161,6 +179,7 @@ export function createSfxPlayer(getVolume: () => number): SfxPlayer {
       loopAmbient(beep, humming ? beepProximity(distance) : 0);
     },
     dispose() {
+      unwatch();
       gulp.pause();
       gulp.removeAttribute("src");
       gulp.load();
