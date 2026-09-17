@@ -1,14 +1,15 @@
 import type { PlayerSim, QuestId } from "./sim";
+import { QUEST_HINT_DELAY } from "./world-config";
 
 const QUEST_COPY: Record<QuestId, { summary: string; objective: string }> = {
   sandwhisker: {
-    summary: "His woods are dying and the pond is a puddle.",
+    summary: "Bernie's woods are dying and the pond is a puddle.",
     objective:
-      "Bring him fish and mice. He lives in the far northwest of the wood.",
+      "Bring Bernie fish and mice. He lives in the far northwest of the wood.",
   },
   pond: {
     summary: "Bernie took the fish and mice.",
-    objective: "Investigate why his pond is drying up. Follow the pipe.",
+    objective: "Investigate why Bernie's pond is drying up. Follow the pipe.",
   },
   report: {
     summary: "Sam Catman is cooling his data center with Bernie's pond.",
@@ -16,12 +17,12 @@ const QUEST_COPY: Record<QuestId, { summary: string; objective: string }> = {
   },
   hopsk: {
     summary: "Bernie knows a guy who never did like Catman.",
-    objective: "Find vegetable farmer on the southwest farm.",
+    objective: "Find the vegetable farmer on the southwest farm.",
   },
   clog: {
     summary: "Hopsk lent you one of his carrots.",
     objective:
-      "Stuff carrot in the pipe intake. Bernie's pond, the gulping end.",
+      "Stuff the carrot in the pipe intake. Bernie's pond, the gulping end.",
   },
   smoke: {
     summary: "The pipe has stopped drinking.",
@@ -129,9 +130,9 @@ export function createQuestHud(root: HTMLElement) {
       }
       if (!hasQuest) setOpen(false);
       const hint = player?.questHint;
-      const showToast = Boolean(hint) && !player?.openId;
-      questToast.hidden = !showToast;
+      const showToast = Boolean(hint) && !player?.openId && (player?.questHintElapsed ?? 0) >= QUEST_HINT_DELAY;
       if (showToast && hint) questToast.textContent = QUEST_HINT[hint];
+      questToast.classList.toggle("is-on", showToast);
     },
     dispose() {
       questToggle.removeEventListener("click", onToggle);

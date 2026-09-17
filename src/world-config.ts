@@ -35,6 +35,8 @@ export const MEOW_DURATION = 1.15;
 export const MEOW_TEXT_DELAY = 0.3;
 /** Wait this long after the hiss sound before the SSSSS text pops. */
 export const HISS_TEXT_DELAY = 0.3;
+/** Wait this long after the accept dialog closes before the new-quest hint pops. */
+export const QUEST_HINT_DELAY = 1;
 /** Seconds a new-quest hint hangs above the player. */
 export const QUEST_HINT_DURATION = 3.2;
 /** Shake and ignite before the rocket carrot leaves the soil. */
@@ -247,6 +249,29 @@ export function isAuthorableWorldKind(kind: string): kind is AuthorableWorldKind
 
 export function isRotatableWorldKind(kind: string): kind is RotatableWorldKind {
   return ROTATABLE_WORLD_KIND_SET.has(kind as WorldModelKind);
+}
+
+/** Plants whose greens can go olive-brown in Bernie woods or the editor. */
+export const SICK_FOLIAGE_KINDS = [
+  "pine",
+  "oak",
+  "willow",
+  "bush",
+  "flowers",
+  "grass",
+  "wheat",
+  "reeds",
+  "moss",
+  "mossLog",
+  "fern",
+  "stump",
+  "clover",
+] as const;
+export type SickFoliageKind = (typeof SICK_FOLIAGE_KINDS)[number];
+export const SICK_FOLIAGE_KIND_SET = new Set<WorldModelKind>(SICK_FOLIAGE_KINDS);
+
+export function canHaveSickFoliage(kind: string): kind is SickFoliageKind {
+  return SICK_FOLIAGE_KIND_SET.has(kind as WorldModelKind);
 }
 
 /** Degrees in [0, 360). 0 means unrotated and is omitted from saved props. */

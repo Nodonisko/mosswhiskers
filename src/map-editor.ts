@@ -9,6 +9,7 @@ import {
   MAP_HEIGHT,
   MAP_WIDTH,
   VIEW_HEIGHT,
+  canHaveSickFoliage,
   isPlaceableWorldKind,
   isRotatableWorldKind,
   isUniqueNpcKind,
@@ -25,8 +26,10 @@ import { createWorldModel, paintWorldModel, WORLD_MODEL_SIZES, applyWorldPropPos
 import {
   EDITOR_DRAFT_KEY,
   NPC_LABELS,
+  copySelected,
   createEditorStore,
   duplicateSelected,
+  pasteClipboard,
   editorPaletteItems,
   fromEditorProps,
   cornerActionAt,
@@ -212,6 +215,8 @@ function startEditor() {
   let resizeOrigin: WorldProp | null = null;
   let dragRecorded = false;
   let lastPointer = { x: 0, y: 0 };
+  let pointerOnCanvas = false;
+  let lastClient = { x: 0, y: 0 };
   let placeRot = 0;
   let placeVariant = 0;
 
@@ -264,6 +269,25 @@ function startEditor() {
     }
     canvas.style.cursor = tool === "select" ? "default" : "crosshair";
     if (tool !== "select") setGhostKind(tool);
+  }
+
+  function currentView() {
+    return {
+      x: camera.position.x,
+      y: camera.position.y,
+      width: viewWidth,
+      height: VIEW_HEIGHT / zoom,
+    };
+  }
+
+  function currentCursor() {
+    if (!pointerOnCanvas) return null;
+    return screenToWorld(lastClient.x, lastClient.y);
+  }
+
+  function markPointer(event: { clientX: number; clientY: number }) {
+    pointerOnCanvas = true;
+    lastClient = { x: event.clientX, y: event.clientY };
   }
 
   function screenToWorld(clientX: number, clientY: number) {
@@ -356,7 +380,7 @@ function startEditor() {
     inspectForm.querySelector(".inspect-seed")?.toggleAttribute("hidden", npc);
     inspectForm.querySelector(".inspect-variant")?.toggleAttribute("hidden", npc);
     inspectForm.querySelector(".inspect-rot")?.toggleAttribute("hidden", !rotatable);
-    inspectForm.querySelector(".inspect-sick")?.toggleAttribute("hidden", npc || (prop.kind !== "pine" && prop.kind !== "oak"));
+    inspectForm.querySelector(".inspect-sick")?.toggleAttribute("hidden", !canHaveSickFoliage(prop.kind));
     const deleteBtn = inspectForm.querySelector<HTMLButtonElement>("[data-action=delete]");
     const duplicateBtn = inspectForm.querySelector<HTMLButtonElement>("[data-action=duplicate]");
     const rotateBtn = inspectForm.querySelector<HTMLButtonElement>("[data-action=rotate]");
@@ -451,12 +475,14 @@ function startEditor() {
       sam: "#e8b060",
       rabbit: "#fff8f0",
     };
-    const flowerColors = ["#e7e8c9", "#6595ba", "#c591b1", "#e0c45a", "#d4843c", "#8a6aaa", "#c45a4a", "#f0ead0"] as const;
-    for (const prop of store.props) {
-      const at = toMap(prop.x, prop.y);
-      ctx.fillStyle = prop.kind === "flowers"
-        ? flowerColors[normalizeFlowerVariant(prop.variant)]
-        : colors[prop.kind] ?? "#fff8dd";
+      const flowerColors = ["#e7e8c9", "#6595ba", "#c591b1", "#e0c45a", "#d4843c", "#8a6aaa", "#c45a4a", "#f0ead0"] as const;
+      for (const prop of store.props) {
+        const at = toMap(prop.x, prop.y);
+        ctx.fillStyle = prop.sick && canHaveSickFoliage(prop.kind)
+          ? "#8a7a58"
+          : prop.kind === "flowers"
+            ? flowerColors[normalizeFlowerVariant(prop.variant)]
+            : colors[prop.kind] ?? "#fff8dd";
       const size = isUniqueNpcKind(prop.kind) ? 4 : 2;
       ctx.fillRect(Math.round(at.x), Math.round(at.y), size, size);
     }
@@ -536,6 +562,7 @@ function startEditor() {
   });
 
   canvas.addEventListener("pointerdown", (event) => {
+    markPointer(event);
     if (event.button === 1 || event.button === 2 || event.altKey) {
       panning = true;
       lastPointer = { x: event.clientX, y: event.clientY };
@@ -591,6 +618,7 @@ function startEditor() {
   });
 
   canvas.addEventListener("pointermove", (event) => {
+    markPointer(event);
     const at = screenToWorld(event.clientX, event.clientY);
     if (panning) {
       const dx = event.clientX - lastPointer.x;
@@ -660,8 +688,13 @@ function startEditor() {
   }
   canvas.addEventListener("pointerup", endPointer);
   canvas.addEventListener("pointercancel", endPointer);
+  canvas.addEventListener("pointerenter", markPointer);
+  canvas.addEventListener("pointerleave", () => {
+    pointerOnCanvas = false;
+  });
   canvas.addEventListener("contextmenu", (event) => event.preventDefault());
   canvas.addEventListener("wheel", (event) => {
+    markPointer(event);
     event.preventDefault();
     const before = screenToWorld(event.clientX, event.clientY);
     zoom = THREE.MathUtils.clamp(zoom * (event.deltaY > 0 ? 0.9 : 1.1), MIN_ZOOM, MAX_ZOOM);
@@ -710,12 +743,30 @@ function startEditor() {
       if (redo(store)) mutated();
       return;
     }
+    if ((event.metaKey || event.ctrlKey) && event.code === "KeyC") {
+      event.preventDefault();
+      const copied = copySelected(store);
+      if (copied && isPlaceableWorldKind(copied.kind)) {
+        say(`Copied ${placeableLabel(copied.kind, copied.variant)}`);
+      } else if (selectedProp(store) && isUniqueNpcKind(selectedProp(store)!.kind)) {
+        say("Unique NPCs cannot be copied");
+      }
+      return;
+    }
+    if ((event.metaKey || event.ctrlKey) && event.code === "KeyV") {
+      event.preventDefault();
+      if (pasteClipboard(store, currentView(), currentCursor())) mutated();
+      else say("Nothing to paste");
+      return;
+    }
     if (event.code === "KeyR") {
       event.preventDefault();
       rotateCurrent(event.shiftKey ? -15 : 15);
       return;
     }
-    if (event.code === "KeyV" || event.code === "Escape") setTool("select");
+    if (event.code === "Escape" || (event.code === "KeyV" && !event.metaKey && !event.ctrlKey)) {
+      setTool("select");
+    }
     if ((event.metaKey || event.ctrlKey) && event.code === "KeyD") {
       event.preventDefault();
       if (duplicateSelected(store)) mutated();

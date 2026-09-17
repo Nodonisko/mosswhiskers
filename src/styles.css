@@ -162,13 +162,6 @@ html:not(.is-playing) #game {
   text-transform: uppercase;
 }
 
-.quest-from {
-  margin: 0 0 6px;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.6px;
-}
-
 .settings-item + .settings-item {
   margin-top: 14px;
 }
@@ -331,6 +324,14 @@ html:not(.is-playing) #game {
   top: 32%;
   max-width: min(520px, calc(100vw - 40px));
   pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.22s ease, visibility 0.22s ease;
+}
+
+.quest-toast.is-on {
+  opacity: 1;
+  visibility: visible;
 }
 
 .letter-hud,

@@ -28,6 +28,8 @@ export const GULP_SOUTH_STRETCH = 1.55;
 export const FIRE_SOUND = "/assets/sounds/fire_craking.mp3";
 export const FIRE_FULL_RANGE = 280;
 export const FIRE_FADE_RANGE = 720;
+/** Fire loop sits 35% under other ambients at the same proximity. */
+export const FIRE_VOLUME = 0.65;
 export const BEEP_SOUND = "/assets/sounds/computer_beeping.mp3";
 export const BEEP_FULL_RANGE = 100;
 export const BEEP_FADE_RANGE = 240;
@@ -207,7 +209,7 @@ export function createSfxPlayer(getVolume: () => number): SfxPlayer {
       });
     },
     syncFire({ burning, distance }) {
-      loopAmbient("fire", burning ? fireProximity(distance) : 0);
+      loopAmbient("fire", burning ? fireProximity(distance) * FIRE_VOLUME : 0);
     },
     syncBeep({ humming, distance }) {
       loopAmbient("beep", humming ? beepProximity(distance) : 0);

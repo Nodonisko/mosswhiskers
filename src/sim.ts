@@ -14,6 +14,7 @@ import {
   MEOW_DURATION,
   MEOW_TEXT_DELAY,
   HISS_TEXT_DELAY,
+  QUEST_HINT_DELAY,
   QUEST_HINT_DURATION,
   PREY_RESPAWN,
   FARM_CARROTS,
@@ -646,7 +647,7 @@ function tickPlayer(
 
   if (player.questHint) {
     if (!player.openId) player.questHintElapsed += dt;
-    if (player.questHintElapsed >= QUEST_HINT_DURATION) {
+    if (player.questHintElapsed >= QUEST_HINT_DELAY + QUEST_HINT_DURATION) {
       player.questHint = null;
       player.questHintElapsed = 0;
     }

@@ -17,7 +17,7 @@ import {
   type GameSim,
   type Walkable,
 } from "./sim";
-import { BERNIE, BERNIE_POND_X, BERNIE_POND_Y, CAT_SPEED, CLAW_DURATION, FARM_CARROTS, HISS_TEXT_DELAY, INTAKE, LOCAL_PLAYER_ID, MAILBOX, MEOW_DURATION, MEOW_TEXT_DELAY, MOUSE_RESPAWN, nearIntakeRim, QUEST_HINT_DURATION, RABBIT, ROCKET_CARROT, ROCKET_IGNITE, SAM, TICK_DT } from "./world-config";
+import { BERNIE, BERNIE_POND_X, BERNIE_POND_Y, CAT_SPEED, CLAW_DURATION, FARM_CARROTS, HISS_TEXT_DELAY, INTAKE, LOCAL_PLAYER_ID, MAILBOX, MEOW_DURATION, MEOW_TEXT_DELAY, MOUSE_RESPAWN, nearIntakeRim, QUEST_HINT_DELAY, QUEST_HINT_DURATION, RABBIT, ROCKET_CARROT, ROCKET_IGNITE, SAM, TICK_DT } from "./world-config";
 
 const openGround = () => true;
 const blocked = () => false;
@@ -629,6 +629,8 @@ describe("mailbox interaction", () => {
     tick(sim, { x: 0, y: 0, interact: true }, 0.05);
     expect(cat(sim).openId).toBeNull();
     expect(cat(sim).questHintElapsed).toBeCloseTo(0.05);
+    tick(sim, { x: 0, y: 0 }, QUEST_HINT_DELAY);
+    expect(cat(sim).questHint).toBe("sandwhisker");
     tick(sim, { x: 0, y: 0 }, QUEST_HINT_DURATION);
     expect(cat(sim).questHint).toBeNull();
     expect(cat(sim).questHintElapsed).toBe(0);

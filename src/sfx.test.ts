@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { BEEP_FADE_RANGE, BEEP_FULL_RANGE, beepProximity, CLAW_SOUNDS, CLAW_WOOD_SOUND, FIRE_FADE_RANGE, FIRE_FULL_RANGE, fireProximity, GULP_FADE_RANGE, GULP_FULL_RANGE, gulpDistance, gulpProximity, MEOW_SOUNDS, ROCKET_SOUND_DELAY, ROCKET_SOUND_SKIP, pickRandom } from "./sfx";
+import { BEEP_FADE_RANGE, BEEP_FULL_RANGE, beepProximity, CLAW_SOUNDS, CLAW_WOOD_SOUND, FIRE_FADE_RANGE, FIRE_FULL_RANGE, FIRE_VOLUME, fireProximity, GULP_FADE_RANGE, GULP_FULL_RANGE, gulpDistance, gulpProximity, MEOW_SOUNDS, ROCKET_SOUND_DELAY, ROCKET_SOUND_SKIP, pickRandom } from "./sfx";
 
 test("picks a claw clip from the roll", () => {
   expect(pickRandom(CLAW_SOUNDS, () => 0)).toBe("/assets/sounds/claw1.mp3");
@@ -42,6 +42,7 @@ test("fire crackle is loud at the data center and silent far away", () => {
   expect(fireProximity(FIRE_FULL_RANGE)).toBe(1);
   expect(fireProximity(FIRE_FADE_RANGE)).toBe(0);
   expect(fireProximity((FIRE_FULL_RANGE + FIRE_FADE_RANGE) / 2)).toBeCloseTo(0.5);
+  expect(FIRE_VOLUME).toBe(0.65);
 });
 
 test("computer beeps fall off much closer than the fire", () => {

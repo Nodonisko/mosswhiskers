@@ -1,8 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { WORLD_PROPS } from "./world-props";
-import { isAuthorableWorldKind, isUniqueNpcKind, nextRotation, normalizeRotation, UNIQUE_NPC_KINDS } from "./world-config";
+import { isAuthorableWorldKind, isUniqueNpcKind, nextRotation, normalizeRotation, UNIQUE_NPC_KINDS, canHaveSickFoliage } from "./world-config";
 import {
   createEditorStore,
+  copySelected,
   cornerActionAt,
   duplicateSelected,
   editorPaletteItems,
@@ -13,6 +14,7 @@ import {
   hitTest,
   parseEditorDraft,
   parseWorldPropsJson,
+  pasteClipboard,
   placeAt,
   propCenter,
   propCorners,
@@ -24,7 +26,9 @@ import {
   serializeEditorDraft,
   serializeWorldPropsTs,
   undo,
+  updateById,
 } from "./map-editor-state";
+import { sickFoliageColor } from "./world-models";
 
 describe("map editor props", () => {
   test("authored props are vegetation plus one of each NPC", () => {
@@ -153,6 +157,79 @@ describe("map editor props", () => {
     store.selectedId = npc.id;
     expect(duplicateSelected(store)).toBeUndefined();
     expect(store.props.filter((prop) => prop.kind === "sam")).toHaveLength(1);
+  });
+
+  test("copy and paste clones a placeable but not an NPC", () => {
+    const store = createEditorStore([
+      { kind: "willow", x: 10, y: 20, scale: 1.2, seed: 4, variant: 1, sick: true },
+      { kind: "bernie", x: 40, y: 10, scale: 2.05, seed: 0, variant: 0 },
+    ]);
+    const bernie = store.props.find((prop) => prop.kind === "bernie")!;
+    store.selectedId = bernie.id;
+    expect(copySelected(store)).toBeUndefined();
+    expect(pasteClipboard(store)).toBeUndefined();
+
+    const willow = store.props.find((prop) => prop.kind === "willow")!;
+    store.selectedId = willow.id;
+    expect(copySelected(store)).toEqual(expect.objectContaining({
+      kind: "willow",
+      x: 10,
+      y: 20,
+      scale: 1.2,
+      sick: true,
+    }));
+    const pasted = pasteClipboard(store);
+    expect(pasted).toEqual(expect.objectContaining({
+      kind: "willow",
+      x: 34,
+      y: 2,
+      scale: 1.2,
+      seed: 4,
+      variant: 1,
+      sick: true,
+    }));
+    expect(store.selectedId).toBe(pasted!.id);
+    expect(store.props.filter((prop) => prop.kind === "willow")).toHaveLength(2);
+
+    const again = pasteClipboard(store);
+    expect(again).toEqual(expect.objectContaining({ kind: "willow", x: 58, y: -16 }));
+  });
+
+  test("paste always follows the pointer, or the view center if the pointer is gone", () => {
+    const store = createEditorStore([
+      { kind: "bush", x: 0, y: 0, scale: 1, seed: 1, variant: 0 },
+    ]);
+    const bush = store.props.find((prop) => prop.kind === "bush")!;
+    store.selectedId = bush.id;
+    expect(copySelected(store)).toBeDefined();
+    expect(pasteClipboard(store, { x: 0, y: 0 }, { x: 80, y: 40 })).toEqual(expect.objectContaining({ x: 80, y: 40 }));
+    expect(pasteClipboard(store, { x: 0, y: 0 }, { x: 120, y: -10 })).toEqual(expect.objectContaining({ x: 120, y: -10 }));
+    expect(pasteClipboard(store, { x: 400, y: -80 }, null)).toEqual(expect.objectContaining({ x: 400, y: -80 }));
+  });
+
+  test("sick foliage is kept on leafy plants and ignored on rocks and lamps", () => {
+    expect(canHaveSickFoliage("bush")).toBe(true);
+    expect(canHaveSickFoliage("fern")).toBe(true);
+    expect(canHaveSickFoliage("lamp")).toBe(false);
+    expect(canHaveSickFoliage("stone")).toBe(false);
+    expect(canHaveSickFoliage("bernie")).toBe(false);
+    expect(sickFoliageColor("#507231")).not.toBe("#507231");
+    expect(sickFoliageColor("#b08a50")).toBe("#b08a50");
+
+    const store = createEditorStore([
+      { kind: "bush", x: 0, y: 0, scale: 1, seed: 1, variant: 0 },
+      { kind: "lamp", x: 8, y: 8, scale: 1, seed: 2, variant: 0 },
+    ]);
+    const bush = store.props.find((prop) => prop.kind === "bush")!;
+    updateById(store, bush.id, { sick: true });
+    expect(bush.sick).toBe(true);
+    const source = serializeWorldPropsTs(fromEditorProps(store.props));
+    expect(source).toContain("sick: true");
+    expect(parseWorldPropsJson(source).find((prop) => prop.kind === "bush")?.sick).toBe(true);
+
+    const lamp = store.props.find((prop) => prop.kind === "lamp")!;
+    updateById(store, lamp.id, { sick: true });
+    expect(lamp.sick).toBeUndefined();
   });
 
   test("fences and logs keep any angle, including 45°", () => {

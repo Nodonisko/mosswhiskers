@@ -6,6 +6,7 @@ import {
   RABBIT,
   SAM,
   UNIQUE_NPC_KINDS,
+  canHaveSickFoliage,
   isAuthorableWorldKind,
   isPlaceableWorldKind,
   isRotatableWorldKind,
@@ -117,7 +118,7 @@ export function stripProp(prop: WorldProp): WorldProp {
     seed: prop.seed,
     variant: prop.variant,
   };
-  if (prop.sick) next.sick = true;
+  if (prop.sick && canHaveSickFoliage(prop.kind)) next.sick = true;
   if (isRotatableWorldKind(prop.kind)) {
     const rot = normalizeRotation(prop.rot);
     if (rot) next.rot = rot;
@@ -438,6 +439,17 @@ export function fromEditorProps(props: readonly EditorProp[]): WorldProp[] {
   return ensureUniqueNpcs(props.map(({ id: _id, ...prop }) => prop));
 }
 
+export type EditorPoint = {
+  x: number;
+  y: number;
+};
+
+export function pasteAnchor(clip: WorldProp, view?: EditorPoint | null, cursor?: EditorPoint | null) {
+  if (cursor) return clampMap(cursor.x, cursor.y);
+  if (view) return clampMap(view.x, view.y);
+  return clampMap(clip.x + 24, clip.y - 18);
+}
+
 export type EditorStore = {
   props: EditorProp[];
   selectedId: number | null;
@@ -445,6 +457,7 @@ export type EditorStore = {
   nextId: number;
   past: EditorProp[][];
   future: EditorProp[][];
+  clipboard: WorldProp | null;
 };
 
 function snapshot(props: readonly EditorProp[]): EditorProp[] {
@@ -460,6 +473,7 @@ export function createEditorStore(initial: readonly WorldProp[]): EditorStore {
     nextId: props.reduce((max, prop) => Math.max(max, prop.id), 0) + 1,
     past: [],
     future: [],
+    clipboard: null,
   };
 }
 
@@ -551,8 +565,12 @@ export function updateById(store: EditorStore, id: number, patch: Partial<Omit<W
   if (patch.scale != null) prop.scale = compactNumber(Math.max(MIN_PROP_SCALE, Math.min(MAX_PROP_SCALE, patch.scale)));
   if (patch.seed != null) prop.seed = Math.round(patch.seed);
   if (patch.variant != null) prop.variant = Math.max(0, Math.round(patch.variant));
-  if (patch.sick === true) prop.sick = true;
-  if (patch.sick === false) delete prop.sick;
+  if (canHaveSickFoliage(prop.kind)) {
+    if (patch.sick === true) prop.sick = true;
+    if (patch.sick === false) delete prop.sick;
+  } else {
+    delete prop.sick;
+  }
   if (patch.rot != null && isRotatableWorldKind(prop.kind)) {
     const rot = normalizeRotation(patch.rot);
     if (rot) prop.rot = rot;
@@ -569,9 +587,13 @@ export function removeSelected(store: EditorStore) {
   return true;
 }
 
+export function canCopyProp(prop: WorldProp | undefined): prop is WorldProp & { kind: PlaceableWorldKind } {
+  return Boolean(prop && isPlaceableWorldKind(prop.kind));
+}
+
 export function duplicateSelected(store: EditorStore) {
   const prop = selectedProp(store);
-  if (!prop || isUniqueNpcKind(prop.kind) || !isPlaceableWorldKind(prop.kind)) return;
+  if (!canCopyProp(prop)) return;
   const at = clampMap(prop.x + 24, prop.y - 18);
   pushHistory(store);
   const copy: EditorProp = {
@@ -583,6 +605,31 @@ export function duplicateSelected(store: EditorStore) {
   store.nextId += 1;
   store.props.push(copy);
   store.selectedId = copy.id;
+  return copy;
+}
+
+export function copySelected(store: EditorStore) {
+  const prop = selectedProp(store);
+  if (!canCopyProp(prop)) return;
+  store.clipboard = stripProp(prop);
+  return store.clipboard;
+}
+
+export function pasteClipboard(store: EditorStore, view?: EditorPoint | null, cursor?: EditorPoint | null) {
+  const clip = store.clipboard;
+  if (!clip || !isPlaceableWorldKind(clip.kind)) return;
+  const at = pasteAnchor(clip, view, cursor);
+  pushHistory(store);
+  const copy: EditorProp = {
+    ...clip,
+    id: store.nextId,
+    x: compactNumber(at.x),
+    y: compactNumber(at.y),
+  };
+  store.nextId += 1;
+  store.props.push(copy);
+  store.selectedId = copy.id;
+  store.clipboard = stripProp(copy);
   return copy;
 }
 

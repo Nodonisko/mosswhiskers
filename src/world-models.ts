@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { seeded } from './rng';
-import { TREE_TRUNK_HITBOX, isRotatableWorldKind, normalizeRotation, type WorldModelKind, type WorldProp } from './world-config';
+import { TREE_TRUNK_HITBOX, canHaveSickFoliage, isRotatableWorldKind, normalizeRotation, type WorldModelKind, type WorldProp } from './world-config';
 import { paintFlowers, paintFern, paintClover } from './deco-blooms';
 import { paintGrass, paintWheat, paintReeds } from './deco-grass';
 import { paintMushroom } from './deco-fungi';
@@ -19,7 +19,7 @@ export interface WorldModelOptions {
   facing?: CatView;
   /** Cat claw: red slash marks after a hit. */
   hit?: boolean;
-  /** Pine/oak: yellowish-grey dying foliage. */
+  /** Olive-brown dying foliage on trees, bushes, and other leafy plants. */
   sick?: boolean;
 }
 
@@ -78,6 +78,34 @@ function painter(width: number, height: number, seed: number) {
     }
   };
   return { canvas, ctx, random, rect, ellipse, poly, line };
+}
+
+/** Shift leafy greens toward the same olive-brown used by sick pine and oak. */
+export function sickFoliageColor(hex: string): string {
+  if (!/^#[0-9a-fA-F]{6}$/.test(hex)) return hex;
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  if (g < Math.max(r, b) + 8) return hex;
+  const nr = Math.min(255, Math.round(r * 0.55 + g * 0.38 + 18));
+  const ng = Math.min(255, Math.round(g * 0.52 + r * 0.22 + 24));
+  const nb = Math.min(255, Math.round(b * 0.48 + g * 0.18 + 16));
+  return `#${nr.toString(16).padStart(2, "0")}${ng.toString(16).padStart(2, "0")}${nb.toString(16).padStart(2, "0")}`;
+}
+
+function withSickFoliage<T extends {
+  rect: (x: number, y: number, w: number, h: number, color: string) => void;
+  ellipse: (cx: number, cy: number, rx: number, ry: number, color: string) => void;
+  poly: (points: readonly Point[], color: string) => void;
+  line: (x0: number, y0: number, x1: number, y1: number, color: string, thickness?: number) => void;
+}>(p: T): T {
+  return {
+    ...p,
+    rect: (x, y, w, h, color) => p.rect(x, y, w, h, sickFoliageColor(color)),
+    ellipse: (cx, cy, rx, ry, color) => p.ellipse(cx, cy, rx, ry, sickFoliageColor(color)),
+    poly: (points, color) => p.poly(points, sickFoliageColor(color)),
+    line: (x0, y0, x1, y1, color, thickness) => p.line(x0, y0, x1, y1, sickFoliageColor(color), thickness),
+  };
 }
 
 function flipCanvasX(p: Paint) {
@@ -1204,11 +1232,13 @@ export function paintWorldModel(kind: WorldModelKind, options: WorldModelOptions
   const sick = options.sick === true;
   const [width, height] = WORLD_MODEL_SIZES[kind];
   const p = painter(width, height, seed);
+  const remapSick = sick && canHaveSickFoliage(kind) && kind !== 'pine' && kind !== 'oak';
+  const brush = remapSick ? withSickFoliage(p) : p;
   switch (kind) {
     case 'pine': pine(p, variant, sick); break;
     case 'oak': oak(p, variant, sick); break;
-    case 'willow': willow(p, variant); break;
-    case 'bush': bush(p); break;
+    case 'willow': willow(brush, variant); break;
+    case 'bush': bush(brush); break;
     case 'den': den(p); break;
     case 'hut': hut(p); break;
     case 'datacenter': datacenter(p); break;
@@ -1228,18 +1258,18 @@ export function paintWorldModel(kind: WorldModelKind, options: WorldModelOptions
     case 'mailbox': mailbox(p); break;
     case 'mailBubble': mailBubble(p); break;
     case 'lamp': lamp(p); break;
-    case 'flowers': paintFlowers(p, variant); break;
+    case 'flowers': paintFlowers(brush, variant); break;
     case 'stone': rock(p, 1, 1, 29, 19, 12); break;
     case 'log': log(p); break;
-    case 'grass': paintGrass(p, variant); break;
-    case 'wheat': paintWheat(p, variant); break;
-    case 'reeds': paintReeds(p, variant); break;
+    case 'grass': paintGrass(brush, variant); break;
+    case 'wheat': paintWheat(brush, variant); break;
+    case 'reeds': paintReeds(brush, variant); break;
     case 'mushroom': paintMushroom(p, variant); break;
-    case 'moss': paintMoss(p, variant); break;
-    case 'mossLog': paintMossLog(p, variant); break;
-    case 'fern': paintFern(p, variant); break;
-    case 'stump': paintStump(p, variant); break;
-    case 'clover': paintClover(p, variant); break;
+    case 'moss': paintMoss(brush, variant); break;
+    case 'mossLog': paintMossLog(brush, variant); break;
+    case 'fern': paintFern(brush, variant); break;
+    case 'stump': paintStump(brush, variant); break;
+    case 'clover': paintClover(brush, variant); break;
     case 'cat': cat(p, variant, seed, facing, hit); break;
     case 'pike':
       pike(p, variant);
