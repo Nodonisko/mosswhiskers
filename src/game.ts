@@ -5,7 +5,7 @@ import { createTouchHud } from "./touch-hud";
 import { updateLakeModel } from "./lake-model";
 import { createMailHud } from "./mail-hud";
 import { createMeowLayer, type SpeechPop } from "./meow-hud";
-import { createNameLayer, playerNameTags } from "./name-hud";
+import { createNameLayer, playerNameTags, type NameTag } from "./name-hud";
 import { createBackgroundMusic } from "./music";
 import { createPackHud } from "./pack-hud";
 import { createQuestHud } from "./quest-hud";
@@ -96,6 +96,10 @@ export function createGame() {
 
   const world = new THREE.Group();
   scene.add(world);
+  // Neither root ever moves. Leaving them auto-updating forces three.js to
+  // recompose a matrix for every sprite in the world, every frame.
+  scene.matrixAutoUpdate = false;
+  world.matrixAutoUpdate = false;
 
   const { southernLake, berniePond, intakePipe } = addWorldBackdrop(world);
 
@@ -142,6 +146,11 @@ export function createGame() {
       (model.material as THREE.SpriteMaterial).depthTest = false;
       mailNotice = model;
     }
+    // Rocket carrots fly and the mailbox notice bobs; every other prop is placed once.
+    if (prop.kind !== "carrot" && prop.kind !== "mailBubble") {
+      model.matrixAutoUpdate = false;
+      model.updateMatrix();
+    }
     return model;
   }
   for (const prop of layout.props) place(prop);
@@ -172,6 +181,8 @@ export function createGame() {
   clogCarrot.renderOrder = 10000 - Math.round(BERNIE_POND_Y);
   clogCarrot.visible = false;
   (clogCarrot.material as THREE.SpriteMaterial).alphaTest = 0.08;
+  clogCarrot.matrixAutoUpdate = false;
+  clogCarrot.updateMatrix();
   world.add(clogCarrot);
 
   const lanternFlameFrames = [
@@ -211,6 +222,8 @@ export function createGame() {
     flame.scale.set(9, 14, 1);
     flame.position.set(lantern.position.x, lantern.position.y + 65, 12);
     flame.renderOrder = lantern.renderOrder + 1;
+    flame.matrixAutoUpdate = false;
+    flame.updateMatrix();
     world.add(flame);
     return flame;
   });
@@ -281,10 +294,12 @@ export function createGame() {
     sprite.renderOrder = 10000 - Math.round(sprite.position.y);
   }
 
+  const livingPlayers = new Set<string>();
   function syncPlayers(players: readonly PlayerSim[]) {
-    const living = new Set(players.map((player) => player.id));
+    livingPlayers.clear();
+    for (const player of players) livingPlayers.add(player.id);
     for (const [id, view] of playerViews) {
-      if (living.has(id)) continue;
+      if (livingPlayers.has(id)) continue;
       world.remove(view.sprite);
       playerViews.delete(id);
     }
@@ -344,9 +359,12 @@ export function createGame() {
     });
   }
   let walkable = createWalkable(layout.trunks);
-  let launchMask = "";
+  let launchMask = 0;
   function syncWalkable() {
-    const next = sim.rocketCarrots.map((rocket) => Number(rocket.launched)).join("");
+    let next = 0;
+    for (let index = 0; index < sim.rocketCarrots.length; index++) {
+      if (sim.rocketCarrots[index]!.launched) next |= 1 << index;
+    }
     if (next === launchMask) return;
     launchMask = next;
     walkable = createWalkable(walkableSolids());
@@ -368,6 +386,17 @@ export function createGame() {
   const ending = createEndingHud(gameRoot);
   const meows = createMeowLayer(world);
   const names = createNameLayer(world);
+  /** The three NPCs never move, so their tags are built once. */
+  const npcNameTags = ([
+    ["bernie", "npc-bernie", BERNIE_NAME],
+    ["sam", "npc-sam", SAM_NAME],
+    ["rabbit", "npc-hopsk", RABBIT_NAME],
+  ] as const).flatMap(([itemId, tagId, name]) => {
+    const npc = layout.interactables.find((item) => item.id === itemId);
+    return npc ? [{ id: tagId, name, x: npc.x, y: npc.y }] : [];
+  });
+  const nameTags: NameTag[] = [];
+  const launchedRockets = new Set<THREE.Sprite>();
   const heardMeow = new Map<string, number>();
   const heardClaw = new Map<string, number>();
   const heardClawWood = new Map<string, number>();
@@ -427,8 +456,9 @@ export function createGame() {
     sfx.syncFire({ burning, distance: campusDistance });
     sfx.syncBeep({ humming: Boolean(listener) && !burning, distance: campusDistance });
   }
+  const pops: SpeechPop[] = [];
   function speechPops() {
-    const pops: SpeechPop[] = [];
+    pops.length = 0;
     for (const player of sim.players) {
       if (!player.meowing) continue;
       pops.push({ id: player.id, x: player.x, y: player.y, elapsed: player.meowElapsed, label: "Meow" });
@@ -470,6 +500,20 @@ export function createGame() {
   window.visualViewport?.addEventListener("scroll", resize);
   resize();
 
+  /**
+   * The intake strip spans a third of the map and repainting it costs more than
+   * the rest of the frame put together, so it only animates while on camera.
+   * The margin covers the camera drifting in before its lerp runs below.
+   */
+  function intakePipeOnCamera() {
+    const { minX, maxX, minY, maxY } = intakePipe.bounds;
+    const margin = 64;
+    return maxX + margin > camera.position.x - viewWidth / 2
+      && minX - margin < camera.position.x + viewWidth / 2
+      && maxY + margin > camera.position.y - VIEW_HEIGHT / 2
+      && minY - margin < camera.position.y + VIEW_HEIGHT / 2;
+  }
+
   const clock = new THREE.Clock(false);
   let accumulator = 0;
   let raf = 0;
@@ -497,32 +541,37 @@ export function createGame() {
 
     syncPlayers(sim.players);
     meows.sync(speechPops());
-    const bernieNpc = layout.interactables.find((item) => item.id === "bernie");
-    const samNpc = layout.interactables.find((item) => item.id === "sam");
-    const hopskNpc = layout.interactables.find((item) => item.id === "rabbit");
-    names.sync([
-      ...(bernieNpc ? [{ id: "npc-bernie", name: BERNIE_NAME, x: bernieNpc.x, y: bernieNpc.y }] : []),
-      ...(samNpc ? [{ id: "npc-sam", name: SAM_NAME, x: samNpc.x, y: samNpc.y }] : []),
-      ...(hopskNpc ? [{ id: "npc-hopsk", name: RABBIT_NAME, x: hopskNpc.x, y: hopskNpc.y }] : []),
-      ...playerNameTags(sim.players),
-    ]);
+    nameTags.length = 0;
+    for (const tag of npcNameTags) nameTags.push(tag);
+    for (const tag of playerNameTags(sim.players)) nameTags.push(tag);
+    names.sync(nameTags);
 
     const catHalfW = CAT_SCALE * 20 * 0.3;
+    launchedRockets.clear();
+    for (let index = 0; index < sim.rocketCarrots.length; index++) {
+      if (sim.rocketCarrots[index]!.launched) launchedRockets.add(rocketSprites[index]!);
+    }
     for (const sprite of occluders) {
-      if (sim.rocketCarrots.some((rocket, index) => rocket.launched && sprite === rocketSprites[index])) {
-        (sprite.material as THREE.SpriteMaterial).opacity = 1;
+      const material = sprite.material as THREE.SpriteMaterial;
+      if (launchedRockets.has(sprite)) {
+        material.opacity = 1;
         continue;
       }
       const halfW = sprite.scale.x * 0.28;
       const intoTree = sprite.position.y + sprite.scale.y * 0.16;
       const underCanopy = sprite.position.y + sprite.scale.y * 0.82;
-      const overlapping = sim.players.some((player) => (
-        Math.abs(player.x - sprite.position.x) < halfW + catHalfW
-        && player.y > intoTree
-        && player.y < underCanopy
-      ));
+      let overlapping = false;
+      for (const player of sim.players) {
+        if (
+          Math.abs(player.x - sprite.position.x) < halfW + catHalfW
+          && player.y > intoTree
+          && player.y < underCanopy
+        ) {
+          overlapping = true;
+          break;
+        }
+      }
       const target = overlapping ? 0.38 : 1;
-      const material = sprite.material as THREE.SpriteMaterial;
       material.opacity += (target - material.opacity) * Math.min(1, 8 * frameDt);
     }
     mailboxNotice.position.y = MAILBOX.y + 64 + Math.round(Math.sin(sim.elapsed * 4) * 2);
@@ -535,7 +584,7 @@ export function createGame() {
     updateLakeModel(southernLake, sim.elapsed);
     updateDriedPondModel(berniePond, sim.elapsed);
     clogCarrot.visible = clogged;
-    updateIntakePipeModel(intakePipe, sim.elapsed, clogged);
+    if (intakePipeOnCamera()) updateIntakePipeModel(intakePipe, sim.elapsed, clogged);
     updateHutFx(hutFx, hutSprite, sim.elapsed);
     updateHutFx(shedFx, shedSprite, sim.elapsed + 0.9);
     for (const [index, sprite] of rocketSprites.entries()) {
