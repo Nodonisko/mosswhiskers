@@ -24,11 +24,6 @@ export function setAudioSession(type: GameAudioSessionType) {
   }
 }
 
-export function resumeHowlerContext() {
-  const ctx = Howler.ctx;
-  if (ctx && ctx.state !== "running") void ctx.resume();
-}
-
 export function clearMediaSession() {
   const session = navigator.mediaSession;
   if (!session) return;
@@ -40,16 +35,109 @@ export function clearMediaSession() {
   }
 }
 
+const UNLOCK_EVENTS = ["pointerdown", "touchend", "click", "keydown"] as const;
+
 type VisibleListener = (visible: boolean) => void;
 
 const listeners = new Set<VisibleListener>();
+const revivers = new Set<() => void>();
 let unwatch: (() => void) | null = null;
+let waitingForGesture = false;
+let ctxWatch: AudioContext | null = null;
+let reviving = false;
+
+export function onAudioRevive(fn: () => void) {
+  revivers.add(fn);
+  return () => revivers.delete(fn);
+}
+
+function listenUnlock(on: boolean) {
+  for (const type of UNLOCK_EVENTS) {
+    if (on) window.addEventListener(type, unlock, true);
+    else window.removeEventListener(type, unlock, true);
+  }
+}
+
+function armUnlock() {
+  if (waitingForGesture) return;
+  waitingForGesture = true;
+  listenUnlock(true);
+}
+
+function contextState() {
+  return Howler.ctx?.state as string | undefined;
+}
+
+function watchContext() {
+  const ctx = Howler.ctx;
+  if (!ctx || ctx === ctxWatch) return;
+  ctxWatch?.removeEventListener("statechange", onContextState);
+  ctxWatch = ctx;
+  ctx.addEventListener("statechange", onContextState);
+}
+
+function onContextState() {
+  if (contextState() === "running" || !isPageVisible()) return;
+  void resumeHowlerContext();
+  armUnlock();
+}
+
+function reviveDeadContext() {
+  if (reviving) return;
+  reviving = true;
+  try {
+    ctxWatch?.removeEventListener("statechange", onContextState);
+    ctxWatch = null;
+    Howler.unload();
+    Howler.autoUnlock = true;
+    Howler.autoSuspend = false;
+    for (const fn of revivers) fn();
+    watchContext();
+  } finally {
+    reviving = false;
+  }
+}
+
+export function resumeHowlerContext() {
+  watchContext();
+  const ctx = Howler.ctx;
+  if (!ctx || ctx.state === "running") return Promise.resolve();
+  if (ctx.state === "closed") {
+    reviveDeadContext();
+    return Promise.resolve();
+  }
+  return ctx.resume().catch(() => {
+    if (contextState() === "closed") reviveDeadContext();
+    else armUnlock();
+  });
+}
+
+function unlock() {
+  waitingForGesture = false;
+  listenUnlock(false);
+  if (!isPageVisible()) {
+    armUnlock();
+    return;
+  }
+  setAudioSession("playback");
+  Howler.mute(false);
+  void resumeHowlerContext().then(() => {
+    for (const listener of listeners) listener(true);
+  });
+}
 
 function applyVisible(visible: boolean) {
-  Howler.mute(!visible);
-  setAudioSession(audioSessionType(visible));
-  if (visible) resumeHowlerContext();
-  else clearMediaSession();
+  if (visible) {
+    Howler.mute(false);
+    setAudioSession("playback");
+    void resumeHowlerContext();
+    armUnlock();
+  } else {
+    Howler.mute(true);
+    setAudioSession("ambient");
+    clearMediaSession();
+    armUnlock();
+  }
   for (const listener of listeners) listener(visible);
 }
 
@@ -61,11 +149,16 @@ export function watchGameAudio(onChange: VisibleListener) {
   }
   listeners.add(onChange);
   onChange(isPageVisible());
+  watchContext();
   return () => {
     listeners.delete(onChange);
     if (listeners.size === 0 && unwatch) {
       unwatch();
       unwatch = null;
+      listenUnlock(false);
+      waitingForGesture = false;
+      ctxWatch?.removeEventListener("statechange", onContextState);
+      ctxWatch = null;
       Howler.mute(false);
       setAudioSession("ambient");
     }

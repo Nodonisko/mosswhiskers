@@ -1,5 +1,5 @@
 import { Howl } from "howler";
-import { clearMediaSession, watchGameAudio } from "./audio-runtime";
+import { clearMediaSession, onAudioRevive, watchGameAudio } from "./audio-runtime";
 import { isPageVisible } from "./page-visible";
 
 export const MUSIC_LEVELS = 5;
@@ -109,6 +109,10 @@ export function createBackgroundMusic(src = "/assets/background.mp3"): Backgroun
   }
 
   const unwatch = watchGameAudio((visible) => syncPlayback(visible));
+  const unrevive = onAudioRevive(() => {
+    music = null;
+    if (!closed) syncPlayback();
+  });
 
   function persist(next: MusicSettings) {
     settings = next;
@@ -135,6 +139,7 @@ export function createBackgroundMusic(src = "/assets/background.mp3"): Backgroun
     dispose() {
       closed = true;
       unwatch();
+      unrevive();
       drop();
     },
   };

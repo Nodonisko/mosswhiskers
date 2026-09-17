@@ -1,5 +1,5 @@
 import { Howl } from "howler";
-import { watchGameAudio } from "./audio-runtime";
+import { onAudioRevive, watchGameAudio } from "./audio-runtime";
 import { isPageVisible } from "./page-visible";
 
 export const CLAW_SOUNDS = [
@@ -85,15 +85,22 @@ function loadSound(src: string, loop = false) {
 }
 
 export function createSfxPlayer(getVolume: () => number): SfxPlayer {
+  const shotSrcs = [...CLAW_SOUNDS, ...MEOW_SOUNDS, HISS_SOUND, MOUSE_SOUND, SPLASH_SOUND, ROCKET_SOUND];
   const shots = new Map<string, Howl>();
-  for (const src of [...CLAW_SOUNDS, ...MEOW_SOUNDS, HISS_SOUND, MOUSE_SOUND, SPLASH_SOUND, ROCKET_SOUND]) {
-    shots.set(src, loadSound(src));
-  }
-  const gulp = loadSound(GULP_SOUND);
-  const fire = loadSound(FIRE_SOUND, true);
-  const beep = loadSound(BEEP_SOUND, true);
-  const all = [...shots.values(), gulp, fire, beep];
+  let gulp!: Howl;
+  let fire!: Howl;
+  let beep!: Howl;
   let lastGulpIndex = -1;
+
+  function rebuild() {
+    shots.clear();
+    for (const src of shotSrcs) shots.set(src, loadSound(src));
+    gulp = loadSound(GULP_SOUND);
+    fire = loadSound(FIRE_SOUND, true);
+    beep = loadSound(BEEP_SOUND, true);
+  }
+
+  rebuild();
 
   function play(src: string, startAt = 0) {
     const volume = getVolume();
@@ -122,6 +129,7 @@ export function createSfxPlayer(getVolume: () => number): SfxPlayer {
       if (beep.playing()) beep.pause();
     }
   });
+  const unrevive = onAudioRevive(rebuild);
 
   return {
     playClaw() {
@@ -165,7 +173,8 @@ export function createSfxPlayer(getVolume: () => number): SfxPlayer {
     },
     dispose() {
       unwatch();
-      for (const sound of all) {
+      unrevive();
+      for (const sound of [...shots.values(), gulp, fire, beep]) {
         sound.stop();
         sound.unload();
       }
