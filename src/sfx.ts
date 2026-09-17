@@ -1,3 +1,7 @@
+import { Howl } from "howler";
+import { onAudioRevive, resumeHowlerContext, watchGameAudio, webAudioReadyForSfx } from "./audio-runtime";
+import { isPageVisible } from "./page-visible";
+
 export const CLAW_SOUNDS = [
   "/assets/sounds/claw1.mp3",
   "/assets/sounds/claw2.mp3",
@@ -71,55 +75,82 @@ export function beepProximity(distance: number) {
   return proximityGain(distance, BEEP_FULL_RANGE, BEEP_FADE_RANGE);
 }
 
+function loadSound(src: string, loop = false) {
+  return new Howl({
+    src: [src],
+    loop,
+    preload: true,
+    pool: loop ? 1 : 5,
+  });
+}
+
 export function createSfxPlayer(getVolume: () => number): SfxPlayer {
-  const sources = [...CLAW_SOUNDS, ...MEOW_SOUNDS, HISS_SOUND, MOUSE_SOUND, SPLASH_SOUND, GULP_SOUND, FIRE_SOUND, BEEP_SOUND, ROCKET_SOUND];
-  for (const src of sources) {
-    const preload = new Audio(src);
-    preload.preload = "auto";
-  }
-  const live = new Set<HTMLAudioElement>();
-  const gulp = new Audio(GULP_SOUND);
-  gulp.preload = "auto";
-  const fire = new Audio(FIRE_SOUND);
-  fire.preload = "auto";
-  fire.loop = true;
-  const beep = new Audio(BEEP_SOUND);
-  beep.preload = "auto";
-  beep.loop = true;
+  const shotSrcs = [...CLAW_SOUNDS, ...MEOW_SOUNDS, HISS_SOUND, MOUSE_SOUND, SPLASH_SOUND, ROCKET_SOUND];
+  const shots = new Map<string, Howl>();
+  let gulp!: Howl;
+  let fire!: Howl;
+  let beep!: Howl;
   let lastGulpIndex = -1;
+
+  function rebuild() {
+    for (const sound of [...shots.values(), gulp, fire, beep]) {
+      if (!sound) continue;
+      sound.stop();
+      sound.unload();
+    }
+    shots.clear();
+    for (const src of shotSrcs) shots.set(src, loadSound(src));
+    gulp = loadSound(GULP_SOUND);
+    fire = loadSound(FIRE_SOUND, true);
+    beep = loadSound(BEEP_SOUND, true);
+    lastGulpIndex = -1;
+  }
+
+  rebuild();
+
+  function whenWebAudioReady(playWhenReady: () => void) {
+    if (webAudioReadyForSfx()) {
+      playWhenReady();
+      return;
+    }
+    void resumeHowlerContext().then(() => {
+      if (!isPageVisible() || !webAudioReadyForSfx()) return;
+      playWhenReady();
+    });
+  }
 
   function play(src: string, startAt = 0) {
     const volume = getVolume();
-    if (volume <= 0) return;
-    const audio = new Audio(src);
-    audio.volume = volume;
-    live.add(audio);
-    const cleanup = () => {
-      live.delete(audio);
-      audio.removeAttribute("src");
-      audio.load();
-    };
-    audio.addEventListener("ended", cleanup);
-    audio.addEventListener("error", cleanup);
-    const start = () => {
-      if (startAt > 0) audio.currentTime = startAt;
-      void audio.play().catch(cleanup);
-    };
-    if (startAt > 0 && audio.readyState < HTMLMediaElement.HAVE_METADATA) {
-      audio.addEventListener("loadedmetadata", start, { once: true });
-    } else {
-      start();
-    }
+    if (volume <= 0 || !isPageVisible()) return;
+    whenWebAudioReady(() => {
+      const sound = shots.get(src);
+      if (!sound) return;
+      sound.volume(volume);
+      const id = sound.play();
+      if (startAt > 0) sound.seek(startAt, id);
+    });
   }
 
-  function loopAmbient(audio: HTMLAudioElement, gain: number) {
-    audio.volume = Math.max(0, Math.min(1, getVolume() * gain));
-    if (audio.volume <= 0) {
-      if (!audio.paused) audio.pause();
+  function loopAmbient(which: "fire" | "beep", gain: number) {
+    const sound = which === "fire" ? fire : beep;
+    const volume = Math.max(0, Math.min(1, getVolume() * gain));
+    sound.volume(volume);
+    if (volume <= 0 || !isPageVisible()) {
+      if (sound.playing()) sound.pause();
       return;
     }
-    if (audio.paused) void audio.play().catch(() => {});
+    whenWebAudioReady(() => {
+      const current = which === "fire" ? fire : beep;
+      if (!current.playing()) current.play();
+    });
   }
+
+  const unwatch = watchGameAudio(() => {
+    if (gulp.playing()) gulp.pause();
+    if (fire.playing()) fire.pause();
+    if (beep.playing()) beep.pause();
+  });
+  const unrevive = onAudioRevive(rebuild);
 
   return {
     playClaw() {
@@ -142,40 +173,35 @@ export function createSfxPlayer(getVolume: () => number): SfxPlayer {
     },
     syncGulp({ gulpIndex, clogged, distance }) {
       const gain = clogged ? 0 : gulpProximity(distance);
-      if (clogged && !gulp.paused) gulp.pause();
-      gulp.volume = Math.max(0, Math.min(1, getVolume() * gain));
+      const volume = Math.max(0, Math.min(1, getVolume() * gain));
+      gulp.volume(volume);
+      if (clogged && gulp.playing()) gulp.pause();
       if (lastGulpIndex < 0) {
         lastGulpIndex = gulpIndex;
         return;
       }
       if (gulpIndex === lastGulpIndex) return;
       lastGulpIndex = gulpIndex;
-      if (clogged || gulp.volume <= 0) return;
-      gulp.currentTime = 0;
-      void gulp.play().catch(() => {});
+      if (clogged || volume <= 0 || !isPageVisible()) return;
+      gulp.stop();
+      whenWebAudioReady(() => {
+        gulp.stop();
+        gulp.play();
+      });
     },
     syncFire({ burning, distance }) {
-      loopAmbient(fire, burning ? fireProximity(distance) : 0);
+      loopAmbient("fire", burning ? fireProximity(distance) : 0);
     },
     syncBeep({ humming, distance }) {
-      loopAmbient(beep, humming ? beepProximity(distance) : 0);
+      loopAmbient("beep", humming ? beepProximity(distance) : 0);
     },
     dispose() {
-      gulp.pause();
-      gulp.removeAttribute("src");
-      gulp.load();
-      fire.pause();
-      fire.removeAttribute("src");
-      fire.load();
-      beep.pause();
-      beep.removeAttribute("src");
-      beep.load();
-      for (const audio of live) {
-        audio.pause();
-        audio.removeAttribute("src");
-        audio.load();
+      unwatch();
+      unrevive();
+      for (const sound of [...shots.values(), gulp, fire, beep]) {
+        sound.stop();
+        sound.unload();
       }
-      live.clear();
     },
   };
 }
