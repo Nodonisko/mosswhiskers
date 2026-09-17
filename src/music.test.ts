@@ -1,6 +1,5 @@
 import { expect, test } from "bun:test";
 import {
-  audioSessionType,
   clampLevel,
   DEFAULT_MUSIC_LEVEL,
   DEFAULT_SFX_LEVEL,
@@ -39,10 +38,4 @@ test("keeps music off in a hidden tab", () => {
   expect(shouldPlayMusic(true, 1)).toBe(false);
   expect(shouldPlayMusic(false, 5)).toBe(false);
   expect(shouldPlayMusic(false, 1)).toBe(false);
-});
-
-test("uses playback audio session only while the tab is audible", () => {
-  expect(audioSessionType(true, 3)).toBe("playback");
-  expect(audioSessionType(false, 3)).toBe("ambient");
-  expect(audioSessionType(true, 1)).toBe("ambient");
 });

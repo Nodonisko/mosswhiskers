@@ -1,4 +1,3 @@
-import { bindMediaElement, clearMediaSession, releaseMediaElement } from "./html-audio";
 import { isPageVisible, watchPageVisible } from "./page-visible";
 
 export const CLAW_SOUNDS = [
@@ -95,14 +94,12 @@ export function createSfxPlayer(getVolume: () => number): SfxPlayer {
   let lastGulpIndex = -1;
 
   function hush() {
-    releaseMediaElement(gulp);
-    releaseMediaElement(fire);
-    releaseMediaElement(beep);
+    if (!gulp.paused) gulp.pause();
+    if (!fire.paused) fire.pause();
+    if (!beep.paused) beep.pause();
     for (const audio of live) {
-      releaseMediaElement(audio);
+      if (!audio.paused) audio.pause();
     }
-    live.clear();
-    clearMediaSession();
   }
 
   function play(src: string, startAt = 0) {
@@ -114,7 +111,8 @@ export function createSfxPlayer(getVolume: () => number): SfxPlayer {
     live.add(audio);
     const cleanup = () => {
       live.delete(audio);
-      releaseMediaElement(audio);
+      audio.removeAttribute("src");
+      audio.load();
     };
     audio.addEventListener("ended", cleanup);
     audio.addEventListener("error", cleanup);
@@ -129,18 +127,17 @@ export function createSfxPlayer(getVolume: () => number): SfxPlayer {
     }
   }
 
-  function loopAmbient(audio: HTMLAudioElement, src: string, gain: number) {
+  function loopAmbient(audio: HTMLAudioElement, gain: number) {
     audio.volume = Math.max(0, Math.min(1, getVolume() * gain));
     if (audio.volume <= 0 || !isPageVisible()) {
-      releaseMediaElement(audio);
+      if (!audio.paused) audio.pause();
       return;
     }
-    bindMediaElement(audio, src);
     if (audio.paused) void audio.play().catch(() => {});
   }
 
-  const unwatch = watchPageVisible((visible) => {
-    if (!visible) hush();
+  const unwatch = watchPageVisible(() => {
+    if (!isPageVisible()) hush();
   });
 
   return {
@@ -164,7 +161,7 @@ export function createSfxPlayer(getVolume: () => number): SfxPlayer {
     },
     syncGulp({ gulpIndex, clogged, distance }) {
       const gain = clogged ? 0 : gulpProximity(distance);
-      if (clogged && !gulp.paused) releaseMediaElement(gulp);
+      if (clogged && !gulp.paused) gulp.pause();
       gulp.volume = Math.max(0, Math.min(1, getVolume() * gain));
       if (lastGulpIndex < 0) {
         lastGulpIndex = gulpIndex;
@@ -173,19 +170,32 @@ export function createSfxPlayer(getVolume: () => number): SfxPlayer {
       if (gulpIndex === lastGulpIndex) return;
       lastGulpIndex = gulpIndex;
       if (clogged || gulp.volume <= 0 || !isPageVisible()) return;
-      bindMediaElement(gulp, GULP_SOUND);
       gulp.currentTime = 0;
       void gulp.play().catch(() => {});
     },
     syncFire({ burning, distance }) {
-      loopAmbient(fire, FIRE_SOUND, burning ? fireProximity(distance) : 0);
+      loopAmbient(fire, burning ? fireProximity(distance) : 0);
     },
     syncBeep({ humming, distance }) {
-      loopAmbient(beep, BEEP_SOUND, humming ? beepProximity(distance) : 0);
+      loopAmbient(beep, humming ? beepProximity(distance) : 0);
     },
     dispose() {
       unwatch();
-      hush();
+      gulp.pause();
+      gulp.removeAttribute("src");
+      gulp.load();
+      fire.pause();
+      fire.removeAttribute("src");
+      fire.load();
+      beep.pause();
+      beep.removeAttribute("src");
+      beep.load();
+      for (const audio of live) {
+        audio.pause();
+        audio.removeAttribute("src");
+        audio.load();
+      }
+      live.clear();
     },
   };
 }

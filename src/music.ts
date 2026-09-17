@@ -68,26 +68,6 @@ export function shouldPlayMusic(visible: boolean, level: number) {
   return visible && level > 1;
 }
 
-export type GameAudioSessionType = "playback" | "ambient";
-
-export function audioSessionType(visible: boolean, level: number): GameAudioSessionType {
-  return shouldPlayMusic(visible, level) ? "playback" : "ambient";
-}
-
-type NavigatorAudioSession = {
-  type: "auto" | "playback" | "transient" | "transient-solo" | "ambient" | "play-and-record";
-};
-
-function setAudioSession(type: GameAudioSessionType) {
-  const session = (navigator as Navigator & { audioSession?: NavigatorAudioSession }).audioSession;
-  if (!session) return;
-  try {
-    session.type = type;
-  } catch {
-    // Safari can reject a type if another API holds the session.
-  }
-}
-
 const UNLOCK_EVENTS = ["pointerdown", "touchend", "click", "keydown"] as const;
 
 function createMusicElement() {
@@ -123,7 +103,6 @@ export function createBackgroundMusic(src = "/assets/background.mp3"): Backgroun
     releaseMediaElement(audio);
     audio.remove();
     audio = createMusicElement();
-    setAudioSession("ambient");
     clearMediaSession();
   }
 
@@ -143,7 +122,6 @@ export function createBackgroundMusic(src = "/assets/background.mp3"): Backgroun
       discard();
       return;
     }
-    setAudioSession("playback");
     bindMediaElement(audio, src);
     void audio.play().catch(armUnlock);
   }
