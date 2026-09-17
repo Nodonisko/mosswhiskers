@@ -103,6 +103,19 @@ export function clampMap(x: number, y: number) {
   };
 }
 
+/** Screen pixels of extra pan so map edges can sit in the open canvas. */
+export const EDITOR_OVERSCROLL_PX = {
+  left: 640,
+  right: 680,
+  top: 420,
+  bottom: 360,
+} as const;
+
+export function cameraPanBounds(mapSize: number, viewSize: number, overscrollMin: number, overscrollMax: number) {
+  const edge = Math.max(0, mapSize / 2 - viewSize / 2);
+  return { min: -edge - overscrollMin, max: edge + overscrollMax };
+}
+
 export function compactNumber(value: number) {
   if (Number.isInteger(value)) return value;
   const trimmed = Number(value.toFixed(4));
@@ -173,7 +186,7 @@ export function propBounds(prop: WorldProp) {
   };
 }
 
-export function hitContains(prop: WorldProp, x: number, y: number) {
+export function hitContains(prop: WorldProp, x: number, y: number, pad = 0) {
   const box = propCenter(prop);
   const dx = x - box.x;
   const dy = y - box.y;
@@ -181,7 +194,7 @@ export function hitContains(prop: WorldProp, x: number, y: number) {
   const s = Math.sin(box.rot);
   const localX = dx * c + dy * s;
   const localY = -dx * s + dy * c;
-  return Math.abs(localX) <= box.width / 2 && Math.abs(localY) <= box.height / 2;
+  return Math.abs(localX) <= box.width / 2 + pad && Math.abs(localY) <= box.height / 2 + pad;
 }
 
 export const MIN_PROP_SCALE = 0.4;
@@ -301,10 +314,10 @@ export function scaleByHandle(
 }
 
 /** Frontmost hit: southern sprites draw on top. */
-export function hitTest<T extends WorldProp>(props: readonly T[], x: number, y: number): T | undefined {
+export function hitTest<T extends WorldProp>(props: readonly T[], x: number, y: number, pad = 0): T | undefined {
   let best: T | undefined;
   for (const prop of props) {
-    if (!hitContains(prop, x, y)) continue;
+    if (!hitContains(prop, x, y, pad)) continue;
     if (!best || prop.y < best.y) best = prop;
   }
   return best;
@@ -513,6 +526,30 @@ export function selectAt(store: EditorStore, x: number, y: number) {
   const hit = hitTest(store.props, x, y);
   store.selectedId = hit?.id ?? null;
   return hit;
+}
+
+export type EditorMapClick = "place" | "select" | "clear";
+
+/** Only the select tool picks occupants. A stamp plants even on occupied ground. */
+export function mapClick(
+  store: EditorStore,
+  x: number,
+  y: number,
+  seed: number,
+  rot: number,
+  variant: number,
+): EditorMapClick {
+  if (store.tool !== "select") {
+    placeAt(store, store.tool, x, y, seed, rot, variant);
+    return "place";
+  }
+  const hit = hitTest(store.props, x, y);
+  if (hit) {
+    store.selectedId = hit.id;
+    return "select";
+  }
+  store.selectedId = null;
+  return "clear";
 }
 
 export function placeAt(store: EditorStore, kind: PlaceableWorldKind, x: number, y: number, seed = 1, rot = 0, variant = 0) {

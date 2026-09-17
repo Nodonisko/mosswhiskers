@@ -21,9 +21,13 @@
       <canvas id="world" aria-label="Editable woodland map"></canvas>
 
       <header class="editor-bar">
-        <div class="editor-brand">
-          <h1>Map Editor</h1>
-          <p>Desktop only · paste into <code>src/world-props.ts</code></p>
+        <div class="editor-tools" role="toolbar" aria-label="Tools">
+          <button type="button" class="editor-tool is-active" data-mode="select" aria-label="Select" title="Select">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M3 1v13l3.2-3.1 1.7 4.2 2.1-.8-1.7-4.3H13z"/></svg>
+          </button>
+          <button type="button" class="editor-tool" data-mode="place" aria-label="Add" title="Add">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M7 2h2v5h5v2H9v5H7V9H2V7h5z"/></svg>
+          </button>
         </div>
         <div class="editor-actions">
           <button type="button" class="editor-btn" data-action="undo">Undo</button>
@@ -48,10 +52,6 @@
 
       <aside class="editor-palette" aria-label="Palette">
         <h2>Place</h2>
-        <button type="button" class="palette-item is-active" data-tool="select">
-          <span class="palette-swatch palette-select">+</span>
-          <span>Select</span>
-        </button>
         <div class="palette-list"></div>
         <p class="palette-note">Click Bernie, Sam, or Hopsk on the map to drag them. Unique NPCs cannot be added or deleted. Drag a little outside a fence, log, or mossy log corner to rotate.</p>
       </aside>

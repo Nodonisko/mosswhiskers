@@ -3,6 +3,7 @@ import { WORLD_PROPS } from "./world-props";
 import { isAuthorableWorldKind, isUniqueNpcKind, nextRotation, normalizeRotation, UNIQUE_NPC_KINDS, canHaveSickFoliage } from "./world-config";
 import {
   createEditorStore,
+  cameraPanBounds,
   copySelected,
   cornerActionAt,
   duplicateSelected,
@@ -12,6 +13,7 @@ import {
   handleIndexAt,
   hitContains,
   hitTest,
+  mapClick,
   parseEditorDraft,
   parseWorldPropsJson,
   pasteClipboard,
@@ -125,6 +127,27 @@ describe("map editor props", () => {
     const low = { id: 1, kind: "bush" as const, x: 0, y: 0, scale: 2, seed: 1, variant: 0 };
     const high = { id: 2, kind: "bush" as const, x: 0, y: 20, scale: 2, seed: 1, variant: 0 };
     expect(hitTest([low, high], 0, 30)?.id).toBe(1);
+  });
+
+  test("camera pan allows overscroll past the map so edges can clear the chrome", () => {
+    expect(cameraPanBounds(4000, 1000, 200, 250)).toEqual({ min: -1700, max: 1750 });
+    expect(cameraPanBounds(4000, 5000, 200, 250)).toEqual({ min: -200, max: 250 });
+  });
+
+  test("a stamp plants on occupied ground; only the select tool picks", () => {
+    const store = createEditorStore([
+      { kind: "bush", x: 0, y: 0, scale: 1, seed: 1, variant: 0 },
+    ]);
+    const bush = store.props.find((prop) => prop.kind === "bush")!;
+    store.tool = "flowers";
+    expect(mapClick(store, 0, 10, 2, 0, 0)).toBe("place");
+    expect(store.props.filter((prop) => prop.kind === "flowers")).toHaveLength(1);
+    expect(store.selectedId).not.toBe(bush.id);
+
+    store.tool = "select";
+    expect(mapClick(store, 0, 10, 3, 0, 0)).toBe("select");
+    expect(store.selectedId).toBe(bush.id);
+    expect(store.props.filter((prop) => prop.kind === "flowers")).toHaveLength(1);
   });
 
   test("selecting empty ground clears the selection", () => {

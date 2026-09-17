@@ -25,7 +25,9 @@ import { WORLD_PROPS } from "./world-props";
 import { createWorldModel, paintWorldModel, WORLD_MODEL_SIZES, applyWorldPropPose } from "./world-models";
 import {
   EDITOR_DRAFT_KEY,
+  EDITOR_OVERSCROLL_PX,
   NPC_LABELS,
+  cameraPanBounds,
   copySelected,
   createEditorStore,
   duplicateSelected,
@@ -33,14 +35,13 @@ import {
   editorPaletteItems,
   fromEditorProps,
   cornerActionAt,
-  hitTest,
+  mapClick,
   moveById,
   nextSeed,
   parseEditorDraft,
   parseWorldPropsJson,
   placeableDefaultScale,
   placeableLabel,
-  placeAt,
   propCenter,
   propCorners,
   redo,
@@ -77,7 +78,7 @@ function readDraft() {
 function startEditor() {
   const canvas = required(document.querySelector<HTMLCanvasElement>("#world"), "World canvas");
   const root = required(document.getElementById("editor"), "Editor root");
-  const paletteList = required(root.querySelector(".palette-list"), "Palette");
+  const paletteList = required(root.querySelector(".palette-list"), "Palette list");
   const inspectEmpty = required(root.querySelector<HTMLElement>(".inspect-empty"), "Inspector empty");
   const inspectForm = required(root.querySelector<HTMLFormElement>(".inspect-form"), "Inspector form");
   const inspectKind = required(root.querySelector<HTMLElement>(".inspect-kind"), "Inspector kind");
@@ -219,6 +220,8 @@ function startEditor() {
   let lastClient = { x: 0, y: 0 };
   let placeRot = 0;
   let placeVariant = 0;
+  let lastPlaceKind: PlaceableWorldKind = "pine";
+  let lastPlaceVariant = 0;
 
   function say(message: string) {
     statusEl.textContent = message;
@@ -263,12 +266,21 @@ function startEditor() {
   function setTool(tool: EditorStore["tool"], variant?: number) {
     store.tool = tool;
     placeVariant = tool === "select" ? 0 : normalizePlaceVariant(tool, variant ?? placeVariant);
+    if (tool !== "select") {
+      lastPlaceKind = tool;
+      lastPlaceVariant = placeVariant;
+    }
     const active = paletteIdFor(tool);
     for (const button of root.querySelectorAll<HTMLButtonElement>("[data-tool]")) {
       button.classList.toggle("is-active", (button.dataset.palette ?? button.dataset.tool) === active);
     }
+    for (const button of root.querySelectorAll<HTMLButtonElement>("[data-mode]")) {
+      const placing = tool !== "select";
+      button.classList.toggle("is-active", button.dataset.mode === (placing ? "place" : "select"));
+    }
     canvas.style.cursor = tool === "select" ? "default" : "crosshair";
     if (tool !== "select") setGhostKind(tool);
+    else ghost.visible = false;
   }
 
   function currentView() {
@@ -301,10 +313,23 @@ function startEditor() {
   }
 
   function clampCamera() {
-    const edgeX = Math.max(0, MAP_WIDTH / 2 - viewWidth / 2);
-    const edgeY = Math.max(0, MAP_HEIGHT / 2 - (VIEW_HEIGHT / zoom) / 2);
-    camera.position.x = THREE.MathUtils.clamp(camera.position.x, -edgeX, edgeX);
-    camera.position.y = THREE.MathUtils.clamp(camera.position.y, -edgeY, edgeY);
+    const viewHeight = VIEW_HEIGHT / zoom;
+    const worldPerPixelX = viewWidth / Math.max(1, canvas.clientWidth);
+    const worldPerPixelY = viewHeight / Math.max(1, canvas.clientHeight);
+    const x = cameraPanBounds(
+      MAP_WIDTH,
+      viewWidth,
+      EDITOR_OVERSCROLL_PX.left * worldPerPixelX,
+      EDITOR_OVERSCROLL_PX.right * worldPerPixelX,
+    );
+    const y = cameraPanBounds(
+      MAP_HEIGHT,
+      viewHeight,
+      EDITOR_OVERSCROLL_PX.bottom * worldPerPixelY,
+      EDITOR_OVERSCROLL_PX.top * worldPerPixelY,
+    );
+    camera.position.x = THREE.MathUtils.clamp(camera.position.x, x.min, x.max);
+    camera.position.y = THREE.MathUtils.clamp(camera.position.y, y.min, y.max);
   }
 
   function resize() {
@@ -411,7 +436,7 @@ function startEditor() {
 
   function hoverCursor(x: number, y: number) {
     const hover = selectedProp(store);
-    if (hover && !isUniqueNpcKind(hover.kind)) {
+    if (store.tool === "select" && hover && !isUniqueNpcKind(hover.kind)) {
       const action = cornerActionAt(hover, x, y, handleHitRadius(), rotateHitRadius());
       if (action?.type === "rotate") return ROTATE_CURSOR;
       if (action?.type === "scale") return handleCursor(action.handle);
@@ -498,14 +523,18 @@ function startEditor() {
   }
 
   root.addEventListener("click", async (event) => {
-    const button = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-action], [data-tool]");
+    const button = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-action], [data-tool], [data-mode]");
     if (!button) return;
+    if (button.dataset.mode === "select") {
+      setTool("select");
+      return;
+    }
+    if (button.dataset.mode === "place") {
+      setTool(lastPlaceKind, lastPlaceVariant);
+      return;
+    }
     if (button.dataset.tool) {
       const tool = button.dataset.tool;
-      if (tool === "select") {
-        setTool("select");
-        return;
-      }
       if (isPlaceableWorldKind(tool)) {
         setTool(tool, Number(button.dataset.variant ?? 0));
       }
@@ -572,7 +601,7 @@ function startEditor() {
     if (event.button !== 0) return;
     const at = screenToWorld(event.clientX, event.clientY);
     const selected = selectedProp(store);
-    if (selected && !isUniqueNpcKind(selected.kind)) {
+    if (store.tool === "select" && selected && !isUniqueNpcKind(selected.kind)) {
       const action = cornerActionAt(selected, at.x, at.y, handleHitRadius(), rotateHitRadius());
       if (action?.type === "rotate") {
         rotating = true;
@@ -596,9 +625,14 @@ function startEditor() {
         return;
       }
     }
-    const hit = hitTest(store.props, at.x, at.y);
-    if (hit) {
-      store.selectedId = hit.id;
+    const action = mapClick(store, at.x, at.y, nextSeed(store), placeRot, placeVariant);
+    if (action === "place") {
+      const prop = selectedProp(store);
+      if (prop && (prop.kind === "pine" || prop.kind === "oak") && isBernieWoods(prop.x, prop.y)) prop.sick = true;
+      mutated();
+      return;
+    }
+    if (action === "select") {
       dragging = true;
       dragRecorded = false;
       lastPointer = at;
@@ -607,13 +641,6 @@ function startEditor() {
       canvas.setPointerCapture(event.pointerId);
       return;
     }
-    if (store.tool !== "select") {
-      const prop = placeAt(store, store.tool, at.x, at.y, nextSeed(store), placeRot, placeVariant);
-      if ((prop.kind === "pine" || prop.kind === "oak") && isBernieWoods(prop.x, prop.y)) prop.sick = true;
-      mutated();
-      return;
-    }
-    store.selectedId = null;
     syncInspector();
   });
 

@@ -48,19 +48,50 @@ body {
   left: 12px;
   right: 12px;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 16px;
   pointer-events: none;
 }
 
-.editor-brand {
-  padding: 10px 12px;
+.editor-tools,
+.editor-actions,
+.editor-palette,
+.editor-side,
+.inspect-form,
+.palette-list {
+  pointer-events: auto;
+}
+
+.editor-tools {
+  display: flex;
   background: #2a4124f2;
   border: 2px solid #67523a;
-  pointer-events: none;
 }
-.editor-brand h1,
+
+.editor-tool {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: none;
+  border-right: 2px solid #67523a;
+  background: transparent;
+  color: #f4eac8;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+
+.editor-tool:last-child {
+  border-right: none;
+}
+
+.editor-tool svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+}
+
 .editor-panel h2,
 .editor-palette h2 {
   margin: 0 0 6px;
@@ -68,26 +99,6 @@ body {
   font-size: 11px;
   font-weight: 400;
   line-height: 1.4;
-}
-
-.editor-brand p {
-  margin: 0;
-  max-width: 420px;
-  font-size: 12px;
-  line-height: 1.4;
-  color: #d8cc9c;
-}
-
-.editor-brand code {
-  color: #fff8dd;
-}
-
-.editor-actions,
-.editor-palette,
-.editor-side,
-.inspect-form,
-.palette-list {
-  pointer-events: auto;
 }
 
 .editor-actions {
@@ -112,6 +123,8 @@ body {
 }
 
 .editor-btn:hover,
+.editor-tool:hover,
+.editor-tool.is-active,
 .palette-item:hover,
 .palette-item.is-active {
   background: #3d5c32f0;
@@ -135,13 +148,13 @@ body {
 }
 
 .editor-palette {
-  top: 86px;
+  top: 60px;
   left: 12px;
   width: 186px;
   padding: 10px;
   background: #2a4124f2;
   border: 2px solid #67523a;
-  max-height: calc(100% - 130px);
+  max-height: calc(100% - 104px);
   overflow: auto;
 }
 
@@ -156,7 +169,6 @@ body {
   align-items: center;
   gap: 8px;
   width: 100%;
-  margin-top: 4px;
   padding: 4px;
   text-align: left;
   font-size: 12px;
@@ -171,12 +183,6 @@ body {
   object-fit: contain;
 }
 
-.palette-select {
-  display: grid;
-  place-items: center;
-  font-size: 18px;
-}
-
 .palette-note {
   margin: 10px 0 0;
   font-size: 11px;
@@ -185,7 +191,7 @@ body {
 }
 
 .editor-side {
-  top: 86px;
+  top: 60px;
   right: 12px;
   display: flex;
   flex-direction: column;
