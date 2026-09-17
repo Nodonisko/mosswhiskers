@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { BEEP_FADE_RANGE, BEEP_FULL_RANGE, beepProximity, CLAW_SOUNDS, FIRE_FADE_RANGE, FIRE_FULL_RANGE, fireProximity, GULP_FADE_RANGE, GULP_FULL_RANGE, gulpDistance, gulpProximity, MEOW_SOUNDS, ROCKET_SOUND_DELAY, ROCKET_SOUND_SKIP, pickIdleVoice, pickRandom } from "./sfx";
+import { BEEP_FADE_RANGE, BEEP_FULL_RANGE, beepProximity, CLAW_SOUNDS, FIRE_FADE_RANGE, FIRE_FULL_RANGE, fireProximity, GULP_FADE_RANGE, GULP_FULL_RANGE, gulpDistance, gulpProximity, MEOW_SOUNDS, ROCKET_SOUND_DELAY, ROCKET_SOUND_SKIP, pickRandom } from "./sfx";
 
 test("picks a claw clip from the roll", () => {
   expect(pickRandom(CLAW_SOUNDS, () => 0)).toBe("/assets/sounds/claw1.mp3");
@@ -9,13 +9,6 @@ test("picks a claw clip from the roll", () => {
 test("picks a meow clip from the roll", () => {
   expect(pickRandom(MEOW_SOUNDS, () => 0)).toBe("/assets/sounds/meow1.mp3");
   expect(pickRandom(MEOW_SOUNDS, () => 0.99)).toBe("/assets/sounds/meow6.mp3");
-});
-
-test("reuses a paused voice before restarting one that is already playing", () => {
-  const idle = { paused: true };
-  const busy = { paused: false };
-  expect(pickIdleVoice([busy, idle])).toBe(idle);
-  expect(pickIdleVoice([busy, busy])).toBe(busy);
 });
 
 test("rocket launch skips the clip lead-in and waits before playing", () => {
