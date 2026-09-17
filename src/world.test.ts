@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { lakeContainsLocalPoint, lakePhaseFromSeed } from "./lake-shape";
 import { pondBasinContains } from "./pond-shape";
-import { createWalkable, createWorldLayout, inDataCenterClearing, inFarmClearing, inFarmPlot, isBernieWoods } from "./world";
+import { createWalkable, createWorldLayout, createLockedProps, inDataCenterClearing, inFarmClearing, inFarmPlot, isBernieWoods } from "./world";
 import {
   BERNIE,
   BERNIE_HUT,
@@ -39,8 +39,11 @@ import {
   RABBIT,
   ROCKET_CARROT,
   SAM,
+  isAuthorableWorldKind,
+  isUniqueNpcKind,
 } from "./world-config";
 import { WORLD_MODEL_SIZES } from "./world-models";
+import { WORLD_PROPS } from "./world-props";
 
 describe("createWorldLayout", () => {
   test("the same seed produces the same props, mice, and fish", () => {
@@ -72,6 +75,19 @@ describe("createWorldLayout", () => {
       { id: "rabbit", kind: "rabbit", x: RABBIT.x, y: RABBIT.y },
       { id: "intake", kind: "intake", x: INTAKE.x, y: INTAKE.y },
     ]);
+  });
+
+  test("landmarks stay in code while vegetation and NPCs come from authored props", () => {
+    expect(WORLD_PROPS.every((prop) => isAuthorableWorldKind(prop.kind))).toBe(true);
+    expect(createLockedProps().every((prop) => !isUniqueNpcKind(prop.kind))).toBe(true);
+    const layout = createWorldLayout();
+    expect(layout.props.filter((prop) => prop.kind === "bernie")).toHaveLength(1);
+    expect(layout.props.filter((prop) => prop.kind === "sam")).toHaveLength(1);
+    expect(layout.props.filter((prop) => prop.kind === "rabbit")).toHaveLength(1);
+    expect(layout.props.filter((prop) => prop.kind === "hut")).toHaveLength(1);
+    expect(layout.props.filter((prop) => prop.kind === "lamp")).toHaveLength(2);
+    expect(layout.props.filter((prop) => prop.kind === "carrot").length).toBeGreaterThan(0);
+    expect(createLockedProps().every((prop) => prop.kind !== "lamp")).toBe(true);
   });
 
   test("lake fish stay in the water", () => {
@@ -219,7 +235,7 @@ describe("createWorldLayout", () => {
     expect(carrots).toHaveLength(FARM_CARROTS.length);
     expect(carrots.every((crop) => crop.scale > 1.1 && crop.scale < 1.5)).toBe(true);
     expect(carrots.every((crop) => inFarmPlot(crop.x, crop.y))).toBe(true);
-    expect(ROCKET_CARROT.scale).toBe(Math.max(...FARM_CARROTS.map((crop) => crop.scale)));
+    expect(Math.max(...FARM_CARROTS.map((crop) => crop.scale))).toBe(ROCKET_CARROT.scale);
     expect(Math.hypot(ROCKET_CARROT.x - FARM.x, ROCKET_CARROT.y - FARM.y)).toBeLessThan(80);
     expect(layout.props.find((prop) => prop.kind === "carrot" && prop.x === ROCKET_CARROT.x && prop.y === ROCKET_CARROT.y)?.scale).toBe(ROCKET_CARROT.scale);
     expect(Math.abs(RABBIT.x - FARM_SHED.x)).toBeLessThan(80);
@@ -233,6 +249,7 @@ describe("createWorldLayout", () => {
     ));
     expect(blocking).toEqual([]);
     expect(layout.mice.every((mouse) => !inFarmClearing(mouse.originX, mouse.originY))).toBe(true);
+    expect(layout.props.filter((prop) => prop.kind === "fence" && prop.rot === 90)).toHaveLength(5);
     expect(farmPathPoints().length).toBeGreaterThan(8);
     for (const [x, y] of farmPathPoints()) {
       expect(y).toBeGreaterThanOrEqual(FARM.y + FARM_PLOT.halfH);

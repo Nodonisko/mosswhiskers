@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mosswhiskers Map Editor</title>
+    <link rel="preload" href="/assets/PressStart2P-Regular.ttf" as="font" type="font/ttf" crossorigin />
+    <style>
+      @font-face {
+        font-family: "Press Start 2P";
+        src: url("/assets/PressStart2P-Regular.ttf") format("truetype");
+        font-weight: 400;
+        font-style: normal;
+        font-display: block;
+      }
+    </style>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  </head>
+  <body>
+    <main id="editor" aria-label="Map editor">
+      <canvas id="world" aria-label="Editable woodland map"></canvas>
+
+      <header class="editor-bar">
+        <div class="editor-brand">
+          <h1>Map Editor</h1>
+          <p>Desktop only · paste into <code>src/world-props.ts</code></p>
+        </div>
+        <div class="editor-actions">
+          <button type="button" class="editor-btn" data-action="undo">Undo</button>
+          <button type="button" class="editor-btn" data-action="redo">Redo</button>
+          <button type="button" class="editor-btn editor-btn-accent" data-action="copy">Copy</button>
+          <button type="button" class="editor-btn" data-action="import">Import</button>
+          <button type="button" class="editor-btn" data-action="reset">Reset</button>
+        </div>
+      </header>
+
+      <div class="editor-modal" hidden>
+        <div class="editor-modal-card" role="dialog" aria-labelledby="reset-title" aria-modal="true">
+          <h2 id="reset-title">Reset the whole world?</h2>
+          <p>This throws away the editor draft saved in this browser and restores whatever is currently in <code>src/world-props.ts</code>.</p>
+          <p>Reload and closing the tab keep your draft. Only Reset goes back to source.</p>
+          <div class="editor-modal-actions">
+            <button type="button" class="editor-btn" data-action="reset-cancel">Cancel</button>
+            <button type="button" class="editor-btn editor-btn-danger" data-action="reset-confirm">Reset to source</button>
+          </div>
+        </div>
+      </div>
+
+      <aside class="editor-palette" aria-label="Palette">
+        <h2>Place</h2>
+        <button type="button" class="palette-item is-active" data-tool="select">
+          <span class="palette-swatch palette-select">+</span>
+          <span>Select</span>
+        </button>
+        <div class="palette-list"></div>
+        <p class="palette-note">Click Bernie, Sam, or Hopsk on the map to drag them. Unique NPCs cannot be added or deleted. Drag a little outside a fence or log corner to rotate.</p>
+      </aside>
+
+      <aside class="editor-side">
+        <section class="editor-panel" aria-label="Inspector">
+          <h2>Selected</h2>
+          <p class="inspect-empty">Click a tree, plant, or NPC.</p>
+          <form class="inspect-form" hidden>
+            <p class="inspect-kind"></p>
+            <label>X <input name="x" type="number" step="1" /></label>
+            <label>Y <input name="y" type="number" step="1" /></label>
+            <label class="inspect-scale">Scale <input name="scale" type="number" min="0.4" max="2.6" step="0.02" /></label>
+            <label class="inspect-seed">Seed <input name="seed" type="number" step="1" /></label>
+            <label class="inspect-variant">Variant <input name="variant" type="number" min="0" max="8" step="1" /></label>
+            <label class="inspect-rot">Rot <input name="rot" type="number" step="1" /></label>
+            <label class="inspect-sick"><input name="sick" type="checkbox" /> Sick foliage</label>
+            <div class="inspect-row">
+              <button type="button" class="editor-btn" data-action="duplicate">Duplicate</button>
+              <button type="button" class="editor-btn" data-action="rotate">Rotate</button>
+              <button type="button" class="editor-btn editor-btn-danger" data-action="delete">Delete</button>
+            </div>
+          </form>
+        </section>
+        <section class="editor-panel" aria-label="Minimap">
+          <h2>Map</h2>
+          <canvas class="minimap" width="220" height="154"></canvas>
+        </section>
+      </aside>
+
+      <p class="editor-status" role="status"></p>
+      <p class="editor-hint">WASD / arrows pan · scroll zoom · middle-drag pan · click place · drag move · drag corner scale · drag outside corner rotate · R rotate · Del delete · Ctrl+Z undo</p>
+    </main>
+    <script type="module" src="./src/map-editor.ts"></script>
+  </body>
+</html>

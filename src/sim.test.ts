@@ -1010,4 +1010,10 @@ describe("hitsSolid", () => {
     expect(hitsSolid(0, 40, [trunk], 8, 6)).toBe(false);
     expect(hitsSolid(40, 0, [trunk], 8, 6)).toBe(false);
   });
+
+  test("a rotated box follows its long axis", () => {
+    const fence = { x: 0, y: 0, halfW: 22, halfH: 5, rot: Math.PI / 2 };
+    expect(hitsSolid(0, 18, [fence], 1, 1)).toBe(true);
+    expect(hitsSolid(18, 0, [fence], 1, 1)).toBe(false);
+  });
 });

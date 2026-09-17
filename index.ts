@@ -1,4 +1,5 @@
 import index from "./index.html";
+import editor from "./editor.html";
 
 const port = Number(Bun.env.PORT ?? 3000);
 const assetsRoot = new URL("./assets/", import.meta.url);
@@ -21,6 +22,7 @@ Bun.serve({
   port,
   routes: {
     "/": index,
+    "/editor": editor,
     "/assets/*": (req) => {
       const relPath = decodeURIComponent(new URL(req.url).pathname.slice("/assets/".length));
       return assetResponse(relPath);
@@ -41,3 +43,4 @@ Bun.serve({
 });
 
 console.log(`Mosswhiskers Meadow is running at http://localhost:${port}`);
+console.log(`Map editor: http://localhost:${port}/editor`);

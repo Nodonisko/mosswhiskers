@@ -111,21 +111,6 @@ export const FARM_CARROTS = [
   ROCKET_CARROT,
   { x: FARM.x + 148, y: FARM.y - 58, scale: 1.18, seed: 66, variant: 1 },
 ] as const;
-export const FARM_FENCES = [
-  { x: FARM.x - 170, y: FARM.y + 148, scale: 1.15, seed: 71 },
-  { x: FARM.x - 92, y: FARM.y + 152, scale: 1.1, seed: 72 },
-  { x: FARM.x + 92, y: FARM.y + 150, scale: 1.18, seed: 73 },
-  { x: FARM.x + 170, y: FARM.y + 148, scale: 1.12, seed: 74 },
-  { x: FARM.x - 208, y: FARM.y + 70, scale: 1.08, seed: 75 },
-  { x: FARM.x - 212, y: FARM.y - 10, scale: 1.14, seed: 76 },
-  { x: FARM.x - 206, y: FARM.y - 90, scale: 1.1, seed: 77 },
-  { x: FARM.x + 208, y: FARM.y + 74, scale: 1.12, seed: 78 },
-  { x: FARM.x + 214, y: FARM.y + 4, scale: 1.08, seed: 79 },
-  { x: FARM.x - 150, y: FARM.y - 138, scale: 1.16, seed: 80 },
-  { x: FARM.x - 50, y: FARM.y - 142, scale: 1.1, seed: 81 },
-  { x: FARM.x + 50, y: FARM.y - 136, scale: 1.14, seed: 82 },
-] as const;
-
 export type WorldModelKind =
   | "pine"
   | "oak"
@@ -152,6 +137,87 @@ export type WorldModelKind =
   | "perch"
   | "bluegill"
   | "mouse";
+
+export type WorldProp = {
+  kind: WorldModelKind;
+  x: number;
+  y: number;
+  scale: number;
+  seed: number;
+  variant: number;
+  sick?: boolean;
+  /** Degrees. Omitted when 0. Fence and log use this. */
+  rot?: number;
+};
+
+/** Vegetation the map editor can stamp, move, and delete. */
+export const PLACEABLE_WORLD_KINDS = [
+  "pine",
+  "oak",
+  "willow",
+  "bush",
+  "flowers",
+  "stone",
+  "log",
+  "fence",
+  "lamp",
+] as const;
+export type PlaceableWorldKind = (typeof PLACEABLE_WORLD_KINDS)[number];
+
+/** Flowers: 0 white, 1 blue, 2 pink. */
+export const FLOWER_VARIANTS = [0, 1, 2] as const;
+export type FlowerVariant = (typeof FLOWER_VARIANTS)[number];
+
+export function normalizeFlowerVariant(value: unknown): FlowerVariant {
+  const n = Math.round(Number(value));
+  if (!Number.isFinite(n)) return 0;
+  return (((n % 3) + 3) % 3) as FlowerVariant;
+}
+
+/** Unique characters: the editor can move them, not add or remove them. */
+export const UNIQUE_NPC_KINDS = ["bernie", "sam", "rabbit"] as const;
+export type UniqueNpcKind = (typeof UNIQUE_NPC_KINDS)[number];
+
+/** Long sprites the editor can spin to any angle. */
+export const ROTATABLE_WORLD_KINDS = ["fence", "log"] as const;
+export type RotatableWorldKind = (typeof ROTATABLE_WORLD_KINDS)[number];
+export const ROTATABLE_WORLD_KIND_SET = new Set<WorldModelKind>(ROTATABLE_WORLD_KINDS);
+
+export const AUTHORABLE_WORLD_KINDS = [...PLACEABLE_WORLD_KINDS, ...UNIQUE_NPC_KINDS] as const;
+export type AuthorableWorldKind = (typeof AUTHORABLE_WORLD_KINDS)[number];
+export const AUTHORABLE_WORLD_KIND_SET = new Set<WorldModelKind>(AUTHORABLE_WORLD_KINDS);
+export const PLACEABLE_WORLD_KIND_SET = new Set<WorldModelKind>(PLACEABLE_WORLD_KINDS);
+export const UNIQUE_NPC_KIND_SET = new Set<WorldModelKind>(UNIQUE_NPC_KINDS);
+
+export function isPlaceableWorldKind(kind: string): kind is PlaceableWorldKind {
+  return PLACEABLE_WORLD_KIND_SET.has(kind as WorldModelKind);
+}
+
+export function isUniqueNpcKind(kind: string): kind is UniqueNpcKind {
+  return UNIQUE_NPC_KIND_SET.has(kind as WorldModelKind);
+}
+
+export function isAuthorableWorldKind(kind: string): kind is AuthorableWorldKind {
+  return AUTHORABLE_WORLD_KIND_SET.has(kind as WorldModelKind);
+}
+
+export function isRotatableWorldKind(kind: string): kind is RotatableWorldKind {
+  return ROTATABLE_WORLD_KIND_SET.has(kind as WorldModelKind);
+}
+
+/** Degrees in [0, 360). 0 means unrotated and is omitted from saved props. */
+export function normalizeRotation(value: unknown): number {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 0;
+  const wrapped = ((n % 360) + 360) % 360;
+  if (wrapped < 0.001 || wrapped > 359.999) return 0;
+  const trimmed = Number(wrapped.toFixed(2));
+  return trimmed === 360 ? 0 : trimmed;
+}
+
+export function nextRotation(value: unknown, step = 15): number {
+  return normalizeRotation(normalizeRotation(value) + step);
+}
 
 /** Props whose trunk box should play the wood claw sound. */
 export const TREE_KINDS = new Set<WorldModelKind>(["pine", "oak", "willow"]);

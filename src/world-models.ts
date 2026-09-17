@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { seeded } from './rng';
-import { TREE_TRUNK_HITBOX, type WorldModelKind } from './world-config';
+import { TREE_TRUNK_HITBOX, isRotatableWorldKind, normalizeRotation, type WorldModelKind, type WorldProp } from './world-config';
 
 export type { WorldModelKind };
 export { TREE_TRUNK_HITBOX };
@@ -1299,6 +1299,24 @@ export function createWorldModel(kind: WorldModelKind, options: WorldModelOption
   sprite.name = `${kind}-${seed}-${variant}`;
   sprite.userData = { id: sprite.name, kind, seed, variant, nativeWidth: width, nativeHeight: height };
   return sprite;
+}
+
+/** Spin fence/log around the visual middle without moving an unrotated south origin. */
+export function applyWorldPropPose(sprite: THREE.Sprite, prop: Pick<WorldProp, "kind" | "x" | "y" | "scale" | "rot">) {
+  const [width, height] = WORLD_MODEL_SIZES[prop.kind];
+  const scale = prop.scale;
+  sprite.scale.set(width * scale, height * scale, 1);
+  const rotatable = isRotatableWorldKind(prop.kind);
+  const rot = rotatable ? normalizeRotation(prop.rot) : 0;
+  (sprite.material as THREE.SpriteMaterial).rotation = rot * Math.PI / 180;
+  if (rotatable) {
+    sprite.center.set(0.5, 0.5);
+    sprite.position.set(prop.x, prop.y + (height * scale) / 2, 0);
+    return;
+  }
+  const paw = prop.kind === "cat" || prop.kind === "bernie" || prop.kind === "sam" || prop.kind === "rabbit";
+  sprite.center.set(0.5, paw ? (height - 30) / height : 0);
+  sprite.position.set(prop.x, prop.y, 0);
 }
 
 /** Call only when the entire world is destroyed; textures are shared across models. */

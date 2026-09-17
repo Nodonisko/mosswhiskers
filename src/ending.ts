@@ -97,9 +97,9 @@ export function createEndingSequence() {
       return true;
     },
     tick(dt: number) {
-      if (phase === "idle" || phase === "wait") return;
+      if (durationOf(phase) == null) return;
       elapsed += dt;
-      while (phase !== "idle" && phase !== "wait") {
+      while (true) {
         const duration = durationOf(phase);
         if (duration == null || elapsed < duration) break;
         elapsed -= duration;

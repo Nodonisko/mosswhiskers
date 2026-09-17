@@ -1,0 +1,314 @@
+:root {
+  color-scheme: only light;
+  font-family: ui-monospace, "Courier New", monospace;
+  background: #172816;
+  image-rendering: pixelated;
+}
+
+* { box-sizing: border-box; }
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+#editor {
+  position: fixed;
+  inset: 0;
+  isolation: isolate;
+  user-select: none;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+#world {
+  display: block;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+}
+
+.editor-bar,
+.editor-palette,
+.editor-side,
+.editor-status,
+.editor-hint {
+  position: absolute;
+  z-index: 8;
+  color: #f4eac8;
+}
+
+.editor-bar {
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  pointer-events: none;
+}
+
+.editor-brand {
+  padding: 10px 12px;
+  background: #2a4124f2;
+  border: 2px solid #67523a;
+  pointer-events: none;
+}
+.editor-brand h1,
+.editor-panel h2,
+.editor-palette h2 {
+  margin: 0 0 6px;
+  font-family: "Press Start 2P", ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.4;
+}
+
+.editor-brand p {
+  margin: 0;
+  max-width: 420px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #d8cc9c;
+}
+
+.editor-brand code {
+  color: #fff8dd;
+}
+
+.editor-actions,
+.editor-palette,
+.editor-side,
+.inspect-form,
+.palette-list {
+  pointer-events: auto;
+}
+
+.editor-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.editor-btn,
+.palette-item {
+  border: 2px solid #67523a;
+  background: #304928e6;
+  color: #f4eac8;
+  font: inherit;
+  cursor: pointer;
+}
+
+.editor-btn {
+  padding: 7px 10px;
+  font-size: 12px;
+}
+
+.editor-btn:hover,
+.palette-item:hover,
+.palette-item.is-active {
+  background: #3d5c32f0;
+}
+
+.editor-btn-accent {
+  background: #8c4a32e6;
+}
+
+.editor-btn-accent:hover {
+  background: #a45a3c;
+}
+
+.editor-btn-danger {
+  background: #6a3030e6;
+}
+
+.editor-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.editor-palette {
+  top: 86px;
+  left: 12px;
+  width: 186px;
+  padding: 10px;
+  background: #2a4124f2;
+  border: 2px solid #67523a;
+  max-height: calc(100% - 130px);
+  overflow: auto;
+}
+
+.palette-list {
+  display: grid;
+  gap: 4px;
+}
+
+.palette-item {
+  display: grid;
+  grid-template-columns: 40px 1fr;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: 4px;
+  padding: 4px;
+  text-align: left;
+  font-size: 12px;
+}
+
+.palette-item canvas,
+.palette-swatch {
+  width: 40px;
+  height: 40px;
+  image-rendering: pixelated;
+  background: #1d3018;
+}
+
+.palette-select {
+  display: grid;
+  place-items: center;
+  font-size: 18px;
+}
+
+.palette-note {
+  margin: 10px 0 0;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #d8cc9c;
+}
+
+.editor-side {
+  top: 86px;
+  right: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 240px;
+}
+
+.editor-panel {
+  padding: 10px;
+  background: #2a4124f2;
+  border: 2px solid #67523a;
+}
+
+.inspect-empty,
+.inspect-kind {
+  margin: 0 0 8px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.inspect-form {
+  display: grid;
+  gap: 6px;
+}
+
+.inspect-form label {
+  display: grid;
+  grid-template-columns: 64px 1fr;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.inspect-sick {
+  grid-template-columns: 16px 1fr !important;
+}
+
+.inspect-form input[type="number"] {
+  width: 100%;
+  border: 2px solid #67523a;
+  background: #1d3018;
+  color: #fff8dd;
+  font: inherit;
+  padding: 4px 6px;
+}
+
+.inspect-row {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.minimap {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 2px solid #67523a;
+  background: #688f45;
+  cursor: pointer;
+  image-rendering: pixelated;
+}
+
+.editor-status {
+  left: 192px;
+  right: 264px;
+  bottom: 36px;
+  margin: 0;
+  font-size: 12px;
+  text-align: center;
+  text-shadow: 0 1px 0 #172816;
+  pointer-events: none;
+}
+
+.editor-hint {
+  left: 12px;
+  right: 12px;
+  bottom: 10px;
+  margin: 0;
+  font-size: 11px;
+  text-align: center;
+  color: #d8cc9c;
+  pointer-events: none;
+}
+
+.editor-modal {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  background: #172816b8;
+  pointer-events: auto;
+}
+
+.editor-modal-card {
+  width: min(420px, calc(100vw - 32px));
+  padding: 16px;
+  background: #2a4124f2;
+  border: 2px solid #67523a;
+  color: #f4eac8;
+}
+
+.editor-modal-card h2 {
+  margin: 0 0 10px;
+  font-family: "Press Start 2P", ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.4;
+}
+
+.editor-modal-card p {
+  margin: 0 0 10px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #d8cc9c;
+}
+
+.editor-modal-card code {
+  color: #fff8dd;
+}
+
+.editor-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}

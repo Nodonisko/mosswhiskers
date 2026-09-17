@@ -214,6 +214,8 @@ export type Solid = {
   y: number;
   halfW: number;
   halfH: number;
+  /** Radians. Omitted when the box is axis-aligned. */
+  rot?: number;
 };
 
 export function hitsSolid(
@@ -224,11 +226,31 @@ export function hitsSolid(
   radiusY: number,
 ) {
   for (const solid of solids) {
-    if (Math.abs(x - solid.x) < solid.halfW + radiusX && Math.abs(y - solid.y) < solid.halfH + radiusY) {
-      return true;
-    }
+    if (hitsOneSolid(x, y, solid, radiusX, radiusY)) return true;
   }
   return false;
+}
+
+function hitsOneSolid(
+  x: number,
+  y: number,
+  solid: Solid,
+  radiusX: number,
+  radiusY: number,
+) {
+  const rot = solid.rot ?? 0;
+  if (!rot) {
+    return Math.abs(x - solid.x) < solid.halfW + radiusX && Math.abs(y - solid.y) < solid.halfH + radiusY;
+  }
+  const c = Math.cos(rot);
+  const s = Math.sin(rot);
+  const dx = x - solid.x;
+  const dy = y - solid.y;
+  if (Math.abs(dx) >= radiusX + Math.abs(c) * solid.halfW + Math.abs(s) * solid.halfH) return false;
+  if (Math.abs(dy) >= radiusY + Math.abs(s) * solid.halfW + Math.abs(c) * solid.halfH) return false;
+  if (Math.abs(dx * c + dy * s) >= solid.halfW + Math.abs(c) * radiusX + Math.abs(s) * radiusY) return false;
+  if (Math.abs(-dx * s + dy * c) >= solid.halfH + Math.abs(s) * radiusX + Math.abs(c) * radiusY) return false;
+  return true;
 }
 
 function fishAt(spec: FishSpec, elapsed: number, previousFacing: 1 | -1, previous?: Pick<FishSim, "alive" | "respawnIn">): FishSim {
