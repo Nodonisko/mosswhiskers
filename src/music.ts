@@ -74,6 +74,10 @@ export function audioSessionType(visible: boolean, level: number): GameAudioSess
   return shouldPlayMusic(visible, level) ? "playback" : "ambient";
 }
 
+export function canStartBufferSource(state: string) {
+  return state === "running";
+}
+
 type NavigatorAudioSession = {
   type: "auto" | "playback" | "transient" | "transient-solo" | "ambient" | "play-and-record";
 };
@@ -88,38 +92,81 @@ function setAudioSession(type: GameAudioSessionType) {
   }
 }
 
+function decodeAudioBuffer(context: AudioContext, data: ArrayBuffer) {
+  const copy = data.slice(0);
+  return new Promise<AudioBuffer>((resolve, reject) => {
+    let settled = false;
+    const ok = (buf: AudioBuffer) => {
+      if (settled) return;
+      settled = true;
+      resolve(buf);
+    };
+    const fail = (err?: unknown) => {
+      if (settled) return;
+      settled = true;
+      reject(err ?? new Error("decode failed"));
+    };
+    try {
+      const result = context.decodeAudioData(copy, ok, fail);
+      if (result && typeof result.then === "function") void result.then(ok, fail);
+    } catch (err) {
+      fail(err);
+    }
+  });
+}
+
 function createAudioContext() {
   const Ctor = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
   return new Ctor();
 }
 
 export function createBackgroundMusic(src = "/assets/background.mp3"): BackgroundMusic {
-  const ctx = createAudioContext();
-  const gain = ctx.createGain();
+  let ctx = createAudioContext();
+  let gain = ctx.createGain();
   gain.connect(ctx.destination);
 
   let settings = loadMusicSettings();
+  let fileBytes: ArrayBuffer | null = null;
   let buffer: AudioBuffer | null = null;
   let source: AudioBufferSourceNode | null = null;
   let waitingForGesture = false;
   let closed = false;
+  let loading = false;
+  let loadId = 0;
 
   applyGain();
-
-  void fetch(src)
-    .then((response) => {
-      if (!response.ok) throw new Error("music missing");
-      return response.arrayBuffer();
-    })
-    .then((data) => ctx.decodeAudioData(data.slice(0)))
-    .then((decoded) => {
-      buffer = decoded;
-      syncPlayback();
-    })
-    .catch(() => {});
+  void loadBuffer();
 
   function applyGain() {
     gain.gain.value = volumeForLevel(settings.level);
+  }
+
+  function loadBuffer() {
+    if (loading || closed) return;
+    loading = true;
+    const id = loadId;
+    const request = fileBytes
+      ? Promise.resolve(fileBytes)
+      : fetch(src).then((response) => {
+          if (!response.ok) throw new Error("music missing");
+          return response.arrayBuffer();
+        });
+    void request
+      .then((data) => {
+        fileBytes = data;
+        if (id !== loadId || closed) return null;
+        return decodeAudioBuffer(ctx, data);
+      })
+      .then((decoded) => {
+        loading = false;
+        if (!decoded || id !== loadId || closed) return;
+        buffer = decoded;
+        syncPlayback();
+      })
+      .catch(() => {
+        loading = false;
+        if (id === loadId) buffer = null;
+      });
   }
 
   function stopSource() {
@@ -134,12 +181,30 @@ export function createBackgroundMusic(src = "/assets/background.mp3"): Backgroun
   }
 
   function startSource() {
-    if (!buffer || source || closed) return;
+    if (!buffer || closed || source) return;
+    if (!canStartBufferSource(ctx.state)) return;
     source = ctx.createBufferSource();
     source.buffer = buffer;
     source.loop = true;
     source.connect(gain);
     source.start();
+  }
+
+  function contextAlive() {
+    return ctx.state !== "closed";
+  }
+
+  function rebuildContext() {
+    loadId += 1;
+    loading = false;
+    stopSource();
+    if (contextAlive()) void ctx.close().catch(() => {});
+    ctx = createAudioContext();
+    gain = ctx.createGain();
+    gain.connect(ctx.destination);
+    buffer = null;
+    applyGain();
+    loadBuffer();
   }
 
   function armUnlock() {
@@ -149,43 +214,63 @@ export function createBackgroundMusic(src = "/assets/background.mp3"): Backgroun
     window.addEventListener("keydown", unlock);
   }
 
+  function resumeContext() {
+    if (!contextAlive()) {
+      rebuildContext();
+      return ctx.resume();
+    }
+    if (ctx.state === "interrupted") return ctx.resume();
+    if (ctx.state === "suspended") return ctx.resume();
+    return Promise.resolve();
+  }
+
   function unlock() {
     waitingForGesture = false;
     window.removeEventListener("pointerdown", unlock);
     window.removeEventListener("keydown", unlock);
     if (closed) return;
     setAudioSession("playback");
-    void ctx.resume().then(() => {
-      syncPlayback();
-      if (ctx.state !== "running") armUnlock();
-    }).catch(armUnlock);
+    void resumeContext()
+      .then(() => {
+        if (ctx.state === "closed") {
+          rebuildContext();
+          armUnlock();
+          return;
+        }
+        syncPlayback();
+        if (!canStartBufferSource(ctx.state)) armUnlock();
+      })
+      .catch(() => {
+        rebuildContext();
+        armUnlock();
+      });
   }
 
   function syncPlayback() {
     if (closed) return;
     applyGain();
     const want = shouldPlayMusic(isPageVisible(), settings.level);
-    if (want) {
-      setAudioSession("playback");
-      startSource();
-      if (ctx.state !== "running") {
-        void ctx.resume().then(() => {
-          if (ctx.state !== "running") armUnlock();
-        }).catch(armUnlock);
-      }
+    if (!want) {
+      stopSource();
+      if (canStartBufferSource(ctx.state)) void ctx.suspend().catch(() => {});
+      setAudioSession("ambient");
+      clearMediaSession();
       return;
     }
-    stopSource();
-    if (ctx.state === "running") void ctx.suspend();
-    setAudioSession("ambient");
-    clearMediaSession();
+    setAudioSession("playback");
+    if (!canStartBufferSource(ctx.state)) {
+      void resumeContext()
+        .then(() => {
+          if (canStartBufferSource(ctx.state)) startSource();
+          else armUnlock();
+        })
+        .catch(armUnlock);
+      return;
+    }
+    startSource();
   }
 
   armUnlock();
-  void ctx.resume().then(() => {
-    if (ctx.state === "running") syncPlayback();
-  }).catch(() => {});
-
   const unwatch = watchPageVisible(() => syncPlayback());
 
   function persist(next: MusicSettings) {

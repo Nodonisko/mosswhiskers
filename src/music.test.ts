@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import {
   audioSessionType,
+  canStartBufferSource,
   clampLevel,
   DEFAULT_MUSIC_LEVEL,
   DEFAULT_SFX_LEVEL,
@@ -45,4 +46,11 @@ test("uses playback audio session only while the tab is audible", () => {
   expect(audioSessionType(true, 3)).toBe("playback");
   expect(audioSessionType(false, 3)).toBe("ambient");
   expect(audioSessionType(true, 1)).toBe("ambient");
+});
+
+test("only starts a buffer source after the context is running", () => {
+  expect(canStartBufferSource("running")).toBe(true);
+  expect(canStartBufferSource("suspended")).toBe(false);
+  expect(canStartBufferSource("interrupted")).toBe(false);
+  expect(canStartBufferSource("closed")).toBe(false);
 });
