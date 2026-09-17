@@ -448,12 +448,6 @@ body { background: #172816; }
   letter-spacing: 1.4px;
 }
 
-@media (pointer: coarse), (hover: none) {
-  .controls {
-    display: none;
-  }
-}
-
 .touch-hud {
   position: absolute;
   z-index: 25;
