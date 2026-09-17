@@ -86,12 +86,22 @@ describe("map editor props", () => {
       { id: "flowers-0", kind: "flowers", variant: 0, label: "White flowers" },
       { id: "flowers-1", kind: "flowers", variant: 1, label: "Blue flowers" },
       { id: "flowers-2", kind: "flowers", variant: 2, label: "Pink flowers" },
+      { id: "flowers-3", kind: "flowers", variant: 3, label: "Yellow flowers" },
+      { id: "flowers-4", kind: "flowers", variant: 4, label: "Orange flowers" },
+      { id: "flowers-5", kind: "flowers", variant: 5, label: "Purple flowers" },
+      { id: "flowers-6", kind: "flowers", variant: 6, label: "Red flowers" },
+      { id: "flowers-7", kind: "flowers", variant: 7, label: "Daisies" },
     ]);
+    expect(editorPaletteItems().some((item) => item.kind === "mushroom" && item.label === "Toadstool")).toBe(true);
+    expect(editorPaletteItems().some((item) => item.kind === "wheat")).toBe(true);
     const store = createEditorStore([]);
     expect(placeAt(store, "flowers", 0, 0, 1, 0, 0).variant).toBe(0);
     expect(placeAt(store, "flowers", 10, 0, 2, 0, 1).variant).toBe(1);
     expect(placeAt(store, "flowers", 20, 0, 3, 0, 2).variant).toBe(2);
-    expect(placeAt(store, "flowers", 30, 0, 4, 0, 5).variant).toBe(2);
+    expect(placeAt(store, "flowers", 30, 0, 4, 0, 5).variant).toBe(5);
+    expect(placeAt(store, "flowers", 40, 0, 5, 0, 8).variant).toBe(0);
+    expect(placeAt(store, "mushroom", 50, 0, 6, 0, 3)).toEqual(expect.objectContaining({ variant: 3, scale: 0.6 }));
+    expect(placeAt(store, "grass", 60, 0, 7, 0, 5)).toEqual(expect.objectContaining({ variant: 2, scale: 1 }));
   });
 
   test("placing, undoing, and TypeScript export keep a single Bernie", () => {
@@ -158,6 +168,8 @@ describe("map editor props", () => {
     const source = serializeWorldPropsTs([{ ...fence, rot: 45 }]);
     expect(source).toContain("rot: 45");
     expect(parseWorldPropsJson(source).find((prop) => prop.kind === "fence")?.rot).toBe(45);
+    const mossLog = { kind: "mossLog" as const, x: 0, y: 0, scale: 1, seed: 1, variant: 0, rot: 90 };
+    expect(parseWorldPropsJson(serializeWorldPropsTs([mossLog])).find((prop) => prop.kind === "mossLog")?.rot).toBe(90);
     const store = createEditorStore([fence]);
     const placed = store.props.find((prop) => prop.kind === "fence")!;
     store.selectedId = placed.id;

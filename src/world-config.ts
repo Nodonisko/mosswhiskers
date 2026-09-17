@@ -132,6 +132,15 @@ export type WorldModelKind =
   | "flowers"
   | "stone"
   | "log"
+  | "grass"
+  | "wheat"
+  | "reeds"
+  | "mushroom"
+  | "moss"
+  | "mossLog"
+  | "fern"
+  | "stump"
+  | "clover"
   | "cat"
   | "pike"
   | "perch"
@@ -146,7 +155,7 @@ export type WorldProp = {
   seed: number;
   variant: number;
   sick?: boolean;
-  /** Degrees. Omitted when 0. Fence and log use this. */
+  /** Degrees. Omitted when 0. Fence, log, and mossy log use this. */
   rot?: number;
 };
 
@@ -159,19 +168,54 @@ export const PLACEABLE_WORLD_KINDS = [
   "flowers",
   "stone",
   "log",
+  "grass",
+  "wheat",
+  "reeds",
+  "mushroom",
+  "moss",
+  "mossLog",
+  "fern",
+  "stump",
+  "clover",
   "fence",
   "lamp",
 ] as const;
 export type PlaceableWorldKind = (typeof PLACEABLE_WORLD_KINDS)[number];
 
-/** Flowers: 0 white, 1 blue, 2 pink. */
-export const FLOWER_VARIANTS = [0, 1, 2] as const;
+/** Named palette rows for kinds that have distinct looks. */
+export const PLACEABLE_VARIANT_LABELS: Partial<Record<PlaceableWorldKind, readonly string[]>> = {
+  flowers: ["White flowers", "Blue flowers", "Pink flowers", "Yellow flowers", "Orange flowers", "Purple flowers", "Red flowers", "Daisies"],
+  grass: ["Short grass", "Tall grass", "Seed grass"],
+  wheat: ["Wheat", "Wheat sheaf"],
+  reeds: ["Reeds", "Cattails", "Shore reeds"],
+  mushroom: ["Toadstool", "Brown mushrooms", "Morel", "Chanterelle"],
+  moss: ["Moss patch", "Cushion moss", "Lichen"],
+  mossLog: ["Mossy log", "Thick moss log"],
+  fern: ["Fern", "Dark fern"],
+  stump: ["Stump", "Mossy stump"],
+  clover: ["Clover", "Flowering clover"],
+};
+
+/** Flowers: 0 white, 1 blue, 2 pink, 3 yellow, 4 orange, 5 purple, 6 red, 7 daisy. */
+export const FLOWER_VARIANTS = [0, 1, 2, 3, 4, 5, 6, 7] as const;
 export type FlowerVariant = (typeof FLOWER_VARIANTS)[number];
 
-export function normalizeFlowerVariant(value: unknown): FlowerVariant {
+export function normalizeVariantIndex(value: unknown, count: number): number {
   const n = Math.round(Number(value));
-  if (!Number.isFinite(n)) return 0;
-  return (((n % 3) + 3) % 3) as FlowerVariant;
+  if (!Number.isFinite(n) || count <= 0) return 0;
+  return ((n % count) + count) % count;
+}
+
+export function placeableVariantCount(kind: PlaceableWorldKind): number {
+  return PLACEABLE_VARIANT_LABELS[kind]?.length ?? 1;
+}
+
+export function normalizePlaceVariant(kind: PlaceableWorldKind, value: unknown): number {
+  return normalizeVariantIndex(value, placeableVariantCount(kind));
+}
+
+export function normalizeFlowerVariant(value: unknown): FlowerVariant {
+  return normalizeVariantIndex(value, FLOWER_VARIANTS.length) as FlowerVariant;
 }
 
 /** Unique characters: the editor can move them, not add or remove them. */
@@ -179,7 +223,7 @@ export const UNIQUE_NPC_KINDS = ["bernie", "sam", "rabbit"] as const;
 export type UniqueNpcKind = (typeof UNIQUE_NPC_KINDS)[number];
 
 /** Long sprites the editor can spin to any angle. */
-export const ROTATABLE_WORLD_KINDS = ["fence", "log"] as const;
+export const ROTATABLE_WORLD_KINDS = ["fence", "log", "mossLog"] as const;
 export type RotatableWorldKind = (typeof ROTATABLE_WORLD_KINDS)[number];
 export const ROTATABLE_WORLD_KIND_SET = new Set<WorldModelKind>(ROTATABLE_WORLD_KINDS);
 
@@ -241,6 +285,7 @@ export const TREE_TRUNK_HITBOX: Partial<
   rabbit: [8, 6],
   fence: [22, 5],
   shed: [56, 16],
+  stump: [10, 6],
 };
 
 export const mainPathY = (x: number) =>

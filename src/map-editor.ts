@@ -14,7 +14,9 @@ import {
   isUniqueNpcKind,
   nextRotation,
   normalizeFlowerVariant,
+  normalizePlaceVariant,
   normalizeRotation,
+  placeableVariantCount,
   type PlaceableWorldKind,
   type WorldProp,
 } from "./world-config";
@@ -33,6 +35,7 @@ import {
   nextSeed,
   parseEditorDraft,
   parseWorldPropsJson,
+  placeableDefaultScale,
   placeableLabel,
   placeAt,
   propCenter,
@@ -184,7 +187,7 @@ function startEditor() {
     button.dataset.variant = String(item.variant);
     const icon = paintWorldModel(item.kind, {
       seed: 4,
-      variant: item.kind === "flowers" ? item.variant : 1,
+      variant: item.variant,
     });
     icon.style.width = "40px";
     icon.style.height = "40px";
@@ -211,7 +214,6 @@ function startEditor() {
   let lastPointer = { x: 0, y: 0 };
   let placeRot = 0;
   let placeVariant = 0;
-  let flowerChoice = 0;
 
   function say(message: string) {
     statusEl.textContent = message;
@@ -223,7 +225,13 @@ function startEditor() {
   }
 
   function setGhostKind(kind: PlaceableWorldKind) {
-    applyWorldPropPose(ghost, { kind, x: 0, y: 0, scale: 1, rot: isRotatableWorldKind(kind) ? placeRot : 0 });
+    applyWorldPropPose(ghost, {
+      kind,
+      x: 0,
+      y: 0,
+      scale: placeableDefaultScale(kind),
+      rot: isRotatableWorldKind(kind) ? placeRot : 0,
+    });
     const model = createWorldModel(kind, { scale: 1, seed: 1, variant: placeVariant });
     (ghost.material as THREE.SpriteMaterial).map = (model.material as THREE.SpriteMaterial).map;
     (ghost.material as THREE.SpriteMaterial).opacity = 0.42;
@@ -231,7 +239,7 @@ function startEditor() {
 
   function paletteIdFor(tool: EditorStore["tool"], variant = placeVariant) {
     if (tool === "select") return "select";
-    if (tool === "flowers") return `flowers-${normalizeFlowerVariant(variant)}`;
+    if (placeableVariantCount(tool) > 1) return `${tool}-${normalizePlaceVariant(tool, variant)}`;
     return tool;
   }
 
@@ -249,12 +257,7 @@ function startEditor() {
 
   function setTool(tool: EditorStore["tool"], variant?: number) {
     store.tool = tool;
-    if (tool === "flowers") {
-      placeVariant = normalizeFlowerVariant(variant ?? flowerChoice);
-      flowerChoice = placeVariant;
-    } else {
-      placeVariant = 0;
-    }
+    placeVariant = tool === "select" ? 0 : normalizePlaceVariant(tool, variant ?? placeVariant);
     const active = paletteIdFor(tool);
     for (const button of root.querySelectorAll<HTMLButtonElement>("[data-tool]")) {
       button.classList.toggle("is-active", (button.dataset.palette ?? button.dataset.tool) === active);
@@ -433,13 +436,22 @@ function startEditor() {
       bush: "#4f9a38",
       stone: "#858780",
       log: "#a08755",
+      grass: "#6c9149",
+      wheat: "#d4b45a",
+      reeds: "#5a8a48",
+      mushroom: "#c45a3a",
+      moss: "#4a7a38",
+      mossLog: "#6a8a40",
+      fern: "#3d7a3a",
+      stump: "#8a6a40",
+      clover: "#5a9a44",
       fence: "#b08a50",
       lamp: "#f1b15d",
       bernie: "#f4eac8",
       sam: "#e8b060",
       rabbit: "#fff8f0",
     };
-    const flowerColors = ["#e7e8c9", "#6595ba", "#c591b1"] as const;
+    const flowerColors = ["#e7e8c9", "#6595ba", "#c591b1", "#e0c45a", "#d4843c", "#8a6aaa", "#c45a4a", "#f0ead0"] as const;
     for (const prop of store.props) {
       const at = toMap(prop.x, prop.y);
       ctx.fillStyle = prop.kind === "flowers"
@@ -718,8 +730,9 @@ function startEditor() {
       Digit5: "flowers", Digit6: "stone", Digit7: "log", Digit8: "fence", Digit9: "lamp",
     };
     const mapped = toolKeys[event.code];
-    if (mapped === "flowers" && store.tool === "flowers") setTool("flowers", flowerChoice + 1);
-    else if (mapped) setTool(mapped);
+    if (mapped && placeableVariantCount(mapped) > 1 && store.tool === mapped) {
+      setTool(mapped, placeVariant + 1);
+    } else if (mapped) setTool(mapped);
   });
   function onKeyUp(event: KeyboardEvent) {
     keys.delete(event.code);

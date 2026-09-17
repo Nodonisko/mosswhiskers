@@ -11,8 +11,9 @@ import {
   isRotatableWorldKind,
   isUniqueNpcKind,
   nextRotation,
-  normalizeFlowerVariant,
+  normalizePlaceVariant,
   normalizeRotation,
+  PLACEABLE_VARIANT_LABELS,
   PLACEABLE_WORLD_KINDS,
   type PlaceableWorldKind,
   type UniqueNpcKind,
@@ -33,11 +34,18 @@ export const PLACEABLE_LABELS: Record<PlaceableWorldKind, string> = {
   flowers: "Flowers",
   stone: "Rock",
   log: "Log",
+  grass: "Grass",
+  wheat: "Wheat",
+  reeds: "Reeds",
+  mushroom: "Mushroom",
+  moss: "Moss",
+  mossLog: "Mossy log",
+  fern: "Fern",
+  stump: "Stump",
+  clover: "Clover",
   fence: "Fence",
   lamp: "Lamp",
 };
-
-export const FLOWER_VARIANT_LABELS = ["White flowers", "Blue flowers", "Pink flowers"] as const;
 
 export type EditorPaletteItem = {
   id: string;
@@ -49,9 +57,10 @@ export type EditorPaletteItem = {
 export function editorPaletteItems(): EditorPaletteItem[] {
   const items: EditorPaletteItem[] = [];
   for (const kind of PLACEABLE_WORLD_KINDS) {
-    if (kind === "flowers") {
-      FLOWER_VARIANT_LABELS.forEach((label, variant) => {
-        items.push({ id: `flowers-${variant}`, kind, variant, label });
+    const variants = PLACEABLE_VARIANT_LABELS[kind];
+    if (variants) {
+      variants.forEach((label, variant) => {
+        items.push({ id: `${kind}-${variant}`, kind, variant, label });
       });
       continue;
     }
@@ -61,7 +70,13 @@ export function editorPaletteItems(): EditorPaletteItem[] {
 }
 
 export function placeableLabel(kind: PlaceableWorldKind, variant = 0) {
-  return kind === "flowers" ? FLOWER_VARIANT_LABELS[normalizeFlowerVariant(variant)] : PLACEABLE_LABELS[kind];
+  const variants = PLACEABLE_VARIANT_LABELS[kind];
+  if (!variants) return PLACEABLE_LABELS[kind];
+  return variants[normalizePlaceVariant(kind, variant)]!;
+}
+
+export function placeableDefaultScale(kind: PlaceableWorldKind) {
+  return kind === "mushroom" ? 0.6 : 1;
 }
 
 export const NPC_LABELS: Record<UniqueNpcKind, string> = {
@@ -494,9 +509,9 @@ export function placeAt(store: EditorStore, kind: PlaceableWorldKind, x: number,
     kind,
     x: compactNumber(at.x),
     y: compactNumber(at.y),
-    scale: 1,
+    scale: placeableDefaultScale(kind),
     seed,
-    variant: kind === "flowers" ? normalizeFlowerVariant(variant) : Math.max(0, Math.round(variant)),
+    variant: normalizePlaceVariant(kind, variant),
   };
   const angle = isRotatableWorldKind(kind) ? normalizeRotation(rot) : 0;
   if (angle) prop.rot = angle;

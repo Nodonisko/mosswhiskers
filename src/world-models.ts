@@ -1,6 +1,10 @@
 import * as THREE from 'three';
 import { seeded } from './rng';
 import { TREE_TRUNK_HITBOX, isRotatableWorldKind, normalizeRotation, type WorldModelKind, type WorldProp } from './world-config';
+import { paintFlowers, paintFern, paintClover } from './deco-blooms';
+import { paintGrass, paintWheat, paintReeds } from './deco-grass';
+import { paintMushroom } from './deco-fungi';
+import { paintMoss, paintMossLog, paintStump } from './deco-moss';
 
 export type { WorldModelKind };
 export { TREE_TRUNK_HITBOX };
@@ -9,7 +13,7 @@ export type CatView = 'e' | 'w' | 'n' | 's';
 export interface WorldModelOptions {
   seed?: number;
   scale?: number;
-  /** Flowers: 0 white, 1 blue, 2 pink. Trees: palette. Cat: 0 idle, 1–4 walk, 5–7 claw. */
+  /** Flowers: 0 white–7 daisy. Grass/wheat/reeds/mushroom/moss/fern/stump/clover: palette. Trees: foliage. Cat: 0 idle, 1–4 walk, 5–7 claw. */
   variant?: number;
   /** Cat, mouse, and fish. West is painted flipped. */
   facing?: CatView;
@@ -26,7 +30,9 @@ const textureCache = new Map<string, THREE.CanvasTexture>();
 export const WORLD_MODEL_SIZES: Record<WorldModelKind, readonly [number, number]> = {
   pine: [88, 142], oak: [120, 152], willow: [146, 168], bush: [42, 38], den: [198, 154], hut: [136, 118], datacenter: [312, 180], racks: [96, 88], bernie: [36, 42], sam: [36, 42],
   carrot: [56, 92], rabbit: [36, 42], fence: [78, 36], shed: [188, 132],
-  mailbox: [26, 48], mailBubble: [46, 38], lamp: [28, 84], flowers: [40, 40], stone: [32, 22], log: [90, 32], cat: [36, 42],
+  mailbox: [26, 48], mailBubble: [46, 38], lamp: [28, 84], flowers: [40, 40], stone: [32, 22], log: [90, 32],
+  grass: [44, 28], wheat: [48, 44], reeds: [42, 68], mushroom: [36, 34], moss: [50, 22], mossLog: [90, 36], fern: [48, 44], stump: [46, 38], clover: [36, 20],
+  cat: [36, 42],
   pike: [52, 18], perch: [36, 20], bluegill: [28, 24], mouse: [32, 16],
 };
 
@@ -642,27 +648,6 @@ function lamp(p: Paint) {
   p.rect(10, 78, 8, 1, '#a6aa99');
 }
 
-function flowers(p: Paint, variant: number) {
-  for (let i = 0; i < 13; i++) {
-    const x = 5 + Math.floor(p.random() * 30);
-    const y = 9 + Math.floor(p.random() * 23);
-    const height = 6 + p.random() * 8;
-    p.line(x, y, x - 1, y + height, '#6c9149');
-    p.line(x, y + 7, x + 4, y + 4, '#91a858');
-    if (variant % 3 === 0) {
-      p.rect(x - 2, y - 2, 5, 5, '#ced3aa');
-      p.rect(x - 1, y - 3, 3, 7, '#e7e8c9');
-      p.rect(x - 3, y - 1, 7, 3, '#e7e8c9');
-      p.rect(x - 1, y - 1, 2, 2, '#b8ba72');
-    } else {
-      const colors = variant % 3 === 1 ? ['#547ca6', '#6595ba', '#7ea7c4'] : ['#967294', '#af7d9f', '#c591b1'];
-      for (let j = 0; j < 5; j++) {
-        p.rect(x - 2 + j % 2, y - j * 2, 4 - (j === 4 ? 2 : 0), 2, colors[j % 3]!);
-      }
-    }
-  }
-}
-
 function log(p: Paint) {
   p.line(6, 17, 17, 3, '#665030', 3);
   p.line(29, 18, 32, 3, '#77613c', 3);
@@ -1243,9 +1228,18 @@ export function paintWorldModel(kind: WorldModelKind, options: WorldModelOptions
     case 'mailbox': mailbox(p); break;
     case 'mailBubble': mailBubble(p); break;
     case 'lamp': lamp(p); break;
-    case 'flowers': flowers(p, variant); break;
+    case 'flowers': paintFlowers(p, variant); break;
     case 'stone': rock(p, 1, 1, 29, 19, 12); break;
     case 'log': log(p); break;
+    case 'grass': paintGrass(p, variant); break;
+    case 'wheat': paintWheat(p, variant); break;
+    case 'reeds': paintReeds(p, variant); break;
+    case 'mushroom': paintMushroom(p, variant); break;
+    case 'moss': paintMoss(p, variant); break;
+    case 'mossLog': paintMossLog(p, variant); break;
+    case 'fern': paintFern(p, variant); break;
+    case 'stump': paintStump(p, variant); break;
+    case 'clover': paintClover(p, variant); break;
     case 'cat': cat(p, variant, seed, facing, hit); break;
     case 'pike':
       pike(p, variant);
