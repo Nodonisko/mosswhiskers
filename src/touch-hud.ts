@@ -7,18 +7,7 @@ export function interactButtonLabel(nearbyId: string | null | undefined) {
   return nearbyId != null && NPC_NEARBY.has(nearbyId) ? "TALK" : "USE";
 }
 
-export type TouchUiProbe = {
-  maxTouchPoints: number;
-  pointerCoarse: boolean;
-  hoverNone: boolean;
-  touchUnlocked: boolean;
-};
-
-/** Touch HUD is for phones/tablets. A mouse-only computer stays on keyboard controls. */
-export function shouldShowTouchControls(probe: TouchUiProbe) {
-  if (probe.maxTouchPoints < 1) return false;
-  return probe.touchUnlocked || probe.pointerCoarse || probe.hoverNone;
-}
+const TOUCH_QUERY = "(pointer: coarse), (hover: none)";
 
 type FullscreenHost = HTMLElement & {
   requestFullscreen?: () => Promise<void>;
@@ -82,20 +71,10 @@ export function createTouchHud(root: HTMLElement) {
   let interactQueued = false;
   let stickPointer: number | null = null;
   let touchUnlocked = false;
-  const coarseMedia = window.matchMedia("(pointer: coarse)");
-  const hoverMedia = window.matchMedia("(hover: none)");
-
-  function probe(): TouchUiProbe {
-    return {
-      maxTouchPoints: navigator.maxTouchPoints,
-      pointerCoarse: coarseMedia.matches,
-      hoverNone: hoverMedia.matches,
-      touchUnlocked,
-    };
-  }
+  const media = window.matchMedia(TOUCH_QUERY);
 
   function isMobile() {
-    return shouldShowTouchControls(probe());
+    return touchUnlocked || media.matches;
   }
 
   function paintInteract(nearbyId: string | null | undefined) {
@@ -178,9 +157,7 @@ export function createTouchHud(root: HTMLElement) {
     if (event.key === " " || event.code === "Space") event.preventDefault();
   }
 
-  function onTouchUnlock(event: PointerEvent) {
-    if (event.pointerType !== "touch") return;
-    if (navigator.maxTouchPoints < 1) return;
+  function onTouchUnlock() {
     touchUnlocked = true;
     syncChrome();
   }
@@ -205,11 +182,10 @@ export function createTouchHud(root: HTMLElement) {
   claw.addEventListener("keydown", ignoreSpace);
   fullBtn.addEventListener("pointerdown", onFullscreenTap);
   touchHud.addEventListener("contextmenu", onContextMenu);
-  coarseMedia.addEventListener("change", syncChrome);
-  hoverMedia.addEventListener("change", syncChrome);
+  media.addEventListener("change", syncChrome);
   document.addEventListener("fullscreenchange", syncChrome);
   document.addEventListener("webkitfullscreenchange", syncChrome as EventListener);
-  window.addEventListener("pointerdown", onTouchUnlock);
+  window.addEventListener("touchstart", onTouchUnlock, { passive: true });
   window.addEventListener("blur", resetStick);
   syncChrome();
 
@@ -234,11 +210,10 @@ export function createTouchHud(root: HTMLElement) {
       claw.removeEventListener("keydown", ignoreSpace);
       fullBtn.removeEventListener("pointerdown", onFullscreenTap);
       touchHud.removeEventListener("contextmenu", onContextMenu);
-      coarseMedia.removeEventListener("change", syncChrome);
-      hoverMedia.removeEventListener("change", syncChrome);
+      media.removeEventListener("change", syncChrome);
       document.removeEventListener("fullscreenchange", syncChrome);
       document.removeEventListener("webkitfullscreenchange", syncChrome as EventListener);
-      window.removeEventListener("pointerdown", onTouchUnlock);
+      window.removeEventListener("touchstart", onTouchUnlock);
       window.removeEventListener("blur", resetStick);
       resetStick();
       root.classList.remove("has-touch-controls");
