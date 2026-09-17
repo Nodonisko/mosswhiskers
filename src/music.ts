@@ -1,3 +1,4 @@
+import { clearMediaSession } from "./html-audio";
 import { isPageVisible, watchPageVisible } from "./page-visible";
 
 export const MUSIC_LEVELS = 5;
@@ -67,31 +68,62 @@ export function shouldPlayMusic(visible: boolean, level: number) {
   return visible && level > 1;
 }
 
-function clearMediaSession() {
-  const session = navigator.mediaSession;
-  if (!session) return;
-  try {
-    session.metadata = null;
-    session.playbackState = "none";
-  } catch {
-    // Safari can throw if the session is already idle.
-  }
+function createAudioContext() {
+  const Ctor = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+  return new Ctor();
 }
 
 export function createBackgroundMusic(src = "/assets/background.mp3"): BackgroundMusic {
-  const audio = new Audio(src);
-  audio.loop = true;
-  audio.preload = "auto";
-  audio.hidden = true;
-  audio.setAttribute("aria-hidden", "true");
-  audio.disableRemotePlayback = true;
-  document.body.append(audio);
+  const ctx = createAudioContext();
+  const gain = ctx.createGain();
+  gain.connect(ctx.destination);
 
   let settings = loadMusicSettings();
+  let buffer: AudioBuffer | null = null;
+  let source: AudioBufferSourceNode | null = null;
   let waitingForGesture = false;
+  let closed = false;
+
+  applyGain();
+
+  void fetch(src)
+    .then((response) => {
+      if (!response.ok) throw new Error("music missing");
+      return response.arrayBuffer();
+    })
+    .then((data) => ctx.decodeAudioData(data.slice(0)))
+    .then((decoded) => {
+      buffer = decoded;
+      syncPlayback();
+    })
+    .catch(() => {});
+
+  function applyGain() {
+    gain.gain.value = volumeForLevel(settings.level);
+  }
+
+  function stopSource() {
+    if (!source) return;
+    try {
+      source.stop();
+    } catch {
+      // Already stopped.
+    }
+    source.disconnect();
+    source = null;
+  }
+
+  function startSource() {
+    if (!buffer || source || closed) return;
+    source = ctx.createBufferSource();
+    source.buffer = buffer;
+    source.loop = true;
+    source.connect(gain);
+    source.start();
+  }
 
   function armUnlock() {
-    if (waitingForGesture) return;
+    if (waitingForGesture || closed) return;
     waitingForGesture = true;
     window.addEventListener("pointerdown", unlock);
     window.addEventListener("keydown", unlock);
@@ -101,22 +133,33 @@ export function createBackgroundMusic(src = "/assets/background.mp3"): Backgroun
     waitingForGesture = false;
     window.removeEventListener("pointerdown", unlock);
     window.removeEventListener("keydown", unlock);
-    syncPlayback();
+    if (closed) return;
+    void ctx.resume().then(syncPlayback).catch(armUnlock);
   }
 
   function syncPlayback() {
-    const level = settings.level;
-    audio.volume = volumeForLevel(level);
-    audio.muted = level === 1;
-    if (!shouldPlayMusic(isPageVisible(), level)) {
-      audio.pause();
-      clearMediaSession();
+    if (closed) return;
+    applyGain();
+    const want = shouldPlayMusic(isPageVisible(), settings.level);
+    if (want) {
+      startSource();
+      if (ctx.state !== "running") {
+        void ctx.resume().then(() => {
+          if (ctx.state !== "running") armUnlock();
+        }).catch(armUnlock);
+      }
       return;
     }
-    void audio.play().catch(armUnlock);
+    stopSource();
+    if (ctx.state === "running") void ctx.suspend();
+    clearMediaSession();
   }
 
-  syncPlayback();
+  void ctx.resume().then(() => {
+    if (ctx.state === "running") syncPlayback();
+    else armUnlock();
+  }).catch(armUnlock);
+
   const unwatch = watchPageVisible(() => syncPlayback());
 
   function persist(next: MusicSettings) {
@@ -142,13 +185,12 @@ export function createBackgroundMusic(src = "/assets/background.mp3"): Backgroun
       return volumeForLevel(settings.sfxLevel);
     },
     dispose() {
+      closed = true;
       unwatch();
       window.removeEventListener("pointerdown", unlock);
       window.removeEventListener("keydown", unlock);
-      audio.pause();
-      audio.removeAttribute("src");
-      audio.load();
-      audio.remove();
+      stopSource();
+      void ctx.close();
       clearMediaSession();
     },
   };
