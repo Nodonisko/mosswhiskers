@@ -1,5 +1,6 @@
-import { bindMediaElement, clearMediaSession, releaseMediaElement } from "./html-audio";
-import { isPageVisible, watchPageVisible } from "./page-visible";
+import { Howl } from "howler";
+import { clearMediaSession, watchGameAudio } from "./audio-runtime";
+import { isPageVisible } from "./page-visible";
 
 export const MUSIC_LEVELS = 5;
 export const DEFAULT_MUSIC_LEVEL = 3;
@@ -68,72 +69,51 @@ export function shouldPlayMusic(visible: boolean, level: number) {
   return visible && level > 1;
 }
 
-const UNLOCK_EVENTS = ["pointerdown", "touchend", "click", "keydown"] as const;
-
-function createMusicElement() {
-  const audio = new Audio();
-  audio.loop = true;
-  audio.preload = "auto";
-  audio.hidden = true;
-  audio.setAttribute("aria-hidden", "true");
-  audio.disableRemotePlayback = true;
-  return audio;
-}
-
 export function createBackgroundMusic(src = "/assets/background.mp3"): BackgroundMusic {
-  let audio = createMusicElement();
   let settings = loadMusicSettings();
-  let waitingForGesture = false;
+  let music: Howl | null = null;
   let closed = false;
 
-  function listenUnlock(on: boolean) {
-    for (const type of UNLOCK_EVENTS) {
-      if (on) window.addEventListener(type, unlock);
-      else window.removeEventListener(type, unlock);
-    }
+  function createHowl() {
+    const track = new Howl({
+      src: [src],
+      html5: true,
+      loop: true,
+      preload: true,
+      volume: volumeForLevel(settings.level),
+      onunlock: () => syncPlayback(),
+      onplayerror: () => {
+        track.once("unlock", () => syncPlayback());
+      },
+    });
+    return track;
   }
 
-  function armUnlock() {
-    if (waitingForGesture || closed) return;
-    waitingForGesture = true;
-    listenUnlock(true);
-  }
-
-  function discard() {
-    releaseMediaElement(audio);
-    audio.remove();
-    audio = createMusicElement();
+  function drop() {
+    if (!music) return;
+    music.stop();
+    music.unload();
+    music = null;
     clearMediaSession();
   }
 
-  function unlock() {
-    waitingForGesture = false;
-    listenUnlock(false);
+  function syncPlayback(visible = isPageVisible()) {
     if (closed) return;
-    syncPlayback();
-  }
-
-  function syncPlayback() {
-    if (closed) return;
-    const level = settings.level;
-    audio.volume = volumeForLevel(level);
-    audio.muted = level === 1;
-    if (!shouldPlayMusic(isPageVisible(), level)) {
-      discard();
+    if (!shouldPlayMusic(visible, settings.level)) {
+      drop();
       return;
     }
-    bindMediaElement(audio, src);
-    void audio.play().catch(armUnlock);
+    music ??= createHowl();
+    music.volume(volumeForLevel(settings.level));
+    if (!music.playing()) music.play();
   }
 
-  armUnlock();
-  syncPlayback();
-  const unwatch = watchPageVisible(() => syncPlayback());
+  const unwatch = watchGameAudio((visible) => syncPlayback(visible));
 
   function persist(next: MusicSettings) {
     settings = next;
     saveMusicSettings(settings);
-    unlock();
+    syncPlayback();
   }
 
   return {
@@ -155,8 +135,7 @@ export function createBackgroundMusic(src = "/assets/background.mp3"): Backgroun
     dispose() {
       closed = true;
       unwatch();
-      listenUnlock(false);
-      discard();
+      drop();
     },
   };
 }

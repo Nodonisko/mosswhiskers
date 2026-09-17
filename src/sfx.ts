@@ -1,4 +1,6 @@
-import { isPageVisible, watchPageVisible } from "./page-visible";
+import { Howl } from "howler";
+import { watchGameAudio } from "./audio-runtime";
+import { isPageVisible } from "./page-visible";
 
 export const CLAW_SOUNDS = [
   "/assets/sounds/claw1.mp3",
@@ -73,72 +75,52 @@ export function beepProximity(distance: number) {
   return proximityGain(distance, BEEP_FULL_RANGE, BEEP_FADE_RANGE);
 }
 
-export function createSfxPlayer(getVolume: () => number): SfxPlayer {
-  const sources = [...CLAW_SOUNDS, ...MEOW_SOUNDS, HISS_SOUND, MOUSE_SOUND, SPLASH_SOUND, GULP_SOUND, FIRE_SOUND, BEEP_SOUND, ROCKET_SOUND];
-  const preloads = sources.map((src) => {
-    const preload = new Audio(src);
-    preload.preload = "auto";
-    return preload;
+function loadSound(src: string, loop = false) {
+  return new Howl({
+    src: [src],
+    loop,
+    preload: true,
+    pool: loop ? 1 : 5,
   });
-  const live = new Set<HTMLAudioElement>();
-  const gulp = new Audio(GULP_SOUND);
-  gulp.preload = "auto";
-  gulp.disableRemotePlayback = true;
-  const fire = new Audio(FIRE_SOUND);
-  fire.preload = "auto";
-  fire.loop = true;
-  fire.disableRemotePlayback = true;
-  const beep = new Audio(BEEP_SOUND);
-  beep.preload = "auto";
-  beep.loop = true;
-  beep.disableRemotePlayback = true;
-  let lastGulpIndex = -1;
+}
 
-  function hush() {
-    if (!gulp.paused) gulp.pause();
-    if (!fire.paused) fire.pause();
-    if (!beep.paused) beep.pause();
-    for (const audio of live) {
-      if (!audio.paused) audio.pause();
-    }
+export function createSfxPlayer(getVolume: () => number): SfxPlayer {
+  const shots = new Map<string, Howl>();
+  for (const src of [...CLAW_SOUNDS, ...MEOW_SOUNDS, HISS_SOUND, MOUSE_SOUND, SPLASH_SOUND, ROCKET_SOUND]) {
+    shots.set(src, loadSound(src));
   }
+  const gulp = loadSound(GULP_SOUND);
+  const fire = loadSound(FIRE_SOUND, true);
+  const beep = loadSound(BEEP_SOUND, true);
+  const all = [...shots.values(), gulp, fire, beep];
+  let lastGulpIndex = -1;
 
   function play(src: string, startAt = 0) {
     const volume = getVolume();
     if (volume <= 0 || !isPageVisible()) return;
-    const audio = new Audio(src);
-    audio.disableRemotePlayback = true;
-    audio.volume = volume;
-    live.add(audio);
-    const cleanup = () => {
-      live.delete(audio);
-      audio.removeAttribute("src");
-      audio.load();
-    };
-    audio.addEventListener("ended", cleanup);
-    audio.addEventListener("error", cleanup);
-    const start = () => {
-      if (startAt > 0) audio.currentTime = startAt;
-      void audio.play().catch(cleanup);
-    };
-    if (startAt > 0 && audio.readyState < HTMLMediaElement.HAVE_METADATA) {
-      audio.addEventListener("loadedmetadata", start, { once: true });
-    } else {
-      start();
-    }
+    const sound = shots.get(src);
+    if (!sound) return;
+    sound.volume(volume);
+    const id = sound.play();
+    if (startAt > 0) sound.seek(startAt, id);
   }
 
-  function loopAmbient(audio: HTMLAudioElement, gain: number) {
-    audio.volume = Math.max(0, Math.min(1, getVolume() * gain));
-    if (audio.volume <= 0 || !isPageVisible()) {
-      if (!audio.paused) audio.pause();
+  function loopAmbient(sound: Howl, gain: number) {
+    const volume = Math.max(0, Math.min(1, getVolume() * gain));
+    sound.volume(volume);
+    if (volume <= 0 || !isPageVisible()) {
+      if (sound.playing()) sound.pause();
       return;
     }
-    if (audio.paused) void audio.play().catch(() => {});
+    if (!sound.playing()) sound.play();
   }
 
-  const unwatch = watchPageVisible(() => {
-    if (!isPageVisible()) hush();
+  const unwatch = watchGameAudio(() => {
+    if (!isPageVisible()) {
+      if (gulp.playing()) gulp.pause();
+      if (fire.playing()) fire.pause();
+      if (beep.playing()) beep.pause();
+    }
   });
 
   return {
@@ -162,17 +144,18 @@ export function createSfxPlayer(getVolume: () => number): SfxPlayer {
     },
     syncGulp({ gulpIndex, clogged, distance }) {
       const gain = clogged ? 0 : gulpProximity(distance);
-      if (clogged && !gulp.paused) gulp.pause();
-      gulp.volume = Math.max(0, Math.min(1, getVolume() * gain));
+      const volume = Math.max(0, Math.min(1, getVolume() * gain));
+      gulp.volume(volume);
+      if (clogged && gulp.playing()) gulp.pause();
       if (lastGulpIndex < 0) {
         lastGulpIndex = gulpIndex;
         return;
       }
       if (gulpIndex === lastGulpIndex) return;
       lastGulpIndex = gulpIndex;
-      if (clogged || gulp.volume <= 0 || !isPageVisible()) return;
-      gulp.currentTime = 0;
-      void gulp.play().catch(() => {});
+      if (clogged || volume <= 0 || !isPageVisible()) return;
+      gulp.stop();
+      gulp.play();
     },
     syncFire({ burning, distance }) {
       loopAmbient(fire, burning ? fireProximity(distance) : 0);
@@ -182,25 +165,9 @@ export function createSfxPlayer(getVolume: () => number): SfxPlayer {
     },
     dispose() {
       unwatch();
-      gulp.pause();
-      gulp.removeAttribute("src");
-      gulp.load();
-      fire.pause();
-      fire.removeAttribute("src");
-      fire.load();
-      beep.pause();
-      beep.removeAttribute("src");
-      beep.load();
-      for (const audio of live) {
-        audio.pause();
-        audio.removeAttribute("src");
-        audio.load();
-      }
-      live.clear();
-      for (const audio of preloads) {
-        audio.pause();
-        audio.removeAttribute("src");
-        audio.load();
+      for (const sound of all) {
+        sound.stop();
+        sound.unload();
       }
     },
   };
