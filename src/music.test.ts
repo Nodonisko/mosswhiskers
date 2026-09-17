@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { audioSessionType } from "./audio-runtime";
+import { audioSessionType, webAudioIsRunning } from "./audio-runtime";
 import {
   clampLevel,
   DEFAULT_MUSIC_LEVEL,
@@ -44,4 +44,12 @@ test("keeps music off in a hidden tab", () => {
 test("uses a playback session while the tab is visible", () => {
   expect(audioSessionType(true)).toBe("playback");
   expect(audioSessionType(false)).toBe("ambient");
+});
+
+test("treats only a running audio context as ready for SFX", () => {
+  expect(webAudioIsRunning("running")).toBe(true);
+  expect(webAudioIsRunning("interrupted")).toBe(false);
+  expect(webAudioIsRunning("suspended")).toBe(false);
+  expect(webAudioIsRunning("closed")).toBe(false);
+  expect(webAudioIsRunning(undefined)).toBe(false);
 });

@@ -64,8 +64,45 @@ function armUnlock() {
   listenUnlock(true);
 }
 
+export function webAudioIsRunning(state: string | undefined) {
+  return state === "running";
+}
+
 function contextState() {
   return Howler.ctx?.state as string | undefined;
+}
+
+type HowlEmitter = { _emit?: (event: string) => void };
+type HowlerResumeApi = {
+  state?: string;
+  _howls?: HowlEmitter[];
+};
+
+function howlerResumeApi() {
+  return Howler as typeof Howler & HowlerResumeApi;
+}
+
+/** HTML audio ignores masterGain; SFX do not. Re-apply gain after iOS interrupts the context. */
+function unmuteHowler() {
+  Howler.mute(false);
+  const ctx = Howler.ctx;
+  const gain = Howler.masterGain?.gain;
+  if (!ctx || !gain || !webAudioIsRunning(ctx.state)) return;
+  const volume = Howler.volume();
+  try {
+    gain.cancelScheduledValues(ctx.currentTime);
+    gain.setValueAtTime(volume, ctx.currentTime);
+  } catch {
+    // Interrupted contexts can reject AudioParam updates.
+  }
+  gain.value = volume;
+}
+
+function markHowlerRunning() {
+  const api = howlerResumeApi();
+  api.state = "running";
+  unmuteHowler();
+  for (const howl of api._howls ?? []) howl._emit?.("resume");
 }
 
 function watchContext() {
@@ -77,7 +114,7 @@ function watchContext() {
 }
 
 function onContextState() {
-  if (contextState() === "running" || !isPageVisible()) return;
+  if (webAudioIsRunning(contextState()) || !isPageVisible()) return;
   void resumeHowlerContext();
   armUnlock();
 }
@@ -101,15 +138,36 @@ function reviveDeadContext() {
 export function resumeHowlerContext() {
   watchContext();
   const ctx = Howler.ctx;
-  if (!ctx || ctx.state === "running") return Promise.resolve();
+  if (!ctx) return Promise.resolve();
+  if (webAudioIsRunning(ctx.state)) {
+    markHowlerRunning();
+    return Promise.resolve();
+  }
   if (ctx.state === "closed") {
     reviveDeadContext();
     return Promise.resolve();
   }
-  return ctx.resume().catch(() => {
+  return ctx.resume().then(() => {
+    if (contextState() === "closed") reviveDeadContext();
+    else if (webAudioIsRunning(contextState())) markHowlerRunning();
+    else armUnlock();
+  }).catch(() => {
     if (contextState() === "closed") reviveDeadContext();
     else armUnlock();
   });
+}
+
+function playUnlockBuffer() {
+  const ctx = Howler.ctx;
+  if (!ctx) return;
+  try {
+    const source = ctx.createBufferSource();
+    source.buffer = ctx.createBuffer(1, 1, ctx.sampleRate || 22050);
+    source.connect(ctx.destination);
+    source.start(0);
+  } catch {
+    // Closed or not-yet-running contexts can reject start().
+  }
 }
 
 function unlock() {
@@ -120,17 +178,20 @@ function unlock() {
     return;
   }
   setAudioSession("playback");
-  Howler.mute(false);
+  playUnlockBuffer();
   void resumeHowlerContext().then(() => {
+    if (!isPageVisible() || !webAudioIsRunning(contextState())) return;
+    markHowlerRunning();
     for (const listener of listeners) listener(true);
   });
 }
 
 function applyVisible(visible: boolean) {
   if (visible) {
-    Howler.mute(false);
     setAudioSession("playback");
-    void resumeHowlerContext();
+    void resumeHowlerContext().then(() => {
+      if (isPageVisible() && webAudioIsRunning(contextState())) markHowlerRunning();
+    });
     armUnlock();
   } else {
     Howler.mute(true);

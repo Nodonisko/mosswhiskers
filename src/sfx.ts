@@ -1,5 +1,5 @@
-import { Howl } from "howler";
-import { onAudioRevive, watchGameAudio } from "./audio-runtime";
+import { Howl, Howler } from "howler";
+import { onAudioRevive, resumeHowlerContext, watchGameAudio, webAudioIsRunning } from "./audio-runtime";
 import { isPageVisible } from "./page-visible";
 
 export const CLAW_SOUNDS = [
@@ -102,14 +102,29 @@ export function createSfxPlayer(getVolume: () => number): SfxPlayer {
 
   rebuild();
 
+  function whenWebAudioReady(playWhenReady: () => void) {
+    const ctx = Howler.ctx;
+    if (!ctx || webAudioIsRunning(ctx.state)) {
+      playWhenReady();
+      return;
+    }
+    void resumeHowlerContext().then(() => {
+      if (!isPageVisible()) return;
+      if (Howler.ctx && !webAudioIsRunning(Howler.ctx.state)) return;
+      playWhenReady();
+    });
+  }
+
   function play(src: string, startAt = 0) {
     const volume = getVolume();
     if (volume <= 0 || !isPageVisible()) return;
     const sound = shots.get(src);
     if (!sound) return;
     sound.volume(volume);
-    const id = sound.play();
-    if (startAt > 0) sound.seek(startAt, id);
+    whenWebAudioReady(() => {
+      const id = sound.play();
+      if (startAt > 0) sound.seek(startAt, id);
+    });
   }
 
   function loopAmbient(sound: Howl, gain: number) {
@@ -119,15 +134,16 @@ export function createSfxPlayer(getVolume: () => number): SfxPlayer {
       if (sound.playing()) sound.pause();
       return;
     }
-    if (!sound.playing()) sound.play();
+    whenWebAudioReady(() => {
+      if (!sound.playing()) sound.play();
+    });
   }
 
-  const unwatch = watchGameAudio(() => {
-    if (!isPageVisible()) {
-      if (gulp.playing()) gulp.pause();
-      if (fire.playing()) fire.pause();
-      if (beep.playing()) beep.pause();
-    }
+  const unwatch = watchGameAudio((visible) => {
+    if (gulp.playing()) gulp.pause();
+    if (fire.playing()) fire.pause();
+    if (beep.playing()) beep.pause();
+    if (!visible) return;
   });
   const unrevive = onAudioRevive(rebuild);
 
@@ -163,7 +179,10 @@ export function createSfxPlayer(getVolume: () => number): SfxPlayer {
       lastGulpIndex = gulpIndex;
       if (clogged || volume <= 0 || !isPageVisible()) return;
       gulp.stop();
-      gulp.play();
+      whenWebAudioReady(() => {
+        gulp.stop();
+        gulp.play();
+      });
     },
     syncFire({ burning, distance }) {
       loopAmbient(fire, burning ? fireProximity(distance) : 0);
