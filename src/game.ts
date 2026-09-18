@@ -405,6 +405,7 @@ export function createGame() {
   const heardClaw = new Map<string, number>();
   const heardClawWood = new Map<string, number>();
   const heardHiss = new Map<string, number>();
+  const heardGrowl = new Map<string, number>();
   const heardRockets = new Set<number>();
   const heardMice = new Set<string>();
   const heardFish = new Set<string>();
@@ -421,6 +422,9 @@ export function createGame() {
     }
     for (const hiss of sim.hisses) {
       hear(heardHiss, hiss.id, hiss.hissNonce, () => sfx.playHiss());
+    }
+    for (const growl of sim.growls) {
+      hear(heardGrowl, growl.id, growl.growlNonce, () => sfx.playGrowl());
     }
     for (const [index, rocket] of sim.rocketCarrots.entries()) {
       if (!rocket.launched || rocket.elapsed < ROCKET_SOUND_DELAY || heardRockets.has(index)) continue;
@@ -472,6 +476,12 @@ export function createGame() {
       const npc = sim.interactables.find((item) => item.id === hiss.id);
       if (!npc) continue;
       pops.push({ id: `hiss-${hiss.id}`, x: npc.x, y: npc.y, elapsed: hiss.hissElapsed, label: "SSSSS" });
+    }
+    for (const growl of sim.growls) {
+      if (!growl.growling) continue;
+      const npc = sim.interactables.find((item) => item.id === growl.id);
+      if (!npc) continue;
+      pops.push({ id: `growl-${growl.id}`, x: npc.x, y: npc.y, elapsed: growl.growlElapsed, label: "GRRRR" });
     }
     return pops;
   }

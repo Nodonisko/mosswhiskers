@@ -18,6 +18,7 @@ export const MEOW_SOUNDS = [
 
 export const CLAW_WOOD_SOUND = "/assets/sounds/claw-wood.mp3";
 export const HISS_SOUND = "/assets/sounds/hiss.mp3";
+export const GROWL_SOUND = "/assets/sounds/growl.mp3";
 export const MOUSE_SOUND = "/assets/sounds/mouse_squeek.mp3";
 export const SPLASH_SOUND = "/assets/sounds/water_splash.mp3";
 export const GULP_SOUND = "/assets/sounds/gulp.mp3";
@@ -41,6 +42,7 @@ export const SFX_URLS = [
   CLAW_WOOD_SOUND,
   ...MEOW_SOUNDS,
   HISS_SOUND,
+  GROWL_SOUND,
   MOUSE_SOUND,
   SPLASH_SOUND,
   GULP_SOUND,
@@ -54,6 +56,7 @@ export type SfxPlayer = {
   playClawWood(): void;
   playMeow(): void;
   playHiss(): void;
+  playGrowl(): void;
   playMouse(): void;
   playSplash(): void;
   playRocket(): void;
@@ -101,7 +104,7 @@ function loadSound(src: string, loop = false) {
 }
 
 export function createSfxPlayer(getVolume: () => number): SfxPlayer {
-  const shotSrcs = [...CLAW_SOUNDS, CLAW_WOOD_SOUND, ...MEOW_SOUNDS, HISS_SOUND, MOUSE_SOUND, SPLASH_SOUND, ROCKET_SOUND];
+  const shotSrcs = [...CLAW_SOUNDS, CLAW_WOOD_SOUND, ...MEOW_SOUNDS, HISS_SOUND, GROWL_SOUND, MOUSE_SOUND, SPLASH_SOUND, ROCKET_SOUND];
   const shots = new Map<string, Howl>();
   let gulp!: Howl;
   let fire!: Howl;
@@ -180,6 +183,9 @@ export function createSfxPlayer(getVolume: () => number): SfxPlayer {
     },
     playHiss() {
       play(HISS_SOUND);
+    },
+    playGrowl() {
+      play(GROWL_SOUND);
     },
     playMouse() {
       play(MOUSE_SOUND);

@@ -35,6 +35,8 @@ export const MEOW_DURATION = 1.15;
 export const MEOW_TEXT_DELAY = 0.3;
 /** Wait this long after the hiss sound before the SSSSS text pops. */
 export const HISS_TEXT_DELAY = 0.3;
+/** Wait this long after the growl sound before the GRRRR text pops. */
+export const GROWL_TEXT_DELAY = 0.3;
 /** Wait this long after the accept dialog closes before the new-quest hint pops. */
 export const QUEST_HINT_DELAY = 1;
 /** Seconds a new-quest hint hangs above the player. */

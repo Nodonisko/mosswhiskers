@@ -14,6 +14,7 @@ import {
   MEOW_DURATION,
   MEOW_TEXT_DELAY,
   HISS_TEXT_DELAY,
+  GROWL_TEXT_DELAY,
   QUEST_HINT_DELAY,
   QUEST_HINT_DURATION,
   PREY_RESPAWN,
@@ -98,6 +99,7 @@ export type PlayerSim = {
   clawNonce: number;
   clawHissed: boolean;
   clawWood: boolean;
+  clawGrowled: boolean;
   seed: number;
   inventory: InventorySlot[];
   nearbyId: string | null;
@@ -189,6 +191,13 @@ export type NpcHissSim = {
   hissNonce: number;
 };
 
+export type NpcGrowlSim = {
+  id: string;
+  growling: boolean;
+  growlElapsed: number;
+  growlNonce: number;
+};
+
 export type GameSim = {
   elapsed: number;
   tick: number;
@@ -197,17 +206,27 @@ export type GameSim = {
   mice: MouseSim[];
   interactables: Interactable[];
   hisses: NpcHissSim[];
+  growls: NpcGrowlSim[];
   rocketCarrots: RocketCarrotSim[];
 };
 
 export const HISS_KINDS = new Set<InteractableKind>(["bernie", "sam", "greta"]);
+export const GROWL_KINDS = new Set<InteractableKind>(["wolfenberg"]);
 
 export function canHiss(item: Interactable) {
   return HISS_KINDS.has(item.kind);
 }
 
+export function canGrowl(item: Interactable) {
+  return GROWL_KINDS.has(item.kind);
+}
+
 export function hissById(sim: GameSim, id: string) {
   return sim.hisses.find((hiss) => hiss.id === id);
+}
+
+export function growlById(sim: GameSim, id: string) {
+  return sim.growls.find((growl) => growl.id === id);
 }
 
 export type Walkable = (x: number, y: number) => boolean;
@@ -344,6 +363,7 @@ export function createPlayer(options: { id: string; name?: string; x: number; y:
     clawNonce: 0,
     clawHissed: false,
     clawWood: false,
+    clawGrowled: false,
     seed: options.seed ?? DEFAULT_CAT_SEED,
     inventory: [],
     nearbyId: null,
@@ -577,6 +597,12 @@ export function createSim(options: {
       hissElapsed: 0,
       hissNonce: 0,
     })),
+    growls: (options.interactables ?? []).filter(canGrowl).map((item) => ({
+      id: item.id,
+      growling: false,
+      growlElapsed: 0,
+      growlNonce: 0,
+    })),
     rocketCarrots: FARM_CARROTS.map(() => ({ launched: false, elapsed: 0 })),
   };
 }
@@ -595,6 +621,7 @@ export function applySnapshot(sim: GameSim, snapshot: GameSim) {
   sim.mice = next.mice;
   sim.interactables = next.interactables;
   sim.hisses = next.hisses ?? [];
+  sim.growls = next.growls ?? [];
   sim.rocketCarrots = next.rocketCarrots;
 }
 
@@ -685,6 +712,7 @@ function tickPlayer(
     player.clawNonce += 1;
     player.clawHissed = false;
     player.clawWood = false;
+    player.clawGrowled = false;
   }
   if (player.clawing) player.clawElapsed += dt;
   if (player.moving) {
@@ -775,6 +803,19 @@ function resolveClaws(sim: GameSim, trees: readonly Solid[]) {
       rocket.elapsed = 0;
       player.clawHit = true;
     }
+    if (!player.clawGrowled) {
+      for (const item of sim.interactables) {
+        if (!canGrowl(item)) continue;
+        if (!clawHitsTarget(player, { x: item.x, y: item.y, alive: true })) continue;
+        const growl = growlById(sim, item.id);
+        if (!growl) continue;
+        player.clawGrowled = true;
+        growl.growling = true;
+        growl.growlElapsed = 0;
+        growl.growlNonce += 1;
+        break;
+      }
+    }
     if (player.clawHissed) continue;
     for (const item of sim.interactables) {
       if (!canHiss(item)) continue;
@@ -801,6 +842,17 @@ function tickHisses(sim: GameSim, dt: number) {
   }
 }
 
+function tickGrowls(sim: GameSim, dt: number) {
+  for (const growl of sim.growls) {
+    if (!growl.growling) continue;
+    growl.growlElapsed += dt;
+    if (growl.growlElapsed >= MEOW_DURATION + GROWL_TEXT_DELAY) {
+      growl.growling = false;
+      growl.growlElapsed = 0;
+    }
+  }
+}
+
 export function tickSim(
   sim: GameSim,
   inputs: PlayerInputs,
@@ -816,6 +868,7 @@ export function tickSim(
   tickPrey(sim, dt);
   resolveClaws(sim, trees);
   tickHisses(sim, dt);
+  tickGrowls(sim, dt);
   finishClaws(sim);
   for (const rocket of sim.rocketCarrots) {
     if (rocket.launched) rocket.elapsed += dt;

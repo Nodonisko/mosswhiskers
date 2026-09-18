@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { BEEP_FADE_RANGE, BEEP_FULL_RANGE, beepProximity, CLAW_SOUNDS, CLAW_WOOD_SOUND, FIRE_FADE_RANGE, FIRE_FULL_RANGE, FIRE_VOLUME, fireProximity, GULP_FADE_RANGE, GULP_FULL_RANGE, gulpDistance, gulpProximity, MEOW_SOUNDS, ROCKET_SOUND_DELAY, ROCKET_SOUND_SKIP, pickRandom } from "./sfx";
+import { BEEP_FADE_RANGE, BEEP_FULL_RANGE, beepProximity, CLAW_SOUNDS, CLAW_WOOD_SOUND, FIRE_FADE_RANGE, FIRE_FULL_RANGE, FIRE_VOLUME, fireProximity, GROWL_SOUND, GULP_FADE_RANGE, GULP_FULL_RANGE, gulpDistance, gulpProximity, MEOW_SOUNDS, ROCKET_SOUND_DELAY, ROCKET_SOUND_SKIP, pickRandom } from "./sfx";
 
 test("picks a claw clip from the roll", () => {
   expect(pickRandom(CLAW_SOUNDS, () => 0)).toBe("/assets/sounds/claw1.mp3");
@@ -8,6 +8,10 @@ test("picks a claw clip from the roll", () => {
 
 test("wood claw uses the tree hit clip", () => {
   expect(CLAW_WOOD_SOUND).toBe("/assets/sounds/claw-wood.mp3");
+});
+
+test("swiping the wolf uses the growl clip", () => {
+  expect(GROWL_SOUND).toBe("/assets/sounds/growl.mp3");
 });
 
 test("picks a meow clip from the roll", () => {

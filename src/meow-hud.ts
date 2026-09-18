@@ -1,12 +1,12 @@
 import * as THREE from "three";
 import { createPixelCanvas, nearestTexture, whenPixelFontReady } from "./pixel-canvas";
-import { MEOW_DURATION, MEOW_TEXT_DELAY, HISS_TEXT_DELAY } from "./world-config";
+import { MEOW_DURATION, MEOW_TEXT_DELAY, HISS_TEXT_DELAY, GROWL_TEXT_DELAY } from "./world-config";
 
 const MEOW_WIDTH = 96;
 const MEOW_HEIGHT = 32;
 const MEOW_SCALE = 0.72;
 
-export const SPEECH_LABELS = ["Meow", "SSSSS"] as const;
+export const SPEECH_LABELS = ["Meow", "SSSSS", "GRRRR"] as const;
 export type SpeechLabel = (typeof SPEECH_LABELS)[number];
 
 export type SpeechPop = {
@@ -85,7 +85,7 @@ export function createMeowLayer(world: THREE.Group) {
     sync(pops: readonly SpeechPop[]) {
       const living = new Set<string>();
       for (const pop of pops) {
-        const delay = pop.label === "Meow" ? MEOW_TEXT_DELAY : HISS_TEXT_DELAY;
+        const delay = pop.label === "Meow" ? MEOW_TEXT_DELAY : pop.label === "SSSSS" ? HISS_TEXT_DELAY : GROWL_TEXT_DELAY;
         const poseElapsed = pop.elapsed - delay;
         if (poseElapsed < 0) continue;
         living.add(pop.id);

@@ -8,6 +8,7 @@ import {
   drainFixedTicks,
   hitsSolid,
   hissById,
+  growlById,
   nearestInteractable,
   playerById,
   removePlayer,
@@ -17,7 +18,7 @@ import {
   type GameSim,
   type Walkable,
 } from "./sim";
-import { BERNIE, BERNIE_POND_X, BERNIE_POND_Y, CAT_SPEED, CLAW_DURATION, FARM_CARROTS, GRETA, HISS_TEXT_DELAY, INTAKE, LOCAL_PLAYER_ID, MAILBOX, MEOW_DURATION, MEOW_TEXT_DELAY, MOUSE_RESPAWN, nearIntakeRim, QUEST_HINT_DELAY, QUEST_HINT_DURATION, RABBIT, ROCKET_CARROT, ROCKET_IGNITE, SAM, TICK_DT, WOLFENBERG } from "./world-config";
+import { BERNIE, BERNIE_POND_X, BERNIE_POND_Y, CAT_SPEED, CLAW_DURATION, FARM_CARROTS, GRETA, GROWL_TEXT_DELAY, HISS_TEXT_DELAY, INTAKE, LOCAL_PLAYER_ID, MAILBOX, MEOW_DURATION, MEOW_TEXT_DELAY, MOUSE_RESPAWN, nearIntakeRim, QUEST_HINT_DELAY, QUEST_HINT_DURATION, RABBIT, ROCKET_CARROT, ROCKET_IGNITE, SAM, TICK_DT, WOLFENBERG } from "./world-config";
 
 const openGround = () => true;
 const blocked = () => false;
@@ -263,9 +264,10 @@ describe("tickSim", () => {
     cat(sim).facing = "e";
     tick(sim, { x: 0, y: 0, claw: true }, 0.12);
     expect(hissById(sim, "greta")?.hissing).toBe(true);
+    expect(cat(sim).clawGrowled).toBe(false);
   });
 
-  test("clawing Mark Wolfenberg does not hiss", () => {
+  test("clawing Mark Wolfenberg growls instead of hissing", () => {
     const sim = createSim({
       players: [{ x: WOLFENBERG.x - 28, y: WOLFENBERG.y }],
       fish: [],
@@ -273,8 +275,27 @@ describe("tickSim", () => {
     });
     cat(sim).facing = "e";
     tick(sim, { x: 0, y: 0, claw: true }, 0.12);
+    const growl = growlById(sim, "wolfenberg");
     expect(sim.hisses).toEqual([]);
     expect(cat(sim).clawHissed).toBe(false);
+    expect(cat(sim).clawGrowled).toBe(true);
+    expect(growl?.growling).toBe(true);
+    expect(growl?.growlNonce).toBe(1);
+    expect(growl?.growlElapsed).toBeCloseTo(0.12);
+    tick(sim, { x: 0, y: 0 }, 0.05);
+    expect(growlById(sim, "wolfenberg")?.growlNonce).toBe(1);
+  });
+
+  test("a claw does not make Mark Wolfenberg growl from behind", () => {
+    const sim = createSim({
+      players: [{ x: WOLFENBERG.x + 28, y: WOLFENBERG.y }],
+      fish: [],
+      interactables: [{ id: "wolfenberg", kind: "wolfenberg", x: WOLFENBERG.x, y: WOLFENBERG.y }],
+    });
+    cat(sim).facing = "e";
+    tick(sim, { x: 0, y: 0, claw: true }, 0.12);
+    expect(cat(sim).clawGrowled).toBe(false);
+    expect(growlById(sim, "wolfenberg")?.growling).toBe(false);
   });
 
   test("a claw in front of a tree trunk marks wood", () => {
@@ -312,6 +333,21 @@ describe("tickSim", () => {
     expect(hissById(sim, "sam")?.hissing).toBe(true);
     tick(sim, { x: 0, y: 0 }, HISS_TEXT_DELAY);
     expect(hissById(sim, "sam")?.hissing).toBe(false);
+  });
+
+  test("a wolf growl fades after MEOW_DURATION plus the text delay", () => {
+    const sim = createSim({
+      players: [{ x: WOLFENBERG.x - 28, y: WOLFENBERG.y }],
+      fish: [],
+      interactables: [{ id: "wolfenberg", kind: "wolfenberg", x: WOLFENBERG.x, y: WOLFENBERG.y }],
+    });
+    cat(sim).facing = "e";
+    tick(sim, { x: 0, y: 0, claw: true }, 0.12);
+    expect(growlById(sim, "wolfenberg")?.growling).toBe(true);
+    tick(sim, { x: 0, y: 0 }, MEOW_DURATION);
+    expect(growlById(sim, "wolfenberg")?.growling).toBe(true);
+    tick(sim, { x: 0, y: 0 }, GROWL_TEXT_DELAY);
+    expect(growlById(sim, "wolfenberg")?.growling).toBe(false);
   });
 
 
