@@ -35,6 +35,14 @@ Bun.serve({
       Bun.file(new URL("./manifest.webmanifest", import.meta.url)),
       { headers: { "Content-Type": "application/manifest+json" } },
     ),
+    "/robots.txt": new Response(
+      Bun.file(new URL("./robots.txt", import.meta.url)),
+      { headers: { "Content-Type": "text/plain; charset=utf-8" } },
+    ),
+    "/sitemap.xml": new Response(
+      Bun.file(new URL("./sitemap.xml", import.meta.url)),
+      { headers: { "Content-Type": "application/xml; charset=utf-8" } },
+    ),
   },
   development: {
     hmr: true,

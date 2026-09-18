@@ -9,7 +9,7 @@
     "test": "bun test",
     "typecheck": "bunx tsc --noEmit",
     "icons": "bun scripts/make-cat-icons.ts",
-    "build": "rm -rf dist && bun run icons && bun build ./index.html ./editor.html --outdir ./dist --minify -e \"*.ttf\" && cp -R assets dist/ && cp favicon.svg dist/favicon.svg && cp manifest.webmanifest dist/manifest.webmanifest",
+    "build": "rm -rf dist && bun run icons && bun build ./index.html ./editor.html --outdir ./dist --minify -e \"*.ttf\" && cp -R assets dist/ && cp favicon.svg dist/favicon.svg && cp manifest.webmanifest dist/manifest.webmanifest && cp robots.txt dist/robots.txt && cp sitemap.xml dist/sitemap.xml",
     "deploy": "bun run build && wrangler deploy"
   },
   "devDependencies": {
