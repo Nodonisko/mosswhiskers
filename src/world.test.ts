@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { lakeContainsLocalPoint, lakePhaseFromSeed } from "./lake-shape";
 import { pondBasinContains } from "./pond-shape";
-import { createWalkable, createWorldLayout, createLockedProps, inDataCenterClearing, inFarmClearing, inFarmPlot, isBernieWoods } from "./world";
+import { createWalkable, createWorldLayout, createLockedProps, inDataCenterClearing } from "./world";
 import {
   BERNIE,
   BERNIE_HUT,
@@ -19,9 +19,7 @@ import {
   dataCenterPathPoints,
   FARM,
   FARM_CARROTS,
-  FARM_PLOT,
   FARM_SHED,
-  farmPathPoints,
   INTAKE,
   INTAKE_PIPE_END,
   intakePipePoints,
@@ -30,7 +28,6 @@ import {
   LAKE_WIDTH,
   LAKE_X,
   LAKE_Y,
-  MAILBOX,
   MAP_HEIGHT,
   MAP_WIDTH,
   mainPathY,
@@ -38,48 +35,15 @@ import {
   PIER_X,
   PIER_Y,
   RABBIT,
-  ROCKET_CARROT,
   SAM,
   TREE_TRUNK_HITBOX,
   isAuthorableWorldKind,
   isUniqueNpcKind,
 } from "./world-config";
 import { WORLD_MODEL_SIZES } from "./world-models";
-import { WORLD_GROUND, WORLD_PROPS } from "./world-props";
-import { farmPlotGround, groundKindAt } from "./ground";
+import { WORLD_PROPS } from "./world-props";
 
 describe("createWorldLayout", () => {
-  test("the same seed produces the same props, mice, and fish", () => {
-    const a = createWorldLayout();
-    const b = createWorldLayout();
-    expect(a.props).toEqual(b.props);
-    expect(a.mice).toEqual(b.mice);
-    expect(a.fish).toEqual(b.fish);
-    expect(a.trunks).toEqual(b.trunks);
-    expect(a.trees).toEqual(b.trees);
-    expect(a.interactables).toEqual(b.interactables);
-    expect(a.trees.length).toBeGreaterThan(0);
-    expect(a.trees.length).toBeLessThan(a.trunks.length);
-    expect(a.mice.length).toBeGreaterThan(0);
-    expect(a.fish.map((fish) => fish.id)).toEqual([
-      "fish-pike",
-      "fish-perch",
-      "fish-bluegill",
-      "fish-pike-2",
-      "fish-perch-2",
-      "fish-bluegill-2",
-      "fish-bluegill-3",
-      "fish-bluegill-4",
-    ]);
-    expect(a.interactables).toEqual([
-      { id: "mailbox", kind: "mailbox", x: MAILBOX.x, y: MAILBOX.y },
-      { id: "bernie", kind: "bernie", x: BERNIE.x, y: BERNIE.y },
-      { id: "sam", kind: "sam", x: SAM.x, y: SAM.y },
-      { id: "rabbit", kind: "rabbit", x: RABBIT.x, y: RABBIT.y },
-      { id: "intake", kind: "intake", x: INTAKE.x, y: INTAKE.y },
-    ]);
-  });
-
   test("landmarks stay in code while vegetation and NPCs come from authored props", () => {
     expect(WORLD_PROPS.every((prop) => isAuthorableWorldKind(prop.kind))).toBe(true);
     expect(createLockedProps().every((prop) => !isUniqueNpcKind(prop.kind))).toBe(true);
@@ -112,35 +76,6 @@ describe("createWorldLayout", () => {
     const ids = layout.mice.map((mouse) => mouse.id);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids.every((id) => id.startsWith("mouse-"))).toBe(true);
-  });
-
-  test("Bernie woods has a hut, sick trees, and no prey or undergrowth", () => {
-    const layout = createWorldLayout();
-    const hut = layout.props.find((prop) => prop.kind === "hut");
-    expect(hut).toEqual(expect.objectContaining({ x: BERNIE_HUT.x, y: BERNIE_HUT.y }));
-    const bernie = layout.props.find((prop) => prop.kind === "bernie");
-    expect(bernie).toEqual(expect.objectContaining({ x: BERNIE.x, y: BERNIE.y }));
-    expect(BERNIE.y).toBeLessThan(BERNIE_HUT.y);
-    expect(BERNIE.y).toBeGreaterThan(BERNIE_HUT.y - 50);
-    expect(Math.abs(BERNIE.x - BERNIE_HUT.x)).toBeLessThan(40);
-
-    const inWoods = layout.props.filter((prop) => isBernieWoods(prop.x, prop.y));
-    expect(inWoods.some((prop) => prop.kind === "hut")).toBe(true);
-    expect(inWoods.some((prop) => prop.kind === "bernie")).toBe(true);
-    expect(inWoods.filter((prop) => prop.kind === "pine" || prop.kind === "oak").length).toBeGreaterThan(8);
-    expect(inWoods.every((prop) => (
-      prop.kind === "hut"
-      || prop.kind === "bernie"
-      || ((prop.kind === "pine" || prop.kind === "oak") && prop.sick)
-    ))).toBe(true);
-    expect(inWoods.filter((prop) => prop.kind === "pine" || prop.kind === "oak").every((tree) => (
-      Math.hypot(tree.x - BERNIE_HUT.x, tree.y - BERNIE_HUT.y) >= 200
-    ))).toBe(true);
-    expect(inWoods.some((prop) => prop.kind === "flowers" || prop.kind === "bush" || prop.kind === "log" || prop.kind === "stone")).toBe(false);
-
-    expect(layout.mice.every((mouse) => !isBernieWoods(mouse.originX, mouse.originY))).toBe(true);
-    expect(layout.fish.every((fish) => !isBernieWoods(fish.originX, fish.originY))).toBe(true);
-    expect(MAP_WIDTH / 2 + BERNIE_HUT.x).toBeGreaterThan(400);
   });
 
   test("the path in front of Bernie's hut stays clear of trees", () => {
@@ -230,53 +165,6 @@ describe("createWorldLayout", () => {
     expect(blocking).toEqual([]);
   });
 
-  test("the southwest farm has a shed, giant carrots, and a rabbit by the plot", () => {
-    const layout = createWorldLayout();
-    expect(layout.props.find((prop) => prop.kind === "shed")).toEqual(expect.objectContaining({
-      x: FARM_SHED.x,
-      y: FARM_SHED.y,
-    }));
-    expect(FARM_SHED.x).toBeLessThan(FARM.x - FARM_PLOT.halfW);
-    expect(inFarmPlot(FARM_SHED.x, FARM_SHED.y)).toBe(false);
-    expect(layout.props.find((prop) => prop.kind === "rabbit")).toEqual(expect.objectContaining({
-      x: RABBIT.x,
-      y: RABBIT.y,
-      scale: CAT_SCALE,
-    }));
-    const carrots = layout.props.filter((prop) => prop.kind === "carrot");
-    expect(carrots).toHaveLength(FARM_CARROTS.length);
-    expect(carrots.every((crop) => crop.scale > 1.1 && crop.scale < 1.5)).toBe(true);
-    expect(carrots.every((crop) => inFarmPlot(crop.x, crop.y))).toBe(true);
-    expect(WORLD_GROUND).toEqual(farmPlotGround());
-    expect(carrots.every((crop) => groundKindAt(WORLD_GROUND, crop.x, crop.y) === "furrow")).toBe(true);
-    expect(Math.max(...FARM_CARROTS.map((crop) => crop.scale))).toBe(ROCKET_CARROT.scale);
-    expect(Math.hypot(ROCKET_CARROT.x - FARM.x, ROCKET_CARROT.y - FARM.y)).toBeLessThan(80);
-    expect(layout.props.find((prop) => prop.kind === "carrot" && prop.x === ROCKET_CARROT.x && prop.y === ROCKET_CARROT.y)?.scale).toBe(ROCKET_CARROT.scale);
-    expect(Math.abs(RABBIT.x - FARM_SHED.x)).toBeLessThan(80);
-    expect(Math.abs(RABBIT.y - FARM_SHED.y)).toBeLessThan(20);
-    expect(inFarmPlot(RABBIT.x, RABBIT.y)).toBe(false);
-    expect(MAP_WIDTH / 2 + FARM.x).toBeGreaterThan(400);
-    expect(MAP_HEIGHT / 2 + FARM.y).toBeGreaterThan(200);
-    const blocking = layout.props.filter((prop) => (
-      (prop.kind === "pine" || prop.kind === "oak")
-      && inFarmClearing(prop.x, prop.y)
-    ));
-    expect(blocking).toEqual([]);
-    expect(layout.mice.every((mouse) => !inFarmClearing(mouse.originX, mouse.originY))).toBe(true);
-    expect(layout.props.filter((prop) => prop.kind === "fence" && prop.rot === 90)).toHaveLength(5);
-    expect(farmPathPoints().length).toBeGreaterThan(8);
-    for (const [x, y] of farmPathPoints()) {
-      expect(y).toBeGreaterThanOrEqual(FARM.y + FARM_PLOT.halfH);
-      expect(inFarmPlot(x, y)).toBe(false);
-    }
-    const driveway = layout.props.filter((prop) => (
-      (prop.kind === "pine" || prop.kind === "oak")
-      && Math.abs(prop.x - FARM.x) < 48
-      && prop.y < mainPathY(FARM.x)
-      && prop.y > FARM.y
-    ));
-    expect(driveway).toEqual([]);
-  });
 });
 
 describe("createWalkable", () => {

@@ -3851,6 +3851,7 @@ export const WORLD_PROPS: WorldProp[] = [
   },
 ];
 
+// @ts-ignore TS2590: union too complex for a generated array this large.
 export const WORLD_GROUND: GroundMark[] = [
   { x: -1447.6, y: -1031.2, r: 24, kind: "furrow" },
   { x: -1430.8, y: -1031.2, r: 24, kind: "furrow" },

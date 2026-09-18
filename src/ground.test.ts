@@ -14,12 +14,24 @@ import {
 import { FARM, FARM_CARROTS, FARM_SHED } from "./world-config";
 import { WORLD_GROUND } from "./world-props";
 
+const GROUND_KIND_SET = new Set<string>(GROUND_KINDS);
+
 describe("ground marks", () => {
-  test("Hopsk's field is ordinary furrow stamps under every carrot", () => {
+  // tsc cannot type-check the generated WORLD_GROUND literal (TS2590 forces a
+  // suppression there), so the kinds are validated here instead.
+  test("every authored ground mark has a paintable kind and radius", () => {
+    expect(WORLD_GROUND.length).toBeGreaterThan(20);
+    for (const mark of WORLD_GROUND) {
+      expect(mark.kind === "erase" || GROUND_KIND_SET.has(mark.kind)).toBe(true);
+      expect(Number.isFinite(mark.x) && Number.isFinite(mark.y)).toBe(true);
+      expect(mark.r).toBeGreaterThan(0);
+    }
+  });
+
+  test("Hopsk's field stamps furrow under every carrot", () => {
     const marks = farmPlotGround();
     expect(marks.length).toBeGreaterThan(20);
     expect(marks.every((mark) => mark.kind === "furrow" && mark.r === brushRadius(1))).toBe(true);
-    expect(WORLD_GROUND).toEqual(marks);
     for (const crop of FARM_CARROTS) {
       expect(groundKindAt(marks, crop.x, crop.y)).toBe("furrow");
     }

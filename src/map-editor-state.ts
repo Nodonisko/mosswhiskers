@@ -527,7 +527,10 @@ function groundLiteral(mark: GroundMark) {
 export function serializeWorldPropsTs(props: readonly WorldProp[], ground: readonly GroundMark[] = []): string {
   const body = ensureUniqueNpcs(props.map(stripProp)).map(propLiteral).join("\n");
   const groundBody = normalizeGroundMarks(ground).map(groundLiteral).join("\n");
-  return `import type { GroundMark } from "./ground";\nimport type { WorldProp } from "./world-config";\n\nexport const WORLD_PROPS: WorldProp[] = [\n${body}\n];\n\nexport const WORLD_GROUND: GroundMark[] = [\n${groundBody}\n];\n`;
+  // The ground array stays one flat literal so older editor builds can still
+  // parse it; tsc cannot form a union that wide, hence the suppression.
+  const groundGuard = "// @ts-ignore TS2590: union too complex for a generated array this large.";
+  return `import type { GroundMark } from "./ground";\nimport type { WorldProp } from "./world-config";\n\nexport const WORLD_PROPS: WorldProp[] = [\n${body}\n];\n\n${groundGuard}\nexport const WORLD_GROUND: GroundMark[] = [\n${groundBody}\n];\n`;
 }
 
 export function toEditorProps(props: readonly WorldProp[]): EditorProp[] {

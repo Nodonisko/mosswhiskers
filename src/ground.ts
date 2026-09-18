@@ -46,6 +46,7 @@ export const GROUND_MINIMAP: Record<GroundKind, string> = {
 };
 
 const GROUND_KIND_SET = new Set<string>(GROUND_KINDS);
+const GROUND_KIND_INDEX = new Map<GroundKind, number>(GROUND_KINDS.map((kind, index) => [kind, index]));
 
 export function isGroundKind(value: unknown): value is GroundKind {
   return typeof value === "string" && GROUND_KIND_SET.has(value);
@@ -113,6 +114,32 @@ function diskCoverage(worldX: number, worldY: number, x: number, y: number, radi
 
 export function markCoverage(mark: GroundMark, worldX: number, worldY: number) {
   return diskCoverage(worldX, worldY, mark.x, mark.y, mark.r, markSoftness(mark)) * markOpacity(mark);
+}
+
+/**
+ * markCoverage with the per-mark constants hoisted out, for callers that walk
+ * many texels of one dab. Squared radii keep the sqrt on the fade ring only.
+ */
+type MarkKernel = {
+  inner: number;
+  outer: number;
+  innerSq: number;
+  outerSq: number;
+  opacity: number;
+};
+
+function markKernel(mark: GroundMark): MarkKernel {
+  const softness = markSoftness(mark);
+  const inner = diskInner(mark.r, softness);
+  const outer = diskOuter(mark.r, softness);
+  return { inner, outer, innerSq: inner * inner, outerSq: outer * outer, opacity: markOpacity(mark) };
+}
+
+function kernelCoverage(kernel: MarkKernel, distSq: number) {
+  if (distSq >= kernel.outerSq) return 0;
+  if (distSq <= kernel.innerSq) return kernel.opacity;
+  const falloff = smootherstep(kernel.inner, kernel.outer, Math.sqrt(distSq));
+  return (1 - falloff) * (1 - falloff) * kernel.opacity;
 }
 
 export function sampleGround(marks: readonly GroundMark[], worldX: number, worldY: number) {
@@ -381,6 +408,11 @@ function visitChunks(
 
 export function attachGroundOverlay(world: THREE.Object3D, marks: readonly GroundMark[]) {
   const chunks = new Map<string, GroundChunk>();
+  // Which kind won each texel, and how opaque it ended up. Reused across chunks.
+  const chunkTexels = (GROUND_CHUNK / GROUND_TEXEL) ** 2;
+  const kindScratch = new Int8Array(chunkTexels);
+  // Float64 so the blend accumulates exactly as sampleGround's arithmetic does.
+  const alphaScratch = new Float64Array(chunkTexels);
 
   function disposeChunk(key: string) {
     const chunk = chunks.get(key);
@@ -429,19 +461,65 @@ export function attachGroundOverlay(world: THREE.Object3D, marks: readonly Groun
     const local = next.filter((mark) => boundsOverlap(markBounds(mark), { west, east, south, north }));
     const image = chunk.context.createImageData(chunk.textureWidth, chunk.textureHeight);
     if (local.length) {
+      const width = chunk.textureWidth;
+      const height = chunk.textureHeight;
+      kindScratch.fill(-1);
+      alphaScratch.fill(0);
+
+      /*
+       * Scatter, not gather: each dab writes only the texels beneath it rather
+       * than every texel asking every dab. The dabs are still applied in array
+       * order, so each texel sees the same sequence sampleGround would give it.
+       */
+      for (const mark of local) {
+        const kind = mark.kind === "erase" ? -1 : GROUND_KIND_INDEX.get(mark.kind)!;
+        const kernel = markKernel(mark);
+        const y0 = Math.max(0, Math.floor((north - mark.y - kernel.outer) / GROUND_TEXEL));
+        const y1 = Math.min(height - 1, Math.ceil((north - mark.y + kernel.outer) / GROUND_TEXEL));
+        for (let y = y0; y <= y1; y++) {
+          const worldY = north - (y + 0.5) / height * GROUND_CHUNK;
+          const dy = worldY - mark.y;
+          // Walk the dab's circle row by row, so the bounding box corners never cost anything.
+          const halfSpan = Math.sqrt(Math.max(0, kernel.outerSq - dy * dy));
+          const x0 = Math.max(0, Math.floor((mark.x - halfSpan - west) / GROUND_TEXEL));
+          const x1 = Math.min(width - 1, Math.ceil((mark.x + halfSpan - west) / GROUND_TEXEL));
+          const row = y * width;
+          for (let x = x0; x <= x1; x++) {
+            const dx = west + (x + 0.5) / width * GROUND_CHUNK - mark.x;
+            const cover = kernelCoverage(kernel, dx * dx + dy * dy);
+            if (cover <= 0.02) continue;
+            const at = row + x;
+            if (kind < 0) {
+              const faded = alphaScratch[at]! * (1 - cover);
+              if (faded <= 0.04) {
+                kindScratch[at] = -1;
+                alphaScratch[at] = 0;
+              } else {
+                alphaScratch[at] = faded;
+              }
+              continue;
+            }
+            alphaScratch[at] = cover + alphaScratch[at]! * (1 - cover);
+            kindScratch[at] = kind;
+          }
+        }
+      }
+
       const pixels = image.data;
-      for (let y = 0; y < chunk.textureHeight; y++) {
-        for (let x = 0; x < chunk.textureWidth; x++) {
-          const worldX = west + (x + 0.5) / chunk.textureWidth * GROUND_CHUNK;
-          const worldY = north - (y + 0.5) / chunk.textureHeight * GROUND_CHUNK;
-          const hit = sampleGround(local, worldX, worldY);
-          if (!hit) continue;
-          const [r, g, b, a] = groundPixel(hit.kind, worldX, worldY);
-          const index = (y * chunk.textureWidth + x) * 4;
+      for (let y = 0; y < height; y++) {
+        const worldY = north - (y + 0.5) / height * GROUND_CHUNK;
+        for (let x = 0; x < width; x++) {
+          const at = y * width + x;
+          const kind = kindScratch[at]!;
+          const alpha = alphaScratch[at]!;
+          if (kind < 0 || alpha <= 0.04) continue;
+          const worldX = west + (x + 0.5) / width * GROUND_CHUNK;
+          const [r, g, b, a] = groundPixel(GROUND_KINDS[kind]!, worldX, worldY);
+          const index = at * 4;
           pixels[index] = r;
           pixels[index + 1] = g;
           pixels[index + 2] = b;
-          pixels[index + 3] = Math.round(a * hit.alpha);
+          pixels[index + 3] = Math.round(a * Math.min(1, alpha));
         }
       }
     }
