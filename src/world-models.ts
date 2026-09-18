@@ -28,7 +28,7 @@ type Paint = ReturnType<typeof painter>;
 const textureCache = new Map<string, THREE.CanvasTexture>();
 
 export const WORLD_MODEL_SIZES: Record<WorldModelKind, readonly [number, number]> = {
-  pine: [88, 142], oak: [120, 152], willow: [146, 168], bush: [42, 38], den: [198, 154], hut: [136, 118], datacenter: [312, 180], racks: [96, 88], bernie: [36, 42], sam: [36, 42],
+  pine: [88, 142], oak: [120, 152], willow: [146, 168], bush: [42, 38], den: [188, 132], hut: [136, 118], datacenter: [312, 180], racks: [96, 88], bernie: [36, 42], sam: [36, 42],
   carrot: [56, 92], rabbit: [36, 42], greta: [36, 42], wolfenberg: [36, 42], fence: [78, 36], shed: [188, 132],
   mailbox: [26, 48], mailBubble: [46, 38], lamp: [28, 84], flowers: [40, 40], stone: [32, 22], log: [90, 32],
   grass: [44, 28], wheat: [48, 44], reeds: [42, 68], mushroom: [36, 34], moss: [50, 22], mossLog: [90, 36], fern: [48, 44], stump: [46, 38], clover: [36, 20],
@@ -249,60 +249,83 @@ function rock(p: Paint, x: number, y: number, w: number, h: number, seedDetail =
 }
 
 function den(p: Paint) {
-  // Shelter is a leaning slab and a fallen cedar surrounding a deep leafy doorway.
-  p.ellipse(102, 146, 89, 6, '#4d6337');
-  p.poly([[37, 141], [49, 49], [82, 18], [110, 32], [163, 99], [177, 146]], '#386c3b');
-  for (let i = 0; i < 35; i++) {
-    const x = 52 + p.random() * 102;
-    const y = 48 + p.random() * 85;
-    leafCluster(p, x, y, 10 + p.random() * 6, 8 + p.random() * 6, oakColors, 0.65);
+  // Mosswhisker's moss-burrow house. Feet sit on the last rows of the canvas.
+  const turf = ['#2a4a28', '#355c30', '#43743a', '#558a46', '#6aa054', '#83b468', '#9cc67c'];
+  const cx = 94;
+  const ground = 129;
+  p.ellipse(cx, ground, 82, 3, '#4a5236');
+  p.poly([[6, ground], [10, 96], [22, 62], [48, 28], [cx, 8], [142, 26], [170, 58], [182, 96], [184, ground]], turf[0]!);
+  leafCluster(p, cx, 58, 72, 42, turf, 0.85);
+  leafCluster(p, 42, 78, 38, 32, turf, 0.8);
+  leafCluster(p, 148, 74, 36, 30, turf, 0.8);
+  leafCluster(p, cx, 32, 40, 24, turf, 0.9);
+  leafCluster(p, 70, 48, 28, 22, turf, 0.7);
+  leafCluster(p, 122, 46, 30, 22, turf, 0.7);
+
+  p.rect(124, 16, 12, 32, '#6a4030');
+  p.rect(125, 18, 10, 30, '#8a5850');
+  p.rect(125, 18, 3, 28, '#b08070');
+  for (let row = 0; row < 5; row++) {
+    p.rect(125, 22 + row * 5, 10, 1, '#6a4030');
+    if (row % 2) p.rect(129, 19 + row * 5, 1, 4, '#6a4030');
   }
-  p.poly([[75, 149], [76, 108], [81, 91], [92, 82], [103, 80], [116, 86], [124, 99], [126, 149]], '#294a31');
-  p.poly([[84, 149], [84, 111], [90, 96], [100, 91], [111, 96], [118, 111], [118, 149]], '#284a31');
-  // Weathered grey standing slab leans against the diagonal trunk.
-  p.poly([[8, 149], [13, 122], [39, 34], [45, 16], [63, 8], [91, 7], [98, 17], [86, 51], [77, 77], [66, 113], [66, 149]], '#535951');
-  p.poly([[13, 144], [18, 121], [43, 37], [50, 20], [74, 14], [91, 14], [84, 44], [73, 77], [62, 113], [62, 145]], '#828780');
-  p.poly([[22, 121], [46, 43], [50, 26], [67, 24], [76, 31], [70, 55], [54, 99], [46, 133]], '#969b91');
-  p.poly([[46, 22], [48, 15], [65, 10], [90, 10], [91, 15], [68, 16], [61, 21]], '#6c726c');
-  for (let i = 0; i < 190; i++) {
-    const y = 33 + p.random() * 96;
-    const left = 48 - (y - 33) * 0.29;
-    p.rect(left + 4 + p.random() * 25, y, 1, 1, p.random() > 0.5 ? '#92978f' : '#858a82');
+  p.rect(123, 14, 14, 4, '#5a3428');
+  p.rect(125, 12, 10, 3, '#7a5048');
+  p.rect(128, 10, 4, 3, '#b8b0a4');
+
+  for (let col = 0; col < 12; col++) {
+    const x = 22 + col * 12 + (col % 2);
+    const y = 116 + (col % 3 === 0 ? 1 : 0);
+    p.poly([[x, y + 12], [x - 2, y + 4], [x + 3, y], [x + 12, y + 2], [x + 13, y + 8], [x + 8, y + 12], [x + 2, y + 12]], '#5a564c');
+    p.poly([[x + 1, y + 10], [x, y + 4], [x + 4, y + 2], [x + 10, y + 3], [x + 11, y + 7], [x + 7, y + 11], [x + 3, y + 11]], ['#8a8680', '#a09c94', '#7a7670'][col % 3]!);
+    if (col % 3 === 1) p.rect(x + 3, y + 1, 3, 2, '#6a7a44');
   }
-  rock(p, 2, 122, 38, 28, 30);
-  rock(p, 34, 108, 31, 43, 45);
-  // Broken branches behind the fallen trunk.
-  p.line(120, 65, 140, 33, '#735329', 4);
-  p.line(139, 36, 146, 35, '#997038', 3);
-  p.line(143, 86, 171, 72, '#735329', 4);
-  p.line(167, 75, 177, 61, '#997038', 3);
-  p.line(114, 71, 93, 67, '#926b33', 3);
-  // Main roof log, with long bands of bark and ragged cut edge.
-  p.poly([[80, 17], [87, 8], [98, 12], [190, 130], [193, 142], [184, 150], [172, 149], [80, 33]], '#735326');
-  p.poly([[83, 18], [91, 12], [99, 18], [187, 131], [188, 140], [180, 146], [172, 140], [84, 32]], '#9a712e');
-  p.poly([[87, 16], [91, 15], [185, 135], [182, 139]], '#bd903c');
-  p.line(83, 28, 174, 141, '#755323', 3);
-  p.line(95, 23, 181, 132, '#785525', 2);
-  p.line(90, 30, 165, 128, '#c2933e', 2);
-  p.line(102, 34, 169, 119, '#ab8033', 2);
-  for (let i = 0; i < 26; i++) {
-    const t = p.random();
-    const x = 92 + t * 84;
-    const y = 27 + t * 109;
-    p.line(x, y, x + 2, y + 4, p.random() > 0.5 ? '#795a2c' : '#c09342');
-  }
-  p.ellipse(181, 139, 8, 10, '#b78c42');
-  p.ellipse(181, 139, 5, 7, '#7c5b2d');
-  p.ellipse(181, 139, 3, 5, '#b0873b');
-  // Low stacked stone support under the right side.
-  for (let row = 0; row < 4; row++) {
-    for (let col = 0; col < 3; col++) {
-      const x = 128 + col * 12 + (row % 2) * 5;
-      const y = 105 + row * 10;
-      p.poly([[x, y + 10], [x - 2, y + 4], [x + 3, y], [x + 10, y + 1], [x + 14, y + 7], [x + 10, y + 13], [x + 2, y + 13]], '#685338');
-      p.poly([[x + 1, y + 8], [x, y + 4], [x + 4, y + 2], [x + 9, y + 3], [x + 11, y + 7], [x + 8, y + 10], [x + 3, y + 10]], ['#a48a58', '#967b4e', '#b09a68'][Math.floor(p.random() * 3)]!);
+
+  const doorX = 78;
+  const doorY = 103;
+  const rx = 18;
+  const ry = 20;
+  p.ellipse(doorX, doorY, rx + 4, ry + 4, '#5a3420');
+  p.ellipse(doorX, doorY, rx + 2, ry + 2, '#6e4424');
+  for (let y = Math.ceil(doorY - ry); y <= Math.floor(doorY + ry); y++) {
+    const span = rx * Math.sqrt(Math.max(0, 1 - ((y - doorY) / ry) ** 2));
+    const x0 = Math.ceil(doorX - span);
+    const x1 = Math.floor(doorX + span);
+    for (let x = x0; x <= x1; x++) {
+      const nx = (x - doorX) / rx;
+      const ny = (y - doorY) / ry;
+      const edge = nx * nx + ny * ny;
+      let color = x < doorX - 3 ? '#c49a58' : '#8a5a30';
+      if (((x - (doorX - rx)) % 4) === 0) color = x < doorX ? '#a07038' : '#6e4424';
+      if (edge > 0.78) color = '#8a5a30';
+      if (edge > 0.92) color = '#5a3420';
+      p.rect(x, y, 1, 1, color);
     }
   }
+  p.rect(doorX + 8, doorY, 5, 5, '#8a5a30');
+  p.rect(doorX + 9, doorY + 1, 4, 4, '#d4b070');
+  p.rect(doorX + 10, doorY + 2, 2, 2, '#f0d090');
+
+  p.line(103, 78, 103, 90, '#4a3830');
+  p.line(103, 78, 108, 83, '#4a3830');
+  p.rect(105, 83, 9, 10, '#4a3830');
+  p.rect(106, 84, 7, 8, '#8a6a40');
+  p.rect(107, 85, 5, 6, '#c4a050');
+  p.rect(108, 86, 3, 3, '#e8cc70');
+  p.rect(106, 83, 7, 1, '#5a4a38');
+  p.rect(108, 92, 3, 1, '#6a5038');
+
+  p.rect(120, 80, 22, 18, '#5a3420');
+  p.rect(122, 82, 18, 14, '#c47a30');
+  p.rect(123, 83, 7, 5, '#f0b44a');
+  p.rect(132, 83, 7, 5, '#d48828');
+  p.rect(123, 90, 7, 5, '#d48828');
+  p.rect(132, 90, 7, 5, '#f0b44a');
+  p.rect(130, 82, 2, 14, '#5a3420');
+  p.rect(122, 88, 18, 2, '#5a3420');
+  p.rect(120, 79, 22, 2, '#c4a066');
+  p.rect(122, 96, 18, 3, '#6e4a28');
+  p.rect(123, 97, 16, 2, '#8a5e32');
 }
 
 function hut(p: Paint) {

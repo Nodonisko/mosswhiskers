@@ -203,6 +203,11 @@ describe("createWalkable", () => {
     expect(walkable(BERNIE_HUT.x, BERNIE_HUT.y)).toBe(false);
   });
 
+  test("Mosswhisker's den blocks its doorway but spawn stays clear", () => {
+    expect(walkable(0, 46)).toBe(false);
+    expect(walkable(0, -5)).toBe(true);
+  });
+
   test("Bernie blocks a small standing footprint", () => {
     expect(walkable(BERNIE.x, BERNIE.y)).toBe(false);
   });

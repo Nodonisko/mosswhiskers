@@ -16,7 +16,7 @@ import { createTalkHud } from "./talk-hud";
 import { paintPixelTexture } from "./pixel-canvas";
 import { intakeGulpIndex, updateIntakePipeModel } from "./pipe-model";
 import { createRocketFx, updateRocketFx } from "./rocket-fx";
-import { createHutFx, createShedFx, updateHutFx } from "./hut-fx";
+import { createDenFx, createHutFx, createShedFx, updateHutFx } from "./hut-fx";
 import { createDataCenterFx, updateDataCenterFx } from "./datacenter-fx";
 import { updateDriedPondModel } from "./pond-model";
 import {
@@ -113,6 +113,7 @@ export function createGame() {
   let mailNotice: THREE.Sprite | undefined;
   let bernieHut: THREE.Sprite | undefined;
   let hopskShed: THREE.Sprite | undefined;
+  let mossDen: THREE.Sprite | undefined;
   const farmCarrotSprites: Array<THREE.Sprite | undefined> = FARM_CARROTS.map(() => undefined);
   let dataHall: THREE.Sprite | undefined;
   const rackSprites: THREE.Sprite[] = [];
@@ -136,6 +137,7 @@ export function createGame() {
     if (prop.kind === "lamp") lanterns.push(model);
     if (prop.kind === "hut") bernieHut = model;
     if (prop.kind === "shed") hopskShed = model;
+    if (prop.kind === "den") mossDen = model;
     if (prop.kind === "carrot") {
       const index = FARM_CARROTS.findIndex((crop) => crop.x === prop.x && crop.y === prop.y);
       if (index >= 0) farmCarrotSprites[index] = model;
@@ -159,6 +161,7 @@ export function createGame() {
   if (!mailNotice) throw new Error("Mailbox notice is missing from the world layout");
   if (!bernieHut) throw new Error("Bernie hut is missing from the world layout");
   if (!hopskShed) throw new Error("Hopsk shed is missing from the world layout");
+  if (!mossDen) throw new Error("Mosswhisker den is missing from the world layout");
   if (farmCarrotSprites.some((sprite) => !sprite)) throw new Error("Farm carrots are missing from the world layout");
   if (!dataHall) throw new Error("Data center is missing from the world layout");
   const mailboxNotice: THREE.Sprite = mailNotice;
@@ -166,6 +169,8 @@ export function createGame() {
   const hutFx = createHutFx(hutSprite, world);
   const shedSprite: THREE.Sprite = hopskShed;
   const shedFx = createShedFx(shedSprite, world);
+  const denSprite: THREE.Sprite = mossDen;
+  const denFx = createDenFx(denSprite, world);
   const rocketSprites = farmCarrotSprites as THREE.Sprite[];
   const rocketFx = rocketSprites.map((sprite, index) => {
     const crop = FARM_CARROTS[index]!;
@@ -601,6 +606,7 @@ export function createGame() {
     if (intakePipeOnCamera()) updateIntakePipeModel(intakePipe, sim.elapsed, clogged);
     updateHutFx(hutFx, hutSprite, sim.elapsed);
     updateHutFx(shedFx, shedSprite, sim.elapsed + 0.9);
+    updateHutFx(denFx, denSprite, sim.elapsed + 0.45);
     for (const [index, sprite] of rocketSprites.entries()) {
       const rocket = sim.rocketCarrots[index]!;
       const crop = FARM_CARROTS[index]!;

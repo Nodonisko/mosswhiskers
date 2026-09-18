@@ -314,6 +314,7 @@ export const TREE_TRUNK_HITBOX: Partial<
   oak: [11, 6],
   willow: [9, 5],
   hut: [46, 16],
+  den: [56, 16],
   datacenter: [142, 72, 72],
   racks: [30, 12],
   bernie: [8, 6],

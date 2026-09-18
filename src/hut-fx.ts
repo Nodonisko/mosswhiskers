@@ -15,6 +15,9 @@ const LANTERN_ORIGIN = { x: 31, y: 78 };
 const WINDOW_ORIGIN = { x: 78, y: 70 };
 const HUT_SMOKE_ORIGIN = { x: 94, y: -28 };
 const SHED_SMOKE_ORIGIN = { x: 118, y: -34 };
+const DEN_LANTERN_ORIGIN = { x: 105, y: 82 };
+const DEN_WINDOW_ORIGIN = { x: 122, y: 82 };
+const DEN_SMOKE_ORIGIN = { x: 122, y: -32 };
 const SMOKE_SIZE = { width: 24, height: 48 };
 
 function buildingSize(building: THREE.Sprite) {
@@ -168,6 +171,16 @@ export function createHutFx(hut: THREE.Sprite, world: THREE.Object3D): HutFx {
 export function createShedFx(shed: THREE.Sprite, world: THREE.Object3D): HutFx {
   const overlays = [
     smokeOverlay(shed, SHED_SMOKE_ORIGIN, getSmokeFrames(), 0.48),
+  ];
+  for (const item of overlays) world.add(item.sprite);
+  return { overlays };
+}
+
+export function createDenFx(den: THREE.Sprite, world: THREE.Object3D): HutFx {
+  const overlays = [
+    overlay(den, DEN_LANTERN_ORIGIN, lanternFrames(), 9, 11, 0.34),
+    overlay(den, DEN_WINDOW_ORIGIN, windowFrames(), 18, 14, 1.15),
+    smokeOverlay(den, DEN_SMOKE_ORIGIN, getSmokeFrames(), 0.42),
   ];
   for (const item of overlays) world.add(item.sprite);
   return { overlays };
