@@ -163,8 +163,15 @@ export function updateRocketFx(
   pose: RocketCarrotPose,
   elapsed: number,
   launched: boolean,
+  taken = false,
 ) {
   const material = carrot.material as THREE.SpriteMaterial;
+  if (taken) {
+    carrot.visible = false;
+    fx.fire.visible = false;
+    for (const puff of fx.puffs) puff.sprite.visible = false;
+    return;
+  }
   if (!launched) {
     material.map = fx.plantedMap;
     material.rotation = 0;

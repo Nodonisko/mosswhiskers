@@ -122,6 +122,9 @@ export const FARM_CARROTS = [
   { x: FARM.x - 88, y: FARM.y - 42, scale: 1.28, seed: 64, variant: 3 },
   ROCKET_CARROT,
   { x: FARM.x + 148, y: FARM.y - 58, scale: 1.18, seed: 66, variant: 1 },
+  { x: FARM.x - 118, y: FARM.y - 124, scale: 1.2, seed: 67, variant: 2 },
+  { x: FARM.x + 12, y: FARM.y - 142, scale: 1.34, seed: 68, variant: 0 },
+  { x: FARM.x + 136, y: FARM.y - 112, scale: 1.16, seed: 69, variant: 3 },
 ] as const;
 export type WorldModelKind =
   | "pine"

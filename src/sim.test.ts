@@ -896,6 +896,7 @@ describe("Elon Hopsk and the intake", () => {
     expect(cat(sim).talkId).toBe("hopsk-wait");
     expect(cat(sim).progress.heardHopsk).toBe(false);
     expect(cat(sim).inventory).toEqual([]);
+    expect(sim.rocketCarrots.every((rocket) => rocket.taken === false)).toBe(true);
   });
 
   test("Hopsk lends a rocket after Bernie sends you, then the intake will take it", () => {
@@ -1014,6 +1015,46 @@ describe("Elon Hopsk and the intake", () => {
     expect(playerById(sim, "guest")!.inventory).toEqual([]);
     expect(playerById(sim, "guest")!.progress.heardHopsk).toBe(false);
   });
+
+  test("Hopsk's gift takes the closest standing carrot from the field", () => {
+    const sim = simOnQuest();
+    cat(sim).progress.heardSam = true;
+    cat(sim).progress.activeQuest = "hopsk";
+    const closest = closestStandingCarrot(sim, cat(sim));
+    expect(closest).toBeGreaterThanOrEqual(0);
+    tick(sim, { x: 0, y: 0, interact: true }, 0.05);
+    expect(cat(sim).talkId).toBe("hopsk-offer");
+    expect(cat(sim).inventory).toEqual([{ kind: "carrot", count: 1 }]);
+    expect(sim.rocketCarrots[closest]!.taken).toBe(true);
+    expect(sim.rocketCarrots[closest]!.launched).toBe(false);
+    expect(sim.rocketCarrots.filter((rocket) => rocket.taken)).toHaveLength(1);
+  });
+
+  test("Hopsk skips a launched carrot and takes the next closest", () => {
+    const sim = simOnQuest();
+    cat(sim).progress.heardSam = true;
+    cat(sim).progress.activeQuest = "hopsk";
+    const first = closestStandingCarrot(sim, cat(sim));
+    sim.rocketCarrots[first]!.launched = true;
+    const next = closestStandingCarrot(sim, cat(sim));
+    expect(next).not.toBe(first);
+    tick(sim, { x: 0, y: 0, interact: true }, 0.05);
+    expect(sim.rocketCarrots[first]!.taken).toBe(false);
+    expect(sim.rocketCarrots[next]!.taken).toBe(true);
+    expect(sim.rocketCarrots.filter((rocket) => rocket.taken)).toHaveLength(1);
+  });
+
+  test("Hopsk still lends a carrot when the field is empty", () => {
+    const sim = simOnQuest();
+    cat(sim).progress.heardSam = true;
+    cat(sim).progress.activeQuest = "hopsk";
+    for (const rocket of sim.rocketCarrots) rocket.launched = true;
+    tick(sim, { x: 0, y: 0, interact: true }, 0.05);
+    expect(cat(sim).talkId).toBe("hopsk-offer");
+    expect(cat(sim).inventory).toEqual([{ kind: "carrot", count: 1 }]);
+    expect(sim.rocketCarrots.every((rocket) => rocket.taken === false)).toBe(true);
+    expect(sim.rocketCarrots.every((rocket) => rocket.launched)).toBe(true);
+  });
 });
 
 describe("southeast woods conversation", () => {
@@ -1046,6 +1087,20 @@ describe("southeast woods conversation", () => {
 
 function rocketIndex(crop: { x: number; y: number }) {
   return FARM_CARROTS.findIndex((item) => item.x === crop.x && item.y === crop.y);
+}
+
+function closestStandingCarrot(sim: GameSim, from: { x: number; y: number }) {
+  let best = -1;
+  let bestDist = Infinity;
+  for (const [index, crop] of FARM_CARROTS.entries()) {
+    const rocket = sim.rocketCarrots[index]!;
+    if (rocket.launched || rocket.taken) continue;
+    const dist = Math.hypot(crop.x - from.x, crop.y - from.y);
+    if (dist >= bestDist) continue;
+    bestDist = dist;
+    best = index;
+  }
+  return best;
 }
 
 describe("rocket carrots", () => {
@@ -1088,6 +1143,20 @@ describe("rocket carrots", () => {
       expect(sim.rocketCarrots.filter((rocket) => rocket.launched)).toHaveLength(1);
       expect(cat(sim).inventory).toEqual([]);
     }
+  });
+
+  test("a taken field carrot does not launch", () => {
+    const crop = FARM_CARROTS[0]!;
+    const sim = createSim({
+      players: [{ id: LOCAL_PLAYER_ID, x: crop.x, y: crop.y - 24 }],
+      fish: [],
+    });
+    sim.rocketCarrots[rocketIndex(crop)]!.taken = true;
+    cat(sim).facing = "n";
+    tick(sim, { x: 0, y: 0, claw: true }, 0.12);
+    expect(sim.rocketCarrots[rocketIndex(crop)]!.launched).toBe(false);
+    expect(sim.rocketCarrots[rocketIndex(crop)]!.taken).toBe(true);
+    expect(cat(sim).clawHit).toBe(false);
   });
 });
 

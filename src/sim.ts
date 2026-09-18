@@ -174,6 +174,7 @@ export type MouseSim = MouseSpec & {
 export type RocketCarrotSim = {
   launched: boolean;
   elapsed: number;
+  taken: boolean;
 };
 
 export type RocketCarrotPose = {
@@ -464,7 +465,25 @@ function canTalkToHopsk(player: PlayerSim) {
     || player.progress.pipeClogged;
 }
 
-function talkToHopsk(player: PlayerSim) {
+function farmCarrotStanding(rocket: RocketCarrotSim | undefined) {
+  return Boolean(rocket && !rocket.launched && !rocket.taken);
+}
+
+function takeClosestFarmCarrot(rockets: RocketCarrotSim[], from: { x: number; y: number }) {
+  let best = -1;
+  let bestDist = Infinity;
+  for (const [index, crop] of FARM_CARROTS.entries()) {
+    if (!farmCarrotStanding(rockets[index])) continue;
+    const dist = Math.hypot(crop.x - from.x, crop.y - from.y);
+    if (dist >= bestDist) continue;
+    bestDist = dist;
+    best = index;
+  }
+  if (best < 0) return;
+  rockets[best]!.taken = true;
+}
+
+function talkToHopsk(player: PlayerSim, rockets: RocketCarrotSim[]) {
   if (!canTalkToHopsk(player)) {
     player.talkId = "hopsk-wait";
     return;
@@ -476,6 +495,7 @@ function talkToHopsk(player: PlayerSim) {
   if (!player.progress.heardHopsk) {
     player.progress.heardHopsk = true;
     addToInventory(player, "carrot");
+    takeClosestFarmCarrot(rockets, player);
     if (player.progress.activeQuest === "hopsk") setActiveQuest(player, "clog");
     player.talkId = "hopsk-offer";
     return;
@@ -603,7 +623,7 @@ export function createSim(options: {
       growlElapsed: 0,
       growlNonce: 0,
     })),
-    rocketCarrots: FARM_CARROTS.map(() => ({ launched: false, elapsed: 0 })),
+    rocketCarrots: FARM_CARROTS.map(() => ({ launched: false, elapsed: 0, taken: false })),
   };
 }
 
@@ -653,6 +673,7 @@ function tickPlayer(
   dt: number,
   walkable: Walkable,
   interactables: readonly Interactable[],
+  rocketCarrots: RocketCarrotSim[],
 ) {
   const nearby = nearestInteractable(player.x, player.y, interactables, INTERACT_RANGE, canStuffIntake(player));
   player.nearbyId = nearby?.id ?? null;
@@ -663,7 +684,7 @@ function tickPlayer(
       if (nearby.kind === "mailbox") beginSandwhisker(player);
       else if (nearby.kind === "bernie") talkToBernie(player);
       else if (nearby.kind === "sam") talkToSam(player);
-      else if (nearby.kind === "rabbit") talkToHopsk(player);
+      else if (nearby.kind === "rabbit") talkToHopsk(player, rocketCarrots);
       else if (nearby.kind === "greta") talkToGreta(player);
       else if (nearby.kind === "wolfenberg") talkToWolfenberg(player);
       else if (nearby.kind === "intake") talkToIntake(player);
@@ -797,7 +818,7 @@ function resolveClaws(sim: GameSim, trees: readonly Solid[]) {
     }
     for (const [index, crop] of FARM_CARROTS.entries()) {
       const rocket = sim.rocketCarrots[index];
-      if (!rocket || rocket.launched) continue;
+      if (!farmCarrotStanding(rocket)) continue;
       if (!clawHitsTarget(player, { x: crop.x, y: crop.y, alive: true })) continue;
       rocket.launched = true;
       rocket.elapsed = 0;
@@ -863,7 +884,7 @@ export function tickSim(
   sim.elapsed += dt;
   sim.tick += 1;
   for (const player of sim.players) {
-    tickPlayer(player, inputs[player.id] ?? IDLE_INPUT, dt, walkable, sim.interactables);
+    tickPlayer(player, inputs[player.id] ?? IDLE_INPUT, dt, walkable, sim.interactables, sim.rocketCarrots);
   }
   tickPrey(sim, dt);
   resolveClaws(sim, trees);

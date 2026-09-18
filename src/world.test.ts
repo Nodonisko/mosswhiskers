@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { lakeContainsLocalPoint, lakePhaseFromSeed } from "./lake-shape";
 import { pondBasinContains } from "./pond-shape";
-import { createWalkable, createWorldLayout, createLockedProps, inDataCenterClearing } from "./world";
+import { createWalkable, createWorldLayout, createLockedProps, inDataCenterClearing, inFarmPlot } from "./world";
 import {
   BERNIE,
   BERNIE_HUT,
@@ -228,6 +228,12 @@ describe("createWalkable", () => {
     expect(walkable(RABBIT.x, RABBIT.y)).toBe(false);
     expect(walkable(FARM_CARROTS[4]!.x, FARM_CARROTS[4]!.y)).toBe(false);
     expect(walkable(FARM_SHED.x, FARM_SHED.y)).toBe(false);
+    const southRow = FARM_CARROTS.filter((crop) => crop.y < FARM.y - 80);
+    expect(southRow).toHaveLength(3);
+    for (const crop of southRow) {
+      expect(inFarmPlot(crop.x, crop.y)).toBe(true);
+      expect(walkable(crop.x, crop.y)).toBe(false);
+    }
   });
 
   test("Greta stands on the south path and Wolfenberg waits further into the wood", () => {

@@ -362,7 +362,8 @@ export function createGame() {
     return layout.trunks.filter((solid) => {
       const index = FARM_CARROTS.findIndex((crop) => crop.x === solid.x && crop.y === solid.y);
       if (index < 0) return true;
-      return !sim.rocketCarrots[index]?.launched;
+      const rocket = sim.rocketCarrots[index];
+      return !rocket?.launched && !rocket?.taken;
     });
   }
   let walkable = createWalkable(layout.trunks);
@@ -370,7 +371,8 @@ export function createGame() {
   function syncWalkable() {
     let next = 0;
     for (let index = 0; index < sim.rocketCarrots.length; index++) {
-      if (sim.rocketCarrots[index]!.launched) next |= 1 << index;
+      const rocket = sim.rocketCarrots[index]!;
+      if (rocket.launched || rocket.taken) next |= 1 << index;
     }
     if (next === launchMask) return;
     launchMask = next;
@@ -568,7 +570,8 @@ export function createGame() {
     const catHalfW = CAT_SCALE * 20 * 0.3;
     launchedRockets.clear();
     for (let index = 0; index < sim.rocketCarrots.length; index++) {
-      if (sim.rocketCarrots[index]!.launched) launchedRockets.add(rocketSprites[index]!);
+      const rocket = sim.rocketCarrots[index]!;
+      if (rocket.launched || rocket.taken) launchedRockets.add(rocketSprites[index]!);
     }
     for (const sprite of occluders) {
       const material = sprite.material as THREE.SpriteMaterial;
@@ -616,6 +619,7 @@ export function createGame() {
         rocketCarrotPose(rocket.elapsed, crop, index),
         rocket.elapsed,
         rocket.launched,
+        rocket.taken,
       );
     }
     updateDataCenterFx(dataCenterFx, sim.elapsed, clogged);
