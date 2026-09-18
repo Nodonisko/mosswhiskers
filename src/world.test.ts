@@ -44,7 +44,8 @@ import {
   isUniqueNpcKind,
 } from "./world-config";
 import { WORLD_MODEL_SIZES } from "./world-models";
-import { WORLD_PROPS } from "./world-props";
+import { WORLD_GROUND, WORLD_PROPS } from "./world-props";
+import { farmPlotGround, groundKindAt } from "./ground";
 
 describe("createWorldLayout", () => {
   test("the same seed produces the same props, mice, and fish", () => {
@@ -236,6 +237,8 @@ describe("createWorldLayout", () => {
     expect(carrots).toHaveLength(FARM_CARROTS.length);
     expect(carrots.every((crop) => crop.scale > 1.1 && crop.scale < 1.5)).toBe(true);
     expect(carrots.every((crop) => inFarmPlot(crop.x, crop.y))).toBe(true);
+    expect(WORLD_GROUND).toEqual(farmPlotGround());
+    expect(carrots.every((crop) => groundKindAt(WORLD_GROUND, crop.x, crop.y) === "furrow")).toBe(true);
     expect(Math.max(...FARM_CARROTS.map((crop) => crop.scale))).toBe(ROCKET_CARROT.scale);
     expect(Math.hypot(ROCKET_CARROT.x - FARM.x, ROCKET_CARROT.y - FARM.y)).toBeLessThan(80);
     expect(layout.props.find((prop) => prop.kind === "carrot" && prop.x === ROCKET_CARROT.x && prop.y === ROCKET_CARROT.y)?.scale).toBe(ROCKET_CARROT.scale);

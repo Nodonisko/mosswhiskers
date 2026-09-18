@@ -28,6 +28,9 @@
           <button type="button" class="editor-tool" data-mode="place" aria-label="Add" title="Add">
             <svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M7 2h2v5h5v2H9v5H7V9H2V7h5z"/></svg>
           </button>
+          <button type="button" class="editor-tool" data-mode="ground" aria-label="Ground brush" title="Ground brush">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M2 14.2 3.4 9.6l7.8-7.8 2.8 2.8-7.8 7.8zm9.6-12.4 1.5-1.5 2.8 2.8-1.5 1.5z"/></svg>
+          </button>
         </div>
         <div class="editor-actions">
           <button type="button" class="editor-btn" data-action="undo">Undo</button>
@@ -51,9 +54,29 @@
       </div>
 
       <aside class="editor-palette" aria-label="Palette">
-        <h2>Place</h2>
-        <div class="palette-list"></div>
-        <p class="palette-note">Click Bernie, Sam, or Hopsk on the map to drag them. Unique NPCs cannot be added or deleted. Drag a little outside a fence, log, or mossy log corner to rotate.</p>
+        <div class="palette-props">
+          <h2>Place</h2>
+          <div class="palette-list"></div>
+          <p class="palette-note">Click Bernie, Sam, or Hopsk on the map to drag them. Unique NPCs cannot be added or deleted. Drag a little outside a fence, log, or mossy log corner to rotate.</p>
+        </div>
+        <div class="palette-ground" hidden>
+          <h2>Ground</h2>
+          <div class="ground-sizes" role="group" aria-label="Brush size">
+            <button type="button" class="editor-btn" data-ground-size="1">S</button>
+            <button type="button" class="editor-btn is-active" data-ground-size="2">M</button>
+            <button type="button" class="editor-btn" data-ground-size="3">L</button>
+          </div>
+          <label class="ground-slider">Opacity
+            <input type="range" min="10" max="100" value="100" step="1" data-ground-opacity />
+            <span data-ground-opacity-value>100%</span>
+          </label>
+          <label class="ground-slider">Softness
+            <input type="range" min="0" max="100" value="100" step="1" data-ground-softness />
+            <span data-ground-softness-value>100%</span>
+          </label>
+          <div class="ground-list"></div>
+          <p class="palette-note">Drag to paint. Opacity and softness stay on each stamp. Right-click or pick Erase to delete. [ and ] change brush size. Hopsk's field is already painted, so you can extend or erase it.</p>
+        </div>
       </aside>
 
       <aside class="editor-side">
@@ -83,7 +106,7 @@
       </aside>
 
       <p class="editor-status" role="status"></p>
-      <p class="editor-hint">WASD / arrows pan · scroll zoom · middle-drag pan · click place · drag move · drag corner scale · drag outside corner rotate · R rotate · Del delete · Cmd/Ctrl+C copy · Cmd/Ctrl+V paste · Ctrl+Z undo</p>
+      <p class="editor-hint">WASD / arrows pan · scroll zoom · middle-drag pan · click place · B brush · drag paint · right-click erase · drag move · R rotate · Del delete · Cmd/Ctrl+C copy · Cmd/Ctrl+V paste · Ctrl+Z undo</p>
     </main>
     <script type="module" src="./src/map-editor.ts"></script>
   </body>

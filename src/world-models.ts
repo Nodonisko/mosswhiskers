@@ -772,11 +772,11 @@ function catFront(p: Paint, variant: number, c: CatColors, tint: SlashTint) {
 
 function samCat(p: Paint) {
   catFront(p, 0, {
-    fur: '#d08a3c',
-    shadow: '#7a5634',
-    light: '#e8b060',
-    belly: '#f4f1ea',
-    paw: '#ece8e0',
+    fur: '#6b3e22',
+    shadow: '#3d2214',
+    light: '#8a5530',
+    belly: '#d8c4a0',
+    paw: '#c4ae88',
   }, clawTint(false));
   const ax = (n: number) => n + 8;
   p.rect(ax(9), 13, 2, 4, '#f4f1ea');

@@ -1,4 +1,7 @@
+import { farmPlotGround, type GroundMark } from "./ground";
 import type { WorldProp } from "./world-config";
+
+export const WORLD_GROUND: GroundMark[] = farmPlotGround();
 
 export const WORLD_PROPS: WorldProp[] = [
   { kind: "pine", x: -540, y: 170, scale: 1.2, seed: 70, variant: 0 },

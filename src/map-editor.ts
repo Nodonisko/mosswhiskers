@@ -21,8 +21,30 @@ import {
   type PlaceableWorldKind,
   type WorldProp,
 } from "./world-config";
-import { WORLD_PROPS } from "./world-props";
+import { WORLD_GROUND, WORLD_PROPS } from "./world-props";
 import { createWorldModel, paintWorldModel, WORLD_MODEL_SIZES, applyWorldPropPose } from "./world-models";
+import {
+  brushRadius,
+  brushWorldSize,
+  clampOpacity,
+  clampSoftness,
+  diskOuter,
+  GROUND_BRUSH_SIZES,
+  GROUND_KINDS,
+  GROUND_LABELS,
+  GROUND_MINIMAP,
+  GROUND_OPACITY_DEFAULT,
+  GROUND_SOFTNESS_DEFAULT,
+  groundPixel,
+  isGroundKind,
+  markCoverage,
+  markOpacity,
+  markSoftness,
+  paintGroundSwatch,
+  type GroundBrushSize,
+  type GroundKind,
+} from "./ground";
+import { createPixelCanvas, nearestTexture } from "./pixel-canvas";
 import {
   EDITOR_DRAFT_KEY,
   EDITOR_OVERSCROLL_PX,
@@ -33,12 +55,15 @@ import {
   duplicateSelected,
   pasteClipboard,
   editorPaletteItems,
+  eraseGroundAt,
   fromEditorProps,
   cornerActionAt,
   mapClick,
   moveById,
   nextSeed,
+  paintGroundAt,
   parseEditorDraft,
+  parseWorldGroundJson,
   parseWorldPropsJson,
   placeableDefaultScale,
   placeableLabel,
@@ -46,6 +71,7 @@ import {
   propCorners,
   redo,
   removeSelected,
+  replaceMap,
   replaceProps,
   rotateByPointer,
   rotateSelected,
@@ -88,7 +114,7 @@ function startEditor() {
   const resetModal = required(root.querySelector<HTMLElement>(".editor-modal"), "Reset prompt");
 
   const draft = readDraft();
-  const store = createEditorStore(draft?.props ?? WORLD_PROPS);
+  const store = createEditorStore(draft?.props ?? WORLD_PROPS, draft?.ground ?? WORLD_GROUND);
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: false });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -148,6 +174,15 @@ function startEditor() {
   ghost.visible = false;
   world.add(ghost);
 
+  const brushPreview = new THREE.Mesh(
+    new THREE.PlaneGeometry(1, 1),
+    new THREE.MeshBasicMaterial({ transparent: true, depthTest: false, depthWrite: false, toneMapped: false }),
+  );
+  brushPreview.position.z = 7;
+  brushPreview.renderOrder = 35000;
+  brushPreview.visible = false;
+  world.add(brushPreview);
+
   function appearance(prop: WorldProp) {
     return `${prop.kind}:${prop.seed}:${prop.variant}:${prop.sick ? "s" : ""}`;
   }
@@ -201,6 +236,39 @@ function startEditor() {
     paletteList.append(button);
   }
 
+  const paletteProps = required(root.querySelector<HTMLElement>(".palette-props"), "Prop palette");
+  const paletteGround = required(root.querySelector<HTMLElement>(".palette-ground"), "Ground palette");
+  const groundList = required(root.querySelector(".ground-list"), "Ground list");
+  let groundKind: GroundKind | "erase" = "furrow";
+  let groundSize: GroundBrushSize = 2;
+  let groundOpacity = GROUND_OPACITY_DEFAULT;
+  let groundSoftness = GROUND_SOFTNESS_DEFAULT;
+  const opacityInput = required(root.querySelector<HTMLInputElement>("[data-ground-opacity]"), "Opacity slider");
+  const opacityValue = required(root.querySelector("[data-ground-opacity-value]"), "Opacity value");
+  const softnessInput = required(root.querySelector<HTMLInputElement>("[data-ground-softness]"), "Softness slider");
+  const softnessValue = required(root.querySelector("[data-ground-softness-value]"), "Softness value");
+
+  function addGroundItem(id: GroundKind | "erase", label: string, swatch: HTMLElement) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = id === "erase" ? "palette-item ground-item is-erase" : "palette-item ground-item";
+    button.dataset.ground = id;
+    const name = document.createElement("span");
+    name.textContent = label;
+    button.append(swatch, name);
+    groundList.append(button);
+  }
+
+  const eraseSwatch = document.createElement("span");
+  eraseSwatch.className = "palette-swatch";
+  eraseSwatch.textContent = "×";
+  addGroundItem("erase", "Erase", eraseSwatch);
+  for (const kind of GROUND_KINDS) {
+    const swatch = paintGroundSwatch(kind);
+    swatch.className = "palette-swatch";
+    addGroundItem(kind, GROUND_LABELS[kind], swatch);
+  }
+
   let zoom = draft?.camera?.zoom != null
     ? THREE.MathUtils.clamp(draft.camera.zoom, MIN_ZOOM, MAX_ZOOM)
     : 0.55;
@@ -222,6 +290,9 @@ function startEditor() {
   let placeVariant = 0;
   let lastPlaceKind: PlaceableWorldKind = "pine";
   let lastPlaceVariant = 0;
+  let painting = false;
+  let paintErase = false;
+  let paintRecorded = false;
 
   function say(message: string) {
     statusEl.textContent = message;
@@ -247,8 +318,95 @@ function startEditor() {
 
   function paletteIdFor(tool: EditorStore["tool"], variant = placeVariant) {
     if (tool === "select") return "select";
+    if (tool === "ground") return `ground-${groundKind}`;
     if (placeableVariantCount(tool) > 1) return `${tool}-${normalizePlaceVariant(tool, variant)}`;
     return tool;
+  }
+
+  function syncBrushPreview() {
+    const size = 64;
+    const { canvas: stamp, context } = createPixelCanvas(size, size);
+    const image = context.createImageData(size, size);
+    const pixels = image.data;
+    const center = size / 2;
+    const erase = groundKind === "erase";
+    const worldR = brushRadius(groundSize);
+    const outer = brushWorldSize(groundSize, groundSoftness) / 2;
+    const paintKind: GroundKind = groundKind === "erase" ? "dirt" : groundKind;
+    const probe = { x: 0, y: 0, r: worldR, kind: paintKind, opacity: groundOpacity, softness: groundSoftness };
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        const worldX = (x + 0.5 - center) / center * outer;
+        const worldY = (y + 0.5 - center) / center * outer;
+        const cover = markCoverage(probe, worldX, worldY);
+        if (cover <= 0.02) continue;
+        const index = (y * size + x) * 4;
+        if (erase) {
+          pixels[index] = 180;
+          pixels[index + 1] = 70;
+          pixels[index + 2] = 70;
+          pixels[index + 3] = Math.round(88 * cover);
+          continue;
+        }
+        const [r, g, b, a] = groundPixel(paintKind, x * 3, y * 3);
+        pixels[index] = r;
+        pixels[index + 1] = g;
+        pixels[index + 2] = b;
+        pixels[index + 3] = Math.round(a * 0.42 * cover);
+      }
+    }
+    context.putImageData(image, 0, 0);
+    const map = nearestTexture(stamp);
+    const material = brushPreview.material as THREE.MeshBasicMaterial;
+    material.map?.dispose();
+    material.map = map;
+    material.needsUpdate = true;
+    const worldSize = brushWorldSize(groundSize, groundSoftness);
+    brushPreview.scale.set(worldSize, worldSize, 1);
+  }
+
+  function brushPercent(value: number) {
+    return `${Math.round(value * 100)}%`;
+  }
+
+  function groundSizeLabel() {
+    return groundSize === 1 ? "S" : groundSize === 2 ? "M" : "L";
+  }
+
+  function syncBrushSliders() {
+    opacityInput.value = String(Math.round(groundOpacity * 100));
+    opacityValue.textContent = brushPercent(groundOpacity);
+    softnessInput.value = String(Math.round(groundSoftness * 100));
+    softnessValue.textContent = brushPercent(groundSoftness);
+  }
+
+  function syncGroundChrome() {
+    for (const button of root.querySelectorAll<HTMLButtonElement>("[data-ground]")) {
+      button.classList.toggle("is-active", button.dataset.ground === groundKind);
+    }
+    for (const button of root.querySelectorAll<HTMLButtonElement>("[data-ground-size]")) {
+      button.classList.toggle("is-active", Number(button.dataset.groundSize) === groundSize);
+    }
+    syncBrushSliders();
+    syncBrushPreview();
+  }
+
+  function setGroundKind(next: GroundKind | "erase") {
+    groundKind = next;
+    syncGroundChrome();
+    if (store.tool === "ground") {
+      say(next === "erase" ? "Erase ground" : `Brush ${GROUND_LABELS[next]}`);
+      syncInspector();
+    }
+  }
+
+  function setGroundSize(next: GroundBrushSize) {
+    groundSize = next;
+    syncGroundChrome();
+    if (store.tool === "ground") {
+      say(`Brush size ${next === 1 ? "small" : next === 2 ? "medium" : "large"}`);
+      syncInspector();
+    }
   }
 
   function rotateCurrent(step: number) {
@@ -265,22 +423,30 @@ function startEditor() {
 
   function setTool(tool: EditorStore["tool"], variant?: number) {
     store.tool = tool;
-    placeVariant = tool === "select" ? 0 : normalizePlaceVariant(tool, variant ?? placeVariant);
-    if (tool !== "select") {
+    if (isPlaceableWorldKind(tool)) {
+      placeVariant = normalizePlaceVariant(tool, variant ?? placeVariant);
       lastPlaceKind = tool;
       lastPlaceVariant = placeVariant;
+    } else {
+      placeVariant = 0;
     }
     const active = paletteIdFor(tool);
     for (const button of root.querySelectorAll<HTMLButtonElement>("[data-tool]")) {
       button.classList.toggle("is-active", (button.dataset.palette ?? button.dataset.tool) === active);
     }
     for (const button of root.querySelectorAll<HTMLButtonElement>("[data-mode]")) {
-      const placing = tool !== "select";
-      button.classList.toggle("is-active", button.dataset.mode === (placing ? "place" : "select"));
+      button.classList.toggle("is-active", button.dataset.mode === (
+        tool === "ground" ? "ground" : isPlaceableWorldKind(tool) ? "place" : "select"
+      ));
     }
+    paletteProps.hidden = tool === "ground";
+    paletteGround.hidden = tool !== "ground";
+    ghost.visible = false;
+    brushPreview.visible = tool === "ground";
     canvas.style.cursor = tool === "select" ? "default" : "crosshair";
-    if (tool !== "select") setGhostKind(tool);
-    else ghost.visible = false;
+    if (isPlaceableWorldKind(tool)) setGhostKind(tool);
+    if (tool === "ground") syncGroundChrome();
+    syncInspector();
   }
 
   function currentView() {
@@ -352,6 +518,7 @@ function startEditor() {
     try {
       localStorage.setItem(EDITOR_DRAFT_KEY, serializeEditorDraft({
         props: fromEditorProps(store.props),
+        ground: store.ground,
         camera: { x: camera.position.x, y: camera.position.y, zoom },
       }));
     } catch {
@@ -373,9 +540,37 @@ function startEditor() {
     }
   }
 
-  function mutated() {
+  let pendingGround: Array<{ x: number; y: number; r: number }> = [];
+  let groundRaf = 0;
+
+  function flushGround(full = false) {
+    if (groundRaf) {
+      cancelAnimationFrame(groundRaf);
+      groundRaf = 0;
+    }
+    const dirty = pendingGround;
+    pendingGround = [];
+    if (full) backdrop.setGround(store.ground);
+    else if (dirty.length) backdrop.setGround(store.ground, dirty);
+  }
+
+  function queueGround(dirty: Array<{ x: number; y: number; r: number }>) {
+    pendingGround.push(...dirty);
+    if (groundRaf) return;
+    groundRaf = requestAnimationFrame(() => {
+      groundRaf = 0;
+      flushGround();
+    });
+  }
+
+  function syncGround() {
+    flushGround(true);
+  }
+
+  function mutated(groundChanged = false) {
     persistEnabled = true;
     syncSprites();
+    if (groundChanged) syncGround();
     syncInspector();
     persist();
   }
@@ -384,6 +579,15 @@ function startEditor() {
 
   function syncInspector() {
     const prop = selectedProp(store);
+    if (store.tool === "ground") {
+      inspectEmpty.hidden = false;
+      inspectForm.hidden = true;
+      inspectEmpty.textContent = groundKind === "erase"
+        ? `Erase · size ${groundSizeLabel()} · opacity ${brushPercent(groundOpacity)} · softness ${brushPercent(groundSoftness)}. Drag to delete painted ground. Right-click also erases.`
+        : `${GROUND_LABELS[groundKind]} · size ${groundSizeLabel()} · opacity ${brushPercent(groundOpacity)} · softness ${brushPercent(groundSoftness)}. Drag to paint. Right-click erases.`;
+      return;
+    }
+    inspectEmpty.textContent = "Click a tree, plant, or NPC.";
     inspectEmpty.hidden = Boolean(prop);
     inspectForm.hidden = !prop;
     if (!prop) return;
@@ -441,6 +645,7 @@ function startEditor() {
       if (action?.type === "rotate") return ROTATE_CURSOR;
       if (action?.type === "scale") return handleCursor(action.handle);
     }
+    if (store.tool === "ground") return "crosshair";
     return store.tool === "select" ? "default" : "crosshair";
   }
 
@@ -478,6 +683,20 @@ function startEditor() {
       x: (x + MAP_WIDTH / 2) * sx,
       y: (MAP_HEIGHT / 2 - y) * sy,
     });
+    for (const mark of store.ground) {
+      const at = toMap(mark.x, mark.y);
+      if (mark.kind === "erase") ctx.globalCompositeOperation = "destination-out";
+      else {
+        ctx.globalCompositeOperation = "source-over";
+        ctx.fillStyle = GROUND_MINIMAP[mark.kind];
+      }
+      ctx.globalAlpha = markOpacity(mark);
+      ctx.beginPath();
+      ctx.arc(at.x, at.y, Math.max(1, diskOuter(mark.r, markSoftness(mark)) * sx), 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = "source-over";
     const colors: Partial<Record<WorldProp["kind"], string>> = {
       pine: "#2f5a28",
       oak: "#3d8a34",
@@ -497,7 +716,7 @@ function startEditor() {
       fence: "#b08a50",
       lamp: "#f1b15d",
       bernie: "#f4eac8",
-      sam: "#e8b060",
+      sam: "#6b3e22",
       rabbit: "#fff8f0",
     };
       const flowerColors = ["#e7e8c9", "#6595ba", "#c591b1", "#e0c45a", "#d4843c", "#8a6aaa", "#c45a4a", "#f0ead0"] as const;
@@ -522,8 +741,24 @@ function startEditor() {
     say(`Copied ${label}`);
   }
 
+  root.addEventListener("input", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement)) return;
+    if (target === opacityInput) {
+      groundOpacity = clampOpacity(Number(target.value) / 100);
+      syncGroundChrome();
+      if (store.tool === "ground") syncInspector();
+      return;
+    }
+    if (target === softnessInput) {
+      groundSoftness = clampSoftness(Number(target.value) / 100);
+      syncGroundChrome();
+      if (store.tool === "ground") syncInspector();
+    }
+  });
+
   root.addEventListener("click", async (event) => {
-    const button = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-action], [data-tool], [data-mode]");
+    const button = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-action], [data-tool], [data-mode], [data-ground], [data-ground-size]");
     if (!button) return;
     if (button.dataset.mode === "select") {
       setTool("select");
@@ -531,6 +766,23 @@ function startEditor() {
     }
     if (button.dataset.mode === "place") {
       setTool(lastPlaceKind, lastPlaceVariant);
+      return;
+    }
+    if (button.dataset.mode === "ground") {
+      setTool("ground");
+      return;
+    }
+    if (button.dataset.groundSize) {
+      const size = Number(button.dataset.groundSize);
+      if (GROUND_BRUSH_SIZES.includes(size as GroundBrushSize)) setGroundSize(size as GroundBrushSize);
+      return;
+    }
+    if (button.dataset.ground) {
+      const next = button.dataset.ground;
+      if (next === "erase" || isGroundKind(next)) {
+        setTool("ground");
+        setGroundKind(next);
+      }
       return;
     }
     if (button.dataset.tool) {
@@ -542,27 +794,31 @@ function startEditor() {
     }
     const action = button.dataset.action;
     if (action === "undo") {
-      if (undo(store)) mutated();
+      if (undo(store)) mutated(true);
     } else if (action === "redo") {
-      if (redo(store)) mutated();
+      if (redo(store)) mutated(true);
     } else if (action === "copy") {
-      await copyText(serializeWorldPropsTs(fromEditorProps(store.props)), "world-props.ts");
+      await copyText(serializeWorldPropsTs(fromEditorProps(store.props), store.ground), "world-props.ts");
     } else if (action === "import") {
       let text = "";
       try { text = await navigator.clipboard.readText(); } catch { /* fallback prompt */ }
       if (!text) text = window.prompt("Paste src/world-props.ts") ?? "";
       if (!text.trim()) return;
-      replaceProps(store, parseWorldPropsJson(text));
-      mutated();
-      say("Imported");
+      const props = parseWorldPropsJson(text);
+      const ground = parseWorldGroundJson(text);
+      if (ground) replaceMap(store, props, ground);
+      else replaceProps(store, props);
+      mutated(Boolean(ground));
+      say(ground ? "Imported props and ground" : "Imported");
     } else if (action === "reset") {
       resetModal.hidden = false;
     } else if (action === "reset-cancel") {
       resetModal.hidden = true;
     } else if (action === "reset-confirm") {
       resetModal.hidden = true;
-      replaceProps(store, WORLD_PROPS);
+      replaceMap(store, WORLD_PROPS, WORLD_GROUND);
       syncSprites();
+      syncGround();
       syncInspector();
       clearDraft();
       say("Reset to the map in source");
@@ -598,8 +854,24 @@ function startEditor() {
       canvas.setPointerCapture(event.pointerId);
       return;
     }
-    if (event.button !== 0) return;
+    if (event.button !== 0 && event.button !== 2) return;
     const at = screenToWorld(event.clientX, event.clientY);
+    if (store.tool === "ground") {
+      painting = true;
+      paintErase = event.button === 2 || event.altKey || groundKind === "erase";
+      paintRecorded = false;
+      const dirty = paintErase
+        ? eraseGroundAt(store, at.x, at.y, groundSize, true, groundOpacity, groundSoftness)
+        : paintGroundAt(store, at.x, at.y, groundKind as GroundKind, groundSize, true, groundOpacity, groundSoftness);
+      if (dirty.length) {
+        paintRecorded = true;
+        persistEnabled = true;
+        queueGround(dirty);
+      }
+      canvas.setPointerCapture(event.pointerId);
+      return;
+    }
+    if (event.button !== 0) return;
     const selected = selectedProp(store);
     if (store.tool === "select" && selected && !isUniqueNpcKind(selected.kind)) {
       const action = cornerActionAt(selected, at.x, at.y, handleHitRadius(), rotateHitRadius());
@@ -647,6 +919,18 @@ function startEditor() {
   canvas.addEventListener("pointermove", (event) => {
     markPointer(event);
     const at = screenToWorld(event.clientX, event.clientY);
+    if (painting) {
+      const dirty = paintErase
+        ? eraseGroundAt(store, at.x, at.y, groundSize, !paintRecorded, groundOpacity, groundSoftness)
+        : paintGroundAt(store, at.x, at.y, groundKind as GroundKind, groundSize, !paintRecorded, groundOpacity, groundSoftness);
+      if (dirty.length) {
+        paintRecorded = true;
+        persistEnabled = true;
+        queueGround(dirty);
+      }
+      brushPreview.position.set(at.x, at.y, 7);
+      return;
+    }
     if (panning) {
       const dx = event.clientX - lastPointer.x;
       const dy = event.clientY - lastPointer.y;
@@ -694,20 +978,29 @@ function startEditor() {
       }
       return;
     }
-    if (store.tool !== "select") {
+    if (isPlaceableWorldKind(store.tool)) {
       ghost.visible = true;
       ghost.position.set(at.x, at.y + ghostLift(store.tool), 0);
     } else {
       ghost.visible = false;
     }
+    if (store.tool === "ground") {
+      brushPreview.visible = true;
+      brushPreview.position.set(at.x, at.y, 7);
+    } else {
+      brushPreview.visible = false;
+    }
     canvas.style.cursor = hoverCursor(at.x, at.y);
   });
 
   function endPointer(event: PointerEvent) {
-    if ((dragging && dragRecorded) || (resizing && dragRecorded) || (rotating && dragRecorded) || panning) persistView();
+    if (painting && paintRecorded) flushGround();
+    if ((dragging && dragRecorded) || (resizing && dragRecorded) || (rotating && dragRecorded) || panning || (painting && paintRecorded)) persistView();
     dragging = false;
     resizing = false;
     rotating = false;
+    painting = false;
+    paintErase = false;
     resizeOrigin = null;
     panning = false;
     canvas.style.cursor = store.tool === "select" ? "default" : "crosshair";
@@ -762,12 +1055,12 @@ function startEditor() {
     if (typing) return;
     if ((event.metaKey || event.ctrlKey) && event.code === "KeyZ") {
       event.preventDefault();
-      if (event.shiftKey ? redo(store) : undo(store)) mutated();
+      if (event.shiftKey ? redo(store) : undo(store)) mutated(true);
       return;
     }
     if ((event.metaKey || event.ctrlKey) && event.code === "KeyY") {
       event.preventDefault();
-      if (redo(store)) mutated();
+      if (redo(store)) mutated(true);
       return;
     }
     if ((event.metaKey || event.ctrlKey) && event.code === "KeyC") {
@@ -789,6 +1082,27 @@ function startEditor() {
     if (event.code === "KeyR") {
       event.preventDefault();
       rotateCurrent(event.shiftKey ? -15 : 15);
+      return;
+    }
+    if (event.code === "KeyB") {
+      event.preventDefault();
+      setTool("ground");
+      return;
+    }
+    if (event.code === "KeyE" && !event.metaKey && !event.ctrlKey) {
+      event.preventDefault();
+      setTool("ground");
+      setGroundKind(groundKind === "erase" ? "furrow" : "erase");
+      return;
+    }
+    if (event.code === "BracketLeft" || event.code === "Minus") {
+      event.preventDefault();
+      setGroundSize(groundSize === 3 ? 2 : 1);
+      return;
+    }
+    if (event.code === "BracketRight" || event.code === "Equal") {
+      event.preventDefault();
+      setGroundSize(groundSize === 1 ? 2 : 3);
       return;
     }
     if (event.code === "Escape" || (event.code === "KeyV" && !event.metaKey && !event.ctrlKey)) {
@@ -830,6 +1144,7 @@ function startEditor() {
     clampCamera();
   }
   setTool("select");
+  syncGroundChrome();
   syncInspector();
   if (draft) say("Restored editor draft");
 
@@ -861,6 +1176,7 @@ function startEditor() {
     dispose() {
       persist();
       cancelAnimationFrame(raf);
+      if (groundRaf) cancelAnimationFrame(groundRaf);
       window.removeEventListener("resize", resize);
       window.removeEventListener("pagehide", persist);
       document.removeEventListener("visibilitychange", persistWhenHidden);

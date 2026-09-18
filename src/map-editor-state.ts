@@ -1,4 +1,22 @@
 import {
+  arrayLooksLikeGround,
+  brushRadius,
+  diskHitsMarks,
+  isGroundKind,
+  makeDisk,
+  markOpacity,
+  markSoftness,
+  normalizeGroundMarks,
+  parseGroundMarks,
+  GROUND_OPACITY_DEFAULT,
+  GROUND_SOFTNESS_DEFAULT,
+  type GroundBrushSize,
+  type GroundDirty,
+  type GroundKind,
+  type GroundMark,
+  type GroundStampKind,
+} from "./ground";
+import {
   BERNIE,
   CAT_SCALE,
   MAP_HEIGHT,
@@ -25,7 +43,9 @@ import { WORLD_MODEL_SIZES } from "./world-models";
 
 export type EditorProp = WorldProp & { id: number };
 
-export type EditorTool = PlaceableWorldKind | "select";
+export type EditorTool = PlaceableWorldKind | "select" | "ground";
+
+export type { GroundBrushSize, GroundKind, GroundMark };
 
 export const PLACEABLE_LABELS: Record<PlaceableWorldKind, string> = {
   pine: "Pine",
@@ -343,8 +363,7 @@ export function ensureUniqueNpcs(props: WorldProp[]): WorldProp[] {
   return kept;
 }
 
-export function parseWorldPropsJson(text: string): WorldProp[] {
-  const parsed = JSON.parse(toJsonArray(text)) as unknown;
+function parsePropList(parsed: unknown): WorldProp[] {
   if (!Array.isArray(parsed)) throw new Error("Paste must be a WORLD_PROPS array");
   const props: WorldProp[] = [];
   for (const item of parsed) {
@@ -366,15 +385,66 @@ export function parseWorldPropsJson(text: string): WorldProp[] {
   return ensureUniqueNpcs(props);
 }
 
-function toJsonArray(text: string) {
+export function parseWorldPropsJson(text: string): WorldProp[] {
+  return parsePropList(JSON.parse(toJsonArray(text, "WORLD_PROPS")));
+}
+
+export function parseWorldGroundJson(text: string): GroundMark[] | undefined {
+  const trimmed = text.trim();
+  try {
+    const parsed = JSON.parse(trimmed) as unknown;
+    if (Array.isArray(parsed)) {
+      if (!arrayLooksLikeGround(parsed)) return undefined;
+      return parseGroundMarks(parsed);
+    }
+    if (parsed && typeof parsed === "object" && "ground" in parsed) {
+      return parseGroundMarks((parsed as { ground: unknown }).ground);
+    }
+  } catch {
+    /* TypeScript source */
+  }
+  const named = extractNamedArray(trimmed, "WORLD_GROUND");
+  if (!named) return undefined;
+  try {
+    return parseGroundMarks(JSON.parse(tsArrayToJson(named)));
+  } catch {
+    return undefined;
+  }
+}
+
+function extractNamedArray(text: string, name: string) {
+  const index = text.indexOf(name);
+  if (index < 0) return undefined;
+  const assign = text.indexOf("= [", index);
+  if (assign < 0) return undefined;
+  const start = assign + 2;
+  let depth = 0;
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === "[") depth += 1;
+    else if (ch === "]") {
+      depth -= 1;
+      if (depth === 0) return text.slice(start, i + 1);
+    }
+  }
+  return undefined;
+}
+
+function tsArrayToJson(slice: string) {
+  return slice
+    .replace(/\b(kind|x|y|scale|seed|variant|sick|rot|tx|ty|shape|r|halfW|halfH|opacity|softness):/g, '"$1":')
+    .replace(/,(\s*[}\]])/g, "$1");
+}
+
+function toJsonArray(text: string, name = "WORLD_PROPS") {
   const trimmed = text.trim();
   if (trimmed.startsWith("[")) return trimmed;
+  const named = extractNamedArray(trimmed, name);
+  if (named) return tsArrayToJson(named);
   const start = trimmed.indexOf("= [") >= 0 ? trimmed.indexOf("= [") + 2 : trimmed.indexOf("[");
   const end = trimmed.lastIndexOf("]");
   if (start < 0 || end <= start) throw new Error("Paste must include a WORLD_PROPS array");
-  return trimmed.slice(start, end + 1)
-    .replace(/\b(kind|x|y|scale|seed|variant|sick|rot):/g, '"$1":')
-    .replace(/,(\s*[}\]])/g, "$1");
+  return tsArrayToJson(trimmed.slice(start, end + 1));
 }
 
 export function serializeWorldPropsJson(props: readonly WorldProp[]): string {
@@ -387,6 +457,7 @@ export type EditorCameraDraft = { x: number; y: number; zoom: number };
 
 export type EditorDraft = {
   props: WorldProp[];
+  ground?: GroundMark[];
   camera?: EditorCameraDraft;
 };
 
@@ -406,9 +477,10 @@ export function parseEditorDraft(raw: string | null): EditorDraft | null {
     const parsed = JSON.parse(raw) as unknown;
     if (Array.isArray(parsed)) return { props: parseWorldPropsJson(raw) };
     if (parsed && typeof parsed === "object" && "props" in parsed) {
-      const record = parsed as { props: unknown; camera?: unknown };
+      const record = parsed as { props: unknown; ground?: unknown; camera?: unknown };
       return {
         props: parseWorldPropsJson(JSON.stringify(record.props)),
+        ground: record.ground != null ? parseGroundMarks(record.ground) : undefined,
         camera: parseCamera(record.camera),
       };
     }
@@ -421,6 +493,7 @@ export function parseEditorDraft(raw: string | null): EditorDraft | null {
 export function serializeEditorDraft(draft: EditorDraft): string {
   return JSON.stringify({
     props: ensureUniqueNpcs(draft.props.map(stripProp)),
+    ground: draft.ground ? normalizeGroundMarks(draft.ground) : undefined,
     camera: draft.camera,
   });
 }
@@ -439,9 +512,22 @@ function propLiteral(prop: WorldProp) {
   return `  { ${fields.join(", ")} },`;
 }
 
-export function serializeWorldPropsTs(props: readonly WorldProp[]): string {
+function groundLiteral(mark: GroundMark) {
+  const fields = [
+    `x: ${compactNumber(mark.x)}`,
+    `y: ${compactNumber(mark.y)}`,
+    `r: ${compactNumber(mark.r)}`,
+    `kind: "${mark.kind}"`,
+  ];
+  if (mark.opacity != null) fields.push(`opacity: ${compactNumber(mark.opacity)}`);
+  if (mark.softness != null) fields.push(`softness: ${compactNumber(mark.softness)}`);
+  return `  { ${fields.join(", ")} },`;
+}
+
+export function serializeWorldPropsTs(props: readonly WorldProp[], ground: readonly GroundMark[] = []): string {
   const body = ensureUniqueNpcs(props.map(stripProp)).map(propLiteral).join("\n");
-  return `import type { WorldProp } from "./world-config";\n\nexport const WORLD_PROPS: WorldProp[] = [\n${body}\n];\n`;
+  const groundBody = normalizeGroundMarks(ground).map(groundLiteral).join("\n");
+  return `import type { GroundMark } from "./ground";\nimport type { WorldProp } from "./world-config";\n\nexport const WORLD_PROPS: WorldProp[] = [\n${body}\n];\n\nexport const WORLD_GROUND: GroundMark[] = [\n${groundBody}\n];\n`;
 }
 
 export function toEditorProps(props: readonly WorldProp[]): EditorProp[] {
@@ -463,24 +549,42 @@ export function pasteAnchor(clip: WorldProp, view?: EditorPoint | null, cursor?:
   return clampMap(clip.x + 24, clip.y - 18);
 }
 
+type EditorHistoryFrame = {
+  props: EditorProp[];
+  ground: GroundMark[];
+};
+
 export type EditorStore = {
   props: EditorProp[];
+  ground: GroundMark[];
   selectedId: number | null;
   tool: EditorTool;
   nextId: number;
-  past: EditorProp[][];
-  future: EditorProp[][];
+  past: EditorHistoryFrame[];
+  future: EditorHistoryFrame[];
   clipboard: WorldProp | null;
 };
 
-function snapshot(props: readonly EditorProp[]): EditorProp[] {
-  return props.map((prop) => ({ ...prop }));
+function snapshot(store: EditorStore): EditorHistoryFrame {
+  return {
+    props: store.props.map((prop) => ({ ...prop })),
+    ground: store.ground.map((mark) => ({ ...mark })),
+  };
 }
 
-export function createEditorStore(initial: readonly WorldProp[]): EditorStore {
+function applyFrame(store: EditorStore, frame: EditorHistoryFrame) {
+  store.props = frame.props;
+  store.ground = frame.ground;
+  if (store.selectedId != null && !store.props.some((prop) => prop.id === store.selectedId)) {
+    store.selectedId = null;
+  }
+}
+
+export function createEditorStore(initial: readonly WorldProp[], ground: readonly GroundMark[] = []): EditorStore {
   const props = toEditorProps(initial);
   return {
     props,
+    ground: normalizeGroundMarks(ground),
     selectedId: null,
     tool: "select",
     nextId: props.reduce((max, prop) => Math.max(max, prop.id), 0) + 1,
@@ -495,7 +599,7 @@ export function selectedProp(store: EditorStore): EditorProp | undefined {
 }
 
 function pushHistory(store: EditorStore) {
-  store.past.push(snapshot(store.props));
+  store.past.push(snapshot(store));
   if (store.past.length > HISTORY_LIMIT) store.past.shift();
   store.future = [];
 }
@@ -503,22 +607,16 @@ function pushHistory(store: EditorStore) {
 export function undo(store: EditorStore) {
   const previous = store.past.pop();
   if (!previous) return false;
-  store.future.push(snapshot(store.props));
-  store.props = previous;
-  if (store.selectedId != null && !store.props.some((prop) => prop.id === store.selectedId)) {
-    store.selectedId = null;
-  }
+  store.future.push(snapshot(store));
+  applyFrame(store, previous);
   return true;
 }
 
 export function redo(store: EditorStore) {
   const next = store.future.pop();
   if (!next) return false;
-  store.past.push(snapshot(store.props));
-  store.props = next;
-  if (store.selectedId != null && !store.props.some((prop) => prop.id === store.selectedId)) {
-    store.selectedId = null;
-  }
+  store.past.push(snapshot(store));
+  applyFrame(store, next);
   return true;
 }
 
@@ -539,7 +637,7 @@ export function mapClick(
   rot: number,
   variant: number,
 ): EditorMapClick {
-  if (store.tool !== "select") {
+  if (store.tool !== "select" && store.tool !== "ground") {
     placeAt(store, store.tool, x, y, seed, rot, variant);
     return "place";
   }
@@ -686,4 +784,91 @@ export function replaceProps(store: EditorStore, props: readonly WorldProp[]) {
   store.props = toEditorProps(props);
   store.nextId = store.props.reduce((max, prop) => Math.max(max, prop.id), 0) + 1;
   store.selectedId = null;
+}
+
+export function replaceGround(store: EditorStore, marks: readonly GroundMark[]) {
+  pushHistory(store);
+  store.ground = normalizeGroundMarks(marks);
+}
+
+export function replaceMap(store: EditorStore, props: readonly WorldProp[], ground: readonly GroundMark[]) {
+  pushHistory(store);
+  store.props = toEditorProps(props);
+  store.ground = normalizeGroundMarks(ground);
+  store.nextId = store.props.reduce((max, prop) => Math.max(max, prop.id), 0) + 1;
+  store.selectedId = null;
+}
+
+const STAMP_GAP = 0.35;
+
+function appendDisk(
+  store: EditorStore,
+  x: number,
+  y: number,
+  radius: number,
+  kind: GroundStampKind,
+  recordHistory: boolean,
+  opacity = GROUND_OPACITY_DEFAULT,
+  softness = GROUND_SOFTNESS_DEFAULT,
+) {
+  const dirty: GroundDirty[] = [];
+  const last = store.ground.at(-1);
+  if (
+    last
+    && last.kind === kind
+    && last.r === radius
+    && Math.abs(markOpacity(last) - opacity) < 0.02
+    && Math.abs(markSoftness(last) - softness) < 0.02
+  ) {
+    const dist = Math.hypot(last.x - x, last.y - y);
+    const step = Math.max(4, radius * STAMP_GAP);
+    if (!recordHistory) {
+      if (dist < step) return dirty;
+      const next = store.ground.slice();
+      const ux = (x - last.x) / dist;
+      const uy = (y - last.y) / dist;
+      for (let along = step; along < dist - step * 0.25; along += step) {
+        const stamp = makeDisk(last.x + ux * along, last.y + uy * along, radius, kind, opacity, softness);
+        next.push(stamp);
+        dirty.push({ x: stamp.x, y: stamp.y, r: radius, softness });
+      }
+      const stamp = makeDisk(x, y, radius, kind, opacity, softness);
+      next.push(stamp);
+      dirty.push({ x: stamp.x, y: stamp.y, r: radius, softness });
+      store.ground = next;
+      return dirty;
+    }
+  }
+  if (kind === "erase" && !diskHitsMarks(store.ground, x, y, radius, softness)) return dirty;
+  if (recordHistory) pushHistory(store);
+  const stamp = makeDisk(x, y, radius, kind, opacity, softness);
+  store.ground = [...store.ground, stamp];
+  dirty.push({ x: stamp.x, y: stamp.y, r: radius, softness });
+  return dirty;
+}
+
+export function paintGroundAt(
+  store: EditorStore,
+  x: number,
+  y: number,
+  kind: GroundKind,
+  size: GroundBrushSize,
+  recordHistory: boolean,
+  opacity = GROUND_OPACITY_DEFAULT,
+  softness = GROUND_SOFTNESS_DEFAULT,
+) {
+  if (!isGroundKind(kind)) return [];
+  return appendDisk(store, x, y, brushRadius(size), kind, recordHistory, opacity, softness);
+}
+
+export function eraseGroundAt(
+  store: EditorStore,
+  x: number,
+  y: number,
+  size: GroundBrushSize,
+  recordHistory: boolean,
+  opacity = GROUND_OPACITY_DEFAULT,
+  softness = GROUND_SOFTNESS_DEFAULT,
+) {
+  return appendDisk(store, x, y, brushRadius(size), "erase", recordHistory, opacity, softness);
 }

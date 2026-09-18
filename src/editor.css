@@ -59,7 +59,10 @@ body {
 .editor-palette,
 .editor-side,
 .inspect-form,
-.palette-list {
+.palette-list,
+.ground-list,
+.ground-sizes,
+.ground-slider {
   pointer-events: auto;
 }
 
@@ -126,7 +129,9 @@ body {
 .editor-tool:hover,
 .editor-tool.is-active,
 .palette-item:hover,
-.palette-item.is-active {
+.palette-item.is-active,
+.ground-item:hover,
+.ground-item.is-active {
   background: #3d5c32f0;
 }
 
@@ -188,6 +193,66 @@ body {
   font-size: 11px;
   line-height: 1.4;
   color: #d8cc9c;
+}
+
+.ground-sizes {
+  display: flex;
+  gap: 4px;
+  margin: 0 0 8px;
+}
+
+.ground-sizes .editor-btn {
+  flex: 1;
+  padding: 5px 4px;
+}
+
+.ground-sizes .editor-btn.is-active,
+.ground-item.is-active {
+  background: #3d5c32f0;
+}
+
+.ground-slider {
+  display: grid;
+  grid-template-columns: 72px 1fr 40px;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 6px;
+  font-size: 12px;
+  color: #f4eac8;
+}
+
+.ground-slider input[type="range"] {
+  width: 100%;
+  accent-color: #c4b07a;
+}
+
+.ground-slider span {
+  text-align: right;
+  color: #d8cc9c;
+}
+
+.ground-list {
+  display: grid;
+  gap: 4px;
+}
+
+.ground-item {
+  display: grid;
+  grid-template-columns: 40px 1fr;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 4px;
+  text-align: left;
+  font-size: 12px;
+}
+
+.ground-item.is-erase .palette-swatch {
+  display: grid;
+  place-items: center;
+  color: #e08070;
+  font-size: 18px;
+  line-height: 1;
 }
 
 .editor-side {

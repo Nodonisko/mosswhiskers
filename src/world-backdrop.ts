@@ -5,7 +5,8 @@ import { createDriedPondModel, type DriedPondModel } from "./pond-model";
 import { createIntakePipeModel, type IntakePipeModel } from "./pipe-model";
 import { paintPixelTexture } from "./pixel-canvas";
 import { seeded } from "./rng";
-import { inDataCenterClearing, inFarmPlot, isBernieWoods } from "./world";
+import { attachGroundOverlay, type GroundDirty, type GroundMark } from "./ground";
+import { inDataCenterClearing, isBernieWoods } from "./world";
 import {
   BERNIE_POND_HEIGHT,
   BERNIE_POND_SEED,
@@ -14,8 +15,6 @@ import {
   BERNIE_POND_Y,
   BERNIE_WOODS,
   DATA_CENTER,
-  FARM,
-  FARM_PLOT,
   LAKE_HEIGHT,
   LAKE_SEED,
   LAKE_WIDTH,
@@ -33,14 +32,16 @@ import {
   mainPathY,
   southPathX,
 } from "./world-config";
+import { WORLD_GROUND } from "./world-props";
 
 export type WorldBackdrop = {
   southernLake: LakeModel;
   berniePond: DriedPondModel;
   intakePipe: IntakePipeModel;
+  setGround: (marks: readonly GroundMark[], dirty?: readonly GroundDirty[]) => void;
 };
 
-export function addWorldBackdrop(world: THREE.Group): WorldBackdrop {
+export function addWorldBackdrop(world: THREE.Group, marks: readonly GroundMark[] = WORLD_GROUND): WorldBackdrop {
   const textureLoader = new THREE.TextureLoader();
   const grass = textureLoader.load("/assets/meadow-texture.png");
   grass.colorSpace = THREE.SRGBColorSpace;
@@ -58,7 +59,7 @@ export function addWorldBackdrop(world: THREE.Group): WorldBackdrop {
   world.add(ground);
   world.add(makeBernieFloor());
   world.add(makeDataCenterPad());
-  world.add(makeFarmPad());
+  const groundOverlay = attachGroundOverlay(world, marks);
   world.add(makeForestPaths());
 
   const southernLake = createLakeModel({ width: LAKE_WIDTH, height: LAKE_HEIGHT, seed: LAKE_SEED });
@@ -80,7 +81,15 @@ export function addWorldBackdrop(world: THREE.Group): WorldBackdrop {
   const intakePipe = createIntakePipeModel();
   world.add(intakePipe.mesh);
 
-  return { southernLake, berniePond, intakePipe };
+  return {
+    southernLake,
+    berniePond,
+    intakePipe,
+    setGround(next, dirty) {
+      if (dirty?.length) groundOverlay.patch(next, dirty);
+      else groundOverlay.rebuild(next);
+    },
+  };
 }
 
 function makeBernieFloor() {
@@ -153,43 +162,6 @@ function makeDataCenterPad() {
   const mesh = new THREE.Mesh(
     new THREE.PlaneGeometry(width, height),
     new THREE.MeshBasicMaterial({ map, transparent: true, opacity: 0.88, alphaTest: 0.04, depthWrite: false }),
-  );
-  mesh.position.set((west + east) / 2, (south + north) / 2, -19);
-  mesh.renderOrder = -90;
-  return mesh;
-}
-
-function makeFarmPad() {
-  const west = FARM.x - FARM_PLOT.halfW - 16;
-  const east = FARM.x + FARM_PLOT.halfW + 16;
-  const south = FARM.y - FARM_PLOT.halfH - 16;
-  const north = FARM.y + FARM_PLOT.halfH + 16;
-  const width = east - west;
-  const height = north - south;
-  const textureWidth = Math.ceil(width / 4);
-  const textureHeight = Math.ceil(height / 4);
-  const map = paintPixelTexture(textureWidth, textureHeight, (ctx) => {
-    const image = ctx.createImageData(textureWidth, textureHeight);
-    const pixels = image.data;
-    for (let y = 0; y < textureHeight; y++) {
-      for (let x = 0; x < textureWidth; x++) {
-        const worldX = west + (x + 0.5) / textureWidth * width;
-        const worldY = north - (y + 0.5) / textureHeight * height;
-        if (!inFarmPlot(worldX, worldY)) continue;
-        const index = (y * textureWidth + x) * 4;
-        const dust = ((x * 9 + y * 13) % 5) / 5;
-        const furrow = Math.sin((worldX - FARM.x) / 16) > 0.15;
-        pixels[index] = Math.round((furrow ? 96 : 118) + dust * 18);
-        pixels[index + 1] = Math.round((furrow ? 68 : 86) + dust * 14);
-        pixels[index + 2] = Math.round((furrow ? 42 : 54) + dust * 10);
-        pixels[index + 3] = 210;
-      }
-    }
-    ctx.putImageData(image, 0, 0);
-  });
-  const mesh = new THREE.Mesh(
-    new THREE.PlaneGeometry(width, height),
-    new THREE.MeshBasicMaterial({ map, transparent: true, opacity: 0.92, alphaTest: 0.04, depthWrite: false }),
   );
   mesh.position.set((west + east) / 2, (south + north) / 2, -19);
   mesh.renderOrder = -90;

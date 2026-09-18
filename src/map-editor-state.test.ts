@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { WORLD_PROPS } from "./world-props";
+import { WORLD_GROUND, WORLD_PROPS } from "./world-props";
+import { FARM } from "./world-config";
 import { isAuthorableWorldKind, isUniqueNpcKind, nextRotation, normalizeRotation, UNIQUE_NPC_KINDS, canHaveSickFoliage } from "./world-config";
+import { farmPlotGround, groundKindAt, sampleGround } from "./ground";
 import {
   createEditorStore,
   cameraPanBounds,
@@ -9,12 +11,15 @@ import {
   duplicateSelected,
   editorPaletteItems,
   ensureUniqueNpcs,
+  eraseGroundAt,
   fromEditorProps,
   handleIndexAt,
   hitContains,
   hitTest,
   mapClick,
+  paintGroundAt,
   parseEditorDraft,
+  parseWorldGroundJson,
   parseWorldPropsJson,
   pasteClipboard,
   placeAt,
@@ -41,7 +46,7 @@ describe("map editor props", () => {
   });
 
   test("TypeScript export round-trips through import, including lamps", () => {
-    const source = serializeWorldPropsTs(WORLD_PROPS);
+    const source = serializeWorldPropsTs(WORLD_PROPS, WORLD_GROUND);
     const parsed = parseWorldPropsJson(source);
     expect(parsed.filter((prop) => prop.kind === "lamp")).toHaveLength(2);
     expect(parsed.filter((prop) => prop.kind === "lamp")).toEqual(
@@ -172,6 +177,74 @@ describe("map editor props", () => {
       .toEqual(expect.arrayContaining([expect.objectContaining({ kind: "pine", x: 1, y: 2 })]));
     expect(parseEditorDraft("not json")).toBeNull();
     expect(parseEditorDraft(null)).toBeNull();
+  });
+
+  test("ground brush paints, erases, and undo restores Hopsk's field", () => {
+    const farm = farmPlotGround();
+    const store = createEditorStore([], farm);
+    expect(groundKindAt(store.ground, FARM.x, FARM.y)).toBe("furrow");
+    expect(paintGroundAt(store, 80, 40, "moss", 1, true).length).toBeGreaterThan(0);
+    expect(groundKindAt(store.ground, 80, 40)).toBe("moss");
+    expect(eraseGroundAt(store, FARM.x, FARM.y, 2, true).length).toBeGreaterThan(0);
+    expect(groundKindAt(store.ground, FARM.x, FARM.y)).toBeUndefined();
+    expect(undo(store)).toBe(true);
+    expect(groundKindAt(store.ground, FARM.x, FARM.y)).toBe("furrow");
+    expect(groundKindAt(store.ground, 80, 40)).toBe("moss");
+    const source = serializeWorldPropsTs([], store.ground);
+    expect(source).toContain('kind: "moss"');
+    expect(parseWorldGroundJson(source)?.some((mark) => mark.kind === "moss")).toBe(true);
+    expect(parseWorldGroundJson(JSON.stringify([{ kind: "pine", x: 1, y: 2, scale: 1, seed: 1, variant: 0 }]))).toBeUndefined();
+  });
+
+  test("separate clicks stay as dots; only a drag strokes between them", () => {
+    const store = createEditorStore([]);
+    expect(paintGroundAt(store, 0, 0, "dirt", 1, true).length).toBe(1);
+    expect(paintGroundAt(store, 120, 0, "dirt", 1, true).length).toBe(1);
+    expect(store.ground.filter((mark) => mark.kind === "dirt")).toHaveLength(2);
+    expect(groundKindAt(store.ground, 0, 0)).toBe("dirt");
+    expect(groundKindAt(store.ground, 120, 0)).toBe("dirt");
+    expect(groundKindAt(store.ground, 60, 0)).toBeUndefined();
+
+    const dragged = createEditorStore([]);
+    paintGroundAt(dragged, 0, 0, "dirt", 1, true);
+    paintGroundAt(dragged, 120, 0, "dirt", 1, false);
+    expect(dragged.ground.length).toBeGreaterThan(2);
+    expect(groundKindAt(dragged.ground, 60, 0)).toBe("dirt");
+  });
+
+  test("ground brush stores opacity and softness on stamps", () => {
+    const store = createEditorStore([]);
+    expect(paintGroundAt(store, 10, 20, "sand", 1, true, 0.4, 0.2).length).toBe(1);
+    expect(store.ground.at(-1)).toEqual({ x: 10, y: 20, r: 24, kind: "sand", opacity: 0.4, softness: 0.2 });
+    const source = serializeWorldPropsTs([], store.ground);
+    expect(source).toContain("opacity: 0.4");
+    expect(source).toContain("softness: 0.2");
+    expect(parseWorldGroundJson(source)).toEqual([
+      { x: 10, y: 20, r: 24, kind: "sand", opacity: 0.4, softness: 0.2 },
+    ]);
+    expect(paintGroundAt(store, 10, 20, "sand", 1, true, 0.4, 0.2).length).toBe(1);
+    expect(store.ground).toHaveLength(2);
+    expect(sampleGround(store.ground, 10, 20)?.alpha).toBeCloseTo(0.64);
+  });
+
+  test("editor draft keeps painted ground next to props", () => {
+    const raw = serializeEditorDraft({
+      props: [{ kind: "lamp", x: 11, y: -4, scale: 1, seed: 2, variant: 0 }],
+      ground: [{ x: 84, y: -36, r: 24, kind: "sand" }],
+      camera: { x: 40, y: -12, zoom: 0.8 },
+    });
+    const draft = parseEditorDraft(raw);
+    expect(draft?.ground).toEqual([{ x: 84, y: -36, r: 24, kind: "sand" }]);
+  });
+
+  test("editor draft keeps stamp opacity and softness", () => {
+    const raw = serializeEditorDraft({
+      props: [],
+      ground: [{ x: 12, y: -8, r: 24, kind: "moss", opacity: 0.4, softness: 0.2 }],
+      camera: { x: 0, y: 0, zoom: 0.55 },
+    });
+    const draft = parseEditorDraft(raw);
+    expect(draft?.ground).toEqual([{ x: 12, y: -8, r: 24, kind: "moss", opacity: 0.4, softness: 0.2 }]);
   });
 
   test("duplicate skips NPCs", () => {
