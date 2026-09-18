@@ -1609,8 +1609,22 @@ export const WORLD_PROPS: WorldProp[] = [
   },
   { kind: "sam", x: 1338, y: 772, scale: 2.05, seed: 0, variant: 0 },
   { kind: "rabbit", x: -1530, y: -660, scale: 2.05, seed: 0, variant: 0 },
-  { kind: "greta", x: 737, y: -980, scale: 2.05, seed: 0, variant: 0 },
-  { kind: "wolfenberg", x: 818, y: -1148, scale: 2.05, seed: 0, variant: 0 },
+  {
+    kind: "greta",
+    x: 733.1518,
+    y: -941.7341,
+    scale: 2.05,
+    seed: 0,
+    variant: 0,
+  },
+  {
+    kind: "wolfenberg",
+    x: 830.1635,
+    y: -1100.3067,
+    scale: 2.05,
+    seed: 0,
+    variant: 0,
+  },
   { kind: "lamp", x: -96.13, y: -179.6561, scale: 1.12, seed: 24, variant: 0 },
   { kind: "lamp", x: 131.068, y: -101.5126, scale: 1.12, seed: 25, variant: 0 },
   {
@@ -1849,7 +1863,7 @@ export const WORLD_PROPS: WorldProp[] = [
   {
     kind: "oak",
     x: 895.3879,
-    y: -1074.9045,
+    y: -1075.4383,
     scale: 1.2331,
     seed: 507,
     variant: 2,
@@ -1954,7 +1968,7 @@ export const WORLD_PROPS: WorldProp[] = [
   },
   {
     kind: "oak",
-    x: 783.3318,
+    x: 783.5941,
     y: -1287.4942,
     scale: 1.2331,
     seed: 507,
@@ -3841,9 +3855,41 @@ export const WORLD_PROPS: WorldProp[] = [
     seed: 33,
     variant: 0,
   },
+  {
+    kind: "bush",
+    x: 795.4244,
+    y: -1101.4203,
+    scale: 1.6747,
+    seed: 1072,
+    variant: 0,
+  },
+  {
+    kind: "mushroom",
+    x: 809.0347,
+    y: -1001.5173,
+    scale: 0.6,
+    seed: 1073,
+    variant: 3,
+  },
+  {
+    kind: "mushroom",
+    x: 1023.1163,
+    y: -1182.1859,
+    scale: 0.6,
+    seed: 1074,
+    variant: 3,
+  },
+  {
+    kind: "mushroom",
+    x: 572.3826,
+    y: -1123.0677,
+    scale: 0.6,
+    seed: 1075,
+    variant: 0,
+  },
 ];
 
-// @ts-ignore TS2590: union too complex
+// @ts-ignore TS2590: union too complex for a generated array this large.
 export const WORLD_GROUND: GroundMark[] = [
   { x: -1447.6, y: -1031.2, r: 24, kind: "furrow" },
   { x: -1430.8, y: -1031.2, r: 24, kind: "furrow" },
