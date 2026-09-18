@@ -6,6 +6,7 @@ import {
   BERNIE,
   BERNIE_HUT,
   BERNIE_PATH_APPROACH_Y,
+  BERNIE_PATH_JOIN_X,
   BERNIE_POND_HEIGHT,
   BERNIE_POND_SEED,
   BERNIE_POND_WIDTH,
@@ -151,6 +152,15 @@ describe("createWorldLayout", () => {
       && Math.abs(prop.x - BERNIE_HUT.x) < 58
     ));
     expect(blocking).toEqual([]);
+  });
+
+  test("Bernie's trail meets the main road", () => {
+    const points = berniePathPoints();
+    expect(points.length).toBeGreaterThan(8);
+    const [startX, startY] = points[0]!;
+    expect(Math.abs(startY - mainPathY(startX))).toBeLessThan(8);
+    expect(BERNIE_PATH_JOIN_X - BERNIE_HUT.x).toBeGreaterThan(600);
+    expect(BERNIE_PATH_JOIN_X - BERNIE_HUT.x).toBeLessThan(900);
   });
 
   test("Bernie hut sits west of the pond and the trail does not cross the basin", () => {

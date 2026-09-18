@@ -72,8 +72,10 @@ export const BERNIE_POND_WIDTH = 680;
 export const BERNIE_POND_HEIGHT = 410;
 export const BERNIE_POND_SEED = 3311;
 const berniePondPhase = lakePhaseFromSeed(BERNIE_POND_SEED);
-/** East-west approach stays south of the dried pond, then turns north to the hut. */
+/** Used to keep the stoop clear; the trail itself is an S from the main road. */
 export const BERNIE_PATH_APPROACH_Y = 500;
+/** Main-road junction east of the hut so the S has a long east-west middle. */
+export const BERNIE_PATH_JOIN_X = BERNIE_HUT.x + 780;
 
 /** Far-northeast campus. Sprite origin is the south wall, feet on the last canvas rows. */
 export const DATA_CENTER = { x: 1260, y: 820 };
@@ -321,14 +323,29 @@ export const southPathX = (y: number) => 655 + Math.sin((y + 290) / 145) * 82;
 export const denPathX = (y: number) => Math.sin((y + 170) / 56) * 24;
 
 export function berniePathPoints(): Array<[number, number]> {
+  const joinX = BERNIE_PATH_JOIN_X;
+  const startY = mainPathY(joinX);
+  const hutX = BERNIE_HUT.x;
+  const hutY = BERNIE_HUT.y - 10;
+  const lowY = 400;
+  const wave = 150;
   const points: Array<[number, number]> = [];
-  for (let x = BERNIE_WOODS.east + 12; x >= BERNIE_HUT.x; x -= 20) {
-    points.push([x, BERNIE_PATH_APPROACH_Y + Math.sin((x + 980) / 88) * 20]);
+  const steps = 96;
+  const smoother = (edge0: number, edge1: number, x: number) => {
+    const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
+    return t * t * t * (t * (t * 6 - 15) + 10);
+  };
+  for (let i = 0; i <= steps; i++) {
+    const s = i / steps;
+    const sweep = smoother(0.2, 0.8, s);
+    const climb1 = smoother(0, 0.36, s);
+    const climb2 = smoother(0.64, 1, s);
+    const x = joinX + (hutX - joinX) * sweep;
+    const u = sweep;
+    const sWave = Math.sin(Math.PI * 2 * u) * Math.sin(Math.PI * u);
+    const y = startY + (lowY - startY) * climb1 + (hutY - lowY) * climb2 + wave * sWave;
+    points.push([x, y]);
   }
-  for (let y = BERNIE_PATH_APPROACH_Y; y <= BERNIE_HUT.y - 16; y += 16) {
-    points.push([BERNIE_HUT.x + Math.sin((y + 40) / 64) * 12, y]);
-  }
-  points.push([BERNIE_HUT.x, BERNIE_HUT.y - 10]);
   return points;
 }
 
