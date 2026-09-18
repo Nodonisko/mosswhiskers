@@ -5,7 +5,7 @@ const QUEST_COPY: Record<QuestId, { summary: string; objective: string }> = {
   sandwhisker: {
     summary: "Bernie's woods are dying and the pond is a puddle.",
     objective:
-      "Bring Bernie fish and mice. He lives in the far northwest of the wood.",
+      "Bring Bernie mice. Fish too, if you have them. He lives in the far northwest of the wood.",
   },
   pond: {
     summary: "Bernie took the fish and mice.",
@@ -130,7 +130,10 @@ export function createQuestHud(root: HTMLElement) {
       }
       if (!hasQuest) setOpen(false);
       const hint = player?.questHint;
-      const showToast = Boolean(hint) && !player?.openId && (player?.questHintElapsed ?? 0) >= QUEST_HINT_DELAY;
+      const showToast =
+        Boolean(hint) &&
+        !player?.openId &&
+        (player?.questHintElapsed ?? 0) >= QUEST_HINT_DELAY;
       if (showToast && hint) questToast.textContent = QUEST_HINT[hint];
       questToast.classList.toggle("is-on", showToast);
     },

@@ -1,5 +1,11 @@
 import type { PlayerSim, TalkId } from "./sim";
-import { BERNIE_NAME, GRETA_NAME, RABBIT_NAME, SAM_NAME, WOLFENBERG_NAME } from "./world-config";
+import {
+  BERNIE_NAME,
+  GRETA_NAME,
+  RABBIT_NAME,
+  SAM_NAME,
+  WOLFENBERG_NAME,
+} from "./world-config";
 
 type TalkCopy = {
   name: string;
@@ -14,7 +20,7 @@ const TALK: Record<TalkId, TalkCopy> = {
       "You came. Good. These trees have gone the color of old straw, and I cannot hunt a thing.",
     ],
     objective:
-      "Bring me some fish and mice, would you? Anything the south woods still have.",
+      "Bring me some mice, would you? Fish too, if the south woods still have any.",
   },
   "bernie-thanks": {
     name: BERNIE_NAME,
@@ -153,7 +159,8 @@ const TALK: Record<TalkId, TalkCopy> = {
     paragraphs: [
       "I should be bringing biscuits to grandmother, but I am on this path because the grown wolves will not leave the coal in the ground.",
     ],
-    objective: "Grandmother may have a stove. She does not need another degree.",
+    objective:
+      "Grandmother may have a stove. She does not need another degree.",
   },
   "wolfenberg-note": {
     name: WOLFENBERG_NAME,

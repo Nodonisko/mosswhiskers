@@ -717,13 +717,25 @@ describe("Bernie conversation", () => {
     expect(cat(sim).progress.activeQuest).toBe("sandwhisker");
   });
 
-  test("Bernie asks for fish and mice if the pack is short", () => {
+  test("Bernie asks for mice if the pack is short, even with fish", () => {
     const sim = simAtBernie();
-    addToInventory(cat(sim), "mouse");
+    addToInventory(cat(sim), "pike");
     tick(sim, { x: 0, y: 0, interact: true }, 0.05);
     expect(cat(sim).talkId).toBe("bernie-ask");
     expect(cat(sim).progress.activeQuest).toBe("sandwhisker");
-    expect(cat(sim).inventory).toEqual([{ kind: "mouse", count: 1 }]);
+    expect(cat(sim).inventory).toEqual([{ kind: "pike", count: 1 }]);
+  });
+
+  test("Bernie takes mice without fish, then asks about the pond", () => {
+    const sim = simAtBernie();
+    addToInventory(cat(sim), "mouse");
+    addToInventory(cat(sim), "carrot");
+    tick(sim, { x: 0, y: 0, interact: true }, 0.05);
+    expect(cat(sim).talkId).toBe("bernie-thanks");
+    expect(cat(sim).progress.mailboxRead).toBe(true);
+    expect(cat(sim).progress.activeQuest).toBe("pond");
+    expect(cat(sim).questHint).toBe("pond");
+    expect(cat(sim).inventory).toEqual([{ kind: "carrot", count: 1 }]);
   });
 
   test("Bernie takes every fish and mouse, then asks about the pond", () => {

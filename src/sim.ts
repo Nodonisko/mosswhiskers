@@ -395,12 +395,8 @@ export function countKind(slots: readonly InventorySlot[], kind: InventoryItemKi
   return slots.find((slot) => slot.kind === kind)?.count ?? 0;
 }
 
-export function countFish(slots: readonly InventorySlot[]) {
-  return FISH_KINDS.reduce((sum, kind) => sum + countKind(slots, kind), 0);
-}
-
 export function hasBernieSupplies(slots: readonly InventorySlot[]) {
-  return countKind(slots, "mouse") >= BERNIE_SUPPLY.mice && countFish(slots) >= BERNIE_SUPPLY.fish;
+  return countKind(slots, "mouse") >= BERNIE_SUPPLY.mice;
 }
 
 export function removeFromInventory(player: PlayerSim, kind: InventoryItemKind, amount = 1) {
