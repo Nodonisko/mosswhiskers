@@ -17,7 +17,7 @@ import {
   type GameSim,
   type Walkable,
 } from "./sim";
-import { BERNIE, BERNIE_POND_X, BERNIE_POND_Y, CAT_SPEED, CLAW_DURATION, FARM_CARROTS, HISS_TEXT_DELAY, INTAKE, LOCAL_PLAYER_ID, MAILBOX, MEOW_DURATION, MEOW_TEXT_DELAY, MOUSE_RESPAWN, nearIntakeRim, QUEST_HINT_DELAY, QUEST_HINT_DURATION, RABBIT, ROCKET_CARROT, ROCKET_IGNITE, SAM, TICK_DT } from "./world-config";
+import { BERNIE, BERNIE_POND_X, BERNIE_POND_Y, CAT_SPEED, CLAW_DURATION, FARM_CARROTS, GRETA, HISS_TEXT_DELAY, INTAKE, LOCAL_PLAYER_ID, MAILBOX, MEOW_DURATION, MEOW_TEXT_DELAY, MOUSE_RESPAWN, nearIntakeRim, QUEST_HINT_DELAY, QUEST_HINT_DURATION, RABBIT, ROCKET_CARROT, ROCKET_IGNITE, SAM, TICK_DT, WOLFENBERG } from "./world-config";
 
 const openGround = () => true;
 const blocked = () => false;
@@ -247,6 +247,29 @@ describe("tickSim", () => {
       players: [{ x: RABBIT.x - 28, y: RABBIT.y }],
       fish: [],
       interactables: [{ id: "rabbit", kind: "rabbit", x: RABBIT.x, y: RABBIT.y }],
+    });
+    cat(sim).facing = "e";
+    tick(sim, { x: 0, y: 0, claw: true }, 0.12);
+    expect(sim.hisses).toEqual([]);
+    expect(cat(sim).clawHissed).toBe(false);
+  });
+
+  test("clawing Greta Thornberg makes her hiss", () => {
+    const sim = createSim({
+      players: [{ x: GRETA.x - 28, y: GRETA.y }],
+      fish: [],
+      interactables: [{ id: "greta", kind: "greta", x: GRETA.x, y: GRETA.y }],
+    });
+    cat(sim).facing = "e";
+    tick(sim, { x: 0, y: 0, claw: true }, 0.12);
+    expect(hissById(sim, "greta")?.hissing).toBe(true);
+  });
+
+  test("clawing Mark Wolfenberg does not hiss", () => {
+    const sim = createSim({
+      players: [{ x: WOLFENBERG.x - 28, y: WOLFENBERG.y }],
+      fish: [],
+      interactables: [{ id: "wolfenberg", kind: "wolfenberg", x: WOLFENBERG.x, y: WOLFENBERG.y }],
     });
     cat(sim).facing = "e";
     tick(sim, { x: 0, y: 0, claw: true }, 0.12);
@@ -954,6 +977,34 @@ describe("Elon Hopsk and the intake", () => {
     expect(playerById(sim, "guest")!.talkId).toBe("hopsk-wait");
     expect(playerById(sim, "guest")!.inventory).toEqual([]);
     expect(playerById(sim, "guest")!.progress.heardHopsk).toBe(false);
+  });
+});
+
+describe("southeast woods conversation", () => {
+  test("Greta always tells the same note and does not start a quest", () => {
+    const sim = createSim({
+      players: [{ id: LOCAL_PLAYER_ID, x: GRETA.x, y: GRETA.y }],
+      fish: [],
+      interactables: [{ id: "greta", kind: "greta", x: GRETA.x, y: GRETA.y }],
+    });
+    tick(sim, { x: 0, y: 0, interact: true }, 0.05);
+    expect(cat(sim).talkId).toBe("greta-note");
+    expect(cat(sim).progress.activeQuest).toBeNull();
+    tick(sim, { x: 0, y: 0, interact: true }, 0.05);
+    tick(sim, { x: 0, y: 0, interact: true }, 0.05);
+    expect(cat(sim).talkId).toBe("greta-note");
+    expect(cat(sim).progress.activeQuest).toBeNull();
+  });
+
+  test("Wolfenberg always tells the same note and does not start a quest", () => {
+    const sim = createSim({
+      players: [{ id: LOCAL_PLAYER_ID, x: WOLFENBERG.x, y: WOLFENBERG.y }],
+      fish: [],
+      interactables: [{ id: "wolfenberg", kind: "wolfenberg", x: WOLFENBERG.x, y: WOLFENBERG.y }],
+    });
+    tick(sim, { x: 0, y: 0, interact: true }, 0.05);
+    expect(cat(sim).talkId).toBe("wolfenberg-note");
+    expect(cat(sim).progress.activeQuest).toBeNull();
   });
 });
 

@@ -12,4 +12,6 @@ test("says TALK beside an NPC", () => {
   expect(interactButtonLabel("bernie")).toBe("TALK");
   expect(interactButtonLabel("sam")).toBe("TALK");
   expect(interactButtonLabel("rabbit")).toBe("TALK");
+  expect(interactButtonLabel("greta")).toBe("TALK");
+  expect(interactButtonLabel("wolfenberg")).toBe("TALK");
 });

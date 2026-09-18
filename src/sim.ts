@@ -41,7 +41,7 @@ export type InventorySlot = {
   count: number;
 };
 
-export type InteractableKind = "mailbox" | "bernie" | "sam" | "rabbit" | "intake";
+export type InteractableKind = "mailbox" | "bernie" | "sam" | "rabbit" | "greta" | "wolfenberg" | "intake";
 
 export type Interactable = {
   id: string;
@@ -72,7 +72,9 @@ export type TalkId =
   | "hopsk-clogged"
   | "intake-look"
   | "intake-stuff"
-  | "intake-clogged";
+  | "intake-clogged"
+  | "greta-note"
+  | "wolfenberg-note";
 
 export type PlayerProgress = {
   mailboxRead: boolean;
@@ -198,7 +200,7 @@ export type GameSim = {
   rocketCarrots: RocketCarrotSim[];
 };
 
-export const HISS_KINDS = new Set<InteractableKind>(["bernie", "sam"]);
+export const HISS_KINDS = new Set<InteractableKind>(["bernie", "sam", "greta"]);
 
 export function canHiss(item: Interactable) {
   return HISS_KINDS.has(item.kind);
@@ -461,6 +463,14 @@ function talkToHopsk(player: PlayerSim) {
   player.talkId = "hopsk-nudge";
 }
 
+function talkToGreta(player: PlayerSim) {
+  player.talkId = "greta-note";
+}
+
+function talkToWolfenberg(player: PlayerSim) {
+  player.talkId = "wolfenberg-note";
+}
+
 function talkToIntake(player: PlayerSim) {
   if (player.progress.pipeClogged) {
     player.talkId = "intake-clogged";
@@ -627,6 +637,8 @@ function tickPlayer(
       else if (nearby.kind === "bernie") talkToBernie(player);
       else if (nearby.kind === "sam") talkToSam(player);
       else if (nearby.kind === "rabbit") talkToHopsk(player);
+      else if (nearby.kind === "greta") talkToGreta(player);
+      else if (nearby.kind === "wolfenberg") talkToWolfenberg(player);
       else if (nearby.kind === "intake") talkToIntake(player);
     } else {
       player.meowing = true;

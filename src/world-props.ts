@@ -1609,6 +1609,8 @@ export const WORLD_PROPS: WorldProp[] = [
   },
   { kind: "sam", x: 1338, y: 772, scale: 2.05, seed: 0, variant: 0 },
   { kind: "rabbit", x: -1530, y: -660, scale: 2.05, seed: 0, variant: 0 },
+  { kind: "greta", x: 737, y: -980, scale: 2.05, seed: 0, variant: 0 },
+  { kind: "wolfenberg", x: 818, y: -1148, scale: 2.05, seed: 0, variant: 0 },
   { kind: "lamp", x: -96.13, y: -179.6561, scale: 1.12, seed: 24, variant: 0 },
   { kind: "lamp", x: 131.068, y: -101.5126, scale: 1.12, seed: 25, variant: 0 },
   {

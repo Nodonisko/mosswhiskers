@@ -71,8 +71,10 @@ describe("map editor props", () => {
     expect(parsed.some((prop) => prop.kind === "hut" || prop.kind === "carrot")).toBe(false);
     expect(parsed.filter((prop) => isUniqueNpcKind(prop.kind)).map((prop) => prop.kind).sort()).toEqual([
       "bernie",
+      "greta",
       "rabbit",
       "sam",
+      "wolfenberg",
     ]);
   });
 

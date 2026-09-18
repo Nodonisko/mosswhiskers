@@ -29,7 +29,7 @@ const textureCache = new Map<string, THREE.CanvasTexture>();
 
 export const WORLD_MODEL_SIZES: Record<WorldModelKind, readonly [number, number]> = {
   pine: [88, 142], oak: [120, 152], willow: [146, 168], bush: [42, 38], den: [198, 154], hut: [136, 118], datacenter: [312, 180], racks: [96, 88], bernie: [36, 42], sam: [36, 42],
-  carrot: [56, 92], rabbit: [36, 42], fence: [78, 36], shed: [188, 132],
+  carrot: [56, 92], rabbit: [36, 42], greta: [36, 42], wolfenberg: [36, 42], fence: [78, 36], shed: [188, 132],
   mailbox: [26, 48], mailBubble: [46, 38], lamp: [28, 84], flowers: [40, 40], stone: [32, 22], log: [90, 32],
   grass: [44, 28], wheat: [48, 44], reeds: [42, 68], mushroom: [36, 34], moss: [50, 22], mossLog: [90, 36], fern: [48, 44], stump: [46, 38], clover: [36, 20],
   cat: [36, 42],
@@ -783,6 +783,67 @@ function samCat(p: Paint) {
   p.rect(ax(9), 14, 2, 2, '#fff8f0');
 }
 
+function greta(p: Paint) {
+  const ax = (n: number) => n + 8;
+  p.poly([[ax(7), 16], [ax(3), 18], [ax(1), 24], [ax(2), 28], [ax(6), 27], [ax(8), 25], [ax(10), 26], [ax(12), 25], [ax(14), 27], [ax(18), 28], [ax(19), 24], [ax(17), 18], [ax(13), 16]], '#9a2a22');
+  p.poly([[ax(7), 17], [ax(4), 19], [ax(3), 24], [ax(4), 27], [ax(7), 26], [ax(10), 24], [ax(13), 26], [ax(16), 27], [ax(17), 24], [ax(16), 19], [ax(13), 17]], '#c43c32');
+  p.poly([[ax(3), 19], [ax(2), 23], [ax(4), 27], [ax(5), 22]], '#e85a4a');
+  p.poly([[ax(17), 19], [ax(18), 23], [ax(16), 27], [ax(15), 22]], '#e85a4a');
+  catFront(p, 0, {
+    fur: '#d2b48c',
+    shadow: '#8a6a44',
+    light: '#ead7b0',
+    belly: '#f3e6cc',
+    paw: '#e6d3b0',
+  }, clawTint(false));
+  p.poly([[ax(3), 12], [ax(2), 8], [ax(4), 4], [ax(10), 2], [ax(16), 4], [ax(18), 8], [ax(17), 12], [ax(14), 11], [ax(6), 11]], '#9a2a22');
+  p.poly([[ax(4), 12], [ax(3), 8], [ax(5), 5], [ax(10), 3], [ax(15), 5], [ax(17), 8], [ax(16), 12], [ax(13), 10], [ax(7), 10]], '#c43c32');
+  p.rect(ax(8), 4, 4, 2, '#e85a4a');
+  p.rect(ax(10), 3, 2, 2, '#e85a4a');
+  p.rect(ax(3), 10, 3, 6, '#9a2a22');
+  p.rect(ax(4), 10, 2, 6, '#c43c32');
+  p.rect(ax(15), 10, 3, 6, '#9a2a22');
+  p.rect(ax(15), 10, 2, 6, '#c43c32');
+  p.rect(ax(6), 20, 8, 2, '#9a2a22');
+  p.rect(ax(7), 20, 6, 1, '#c43c32');
+}
+
+function wolfenberg(p: Paint) {
+  const ax = (n: number) => n + 8;
+  p.ellipse(ax(10), 28, 7, 2, '#536740');
+  p.poly([[ax(14), 18], [ax(17), 15], [ax(20), 18], [ax(20), 23], [ax(17), 25], [ax(14), 22]], '#6a6a70');
+  p.poly([[ax(15), 19], [ax(17), 17], [ax(19), 19], [ax(18), 23], [ax(16), 23]], '#8a8a90');
+  p.ellipse(ax(13), 22, 5, 6, '#6a6a70');
+  p.ellipse(ax(12), 21, 4, 5, '#8a8a90');
+  p.ellipse(ax(10), 18, 6, 8, '#6a6a70');
+  p.ellipse(ax(10), 17, 5, 7, '#8a8a90');
+  p.rect(ax(8), 16, 5, 7, '#c4c4c8');
+  p.poly([[ax(5), 10], [ax(3), 3], [ax(6), 1], [ax(8), 10]], '#6a6a70');
+  p.poly([[ax(6), 10], [ax(4), 4], [ax(6), 2], [ax(7), 10]], '#8a8a90');
+  p.rect(ax(6), 4, 1, 5, '#8a7870');
+  p.poly([[ax(12), 10], [ax(14), 1], [ax(17), 2], [ax(15), 10]], '#6a6a70');
+  p.poly([[ax(13), 10], [ax(14), 2], [ax(16), 3], [ax(14), 10]], '#8a8a90');
+  p.rect(ax(14), 3, 1, 6, '#8a7870');
+  p.ellipse(ax(10), 10, 6, 6, '#6a6a70');
+  p.ellipse(ax(10), 10, 5, 5, '#8a8a90');
+  p.ellipse(ax(10), 11, 3, 3, '#c4c4c8');
+  p.rect(ax(6), 14, 9, 2, '#0668e1');
+  p.rect(ax(7), 14, 7, 1, '#3d8af0');
+  p.poly([[ax(7), 12], [ax(13), 12], [ax(12), 16], [ax(10), 17], [ax(9), 16]], '#c4c4c8');
+  p.rect(ax(9), 15, 3, 2, '#1a1814');
+  p.rect(ax(10), 15, 1, 1, '#4a4440');
+  p.rect(ax(6), 9, 2, 2, '#1a1814');
+  p.rect(ax(13), 9, 2, 2, '#1a1814');
+  p.rect(ax(6), 9, 1, 1, '#fff8f0');
+  p.rect(ax(13), 9, 1, 1, '#fff8f0');
+  p.line(ax(6), 15, ax(1), 14, '#0668e1');
+  p.line(ax(14), 15, ax(19), 14, '#0668e1');
+  p.rect(ax(6), 24, 4, 4, '#6a6a70');
+  p.rect(ax(12), 24, 4, 4, '#6a6a70');
+  p.rect(ax(6), 26, 5, 3, '#8a8a90');
+  p.rect(ax(12), 26, 5, 3, '#8a8a90');
+}
+
 function carrot(p: Paint, variant: number) {
   if (variant >= 20) {
     rocketCarrot(p);
@@ -1253,6 +1314,8 @@ export function paintWorldModel(kind: WorldModelKind, options: WorldModelOptions
     case 'sam': samCat(p); break;
     case 'carrot': carrot(p, variant); break;
     case 'rabbit': rabbit(p); break;
+    case 'greta': greta(p); break;
+    case 'wolfenberg': wolfenberg(p); break;
     case 'fence': fence(p); break;
     case 'shed': shed(p); break;
     case 'mailbox': mailbox(p); break;
@@ -1322,7 +1385,7 @@ export function createWorldModel(kind: WorldModelKind, options: WorldModelOption
   const texture = getWorldModelTexture(kind, options);
   const material = new THREE.SpriteMaterial({ map: texture, transparent: true, alphaTest: 0.5, depthWrite: false, toneMapped: false });
   const sprite = new THREE.Sprite(material);
-  sprite.center.set(0.5, kind === 'cat' || kind === 'bernie' || kind === 'sam' || kind === 'rabbit' ? (height - 30) / height : 0);
+  sprite.center.set(0.5, kind === 'cat' || kind === 'bernie' || kind === 'sam' || kind === 'rabbit' || kind === 'greta' || kind === 'wolfenberg' ? (height - 30) / height : 0);
   sprite.scale.set(width * (options.scale ?? 1), height * (options.scale ?? 1), 1);
   sprite.name = `${kind}-${seed}-${variant}`;
   sprite.userData = { id: sprite.name, kind, seed, variant, nativeWidth: width, nativeHeight: height };
@@ -1342,7 +1405,7 @@ export function applyWorldPropPose(sprite: THREE.Sprite, prop: Pick<WorldProp, "
     sprite.position.set(prop.x, prop.y + (height * scale) / 2, 0);
     return;
   }
-  const paw = prop.kind === "cat" || prop.kind === "bernie" || prop.kind === "sam" || prop.kind === "rabbit";
+  const paw = prop.kind === "cat" || prop.kind === "bernie" || prop.kind === "sam" || prop.kind === "rabbit" || prop.kind === "greta" || prop.kind === "wolfenberg";
   sprite.center.set(0.5, paw ? (height - 30) / height : 0);
   sprite.position.set(prop.x, prop.y, 0);
 }

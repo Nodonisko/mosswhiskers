@@ -41,6 +41,7 @@ import {
   TREE_TRUNK_HITBOX,
   isRotatableWorldKind,
   normalizeRotation,
+  type UniqueNpcKind,
   type WorldModelKind,
   type WorldProp,
 } from "./world-config";
@@ -220,7 +221,7 @@ export function createLockedProps(): WorldProp[] {
   return props;
 }
 
-function npcInteractable(props: readonly WorldProp[], kind: "bernie" | "sam" | "rabbit"): Interactable {
+function npcInteractable(props: readonly WorldProp[], kind: UniqueNpcKind): Interactable {
   const prop = props.find((item) => item.kind === kind);
   if (!prop) throw new Error(`${kind} is missing from the authored world props`);
   return { id: kind, kind, x: prop.x, y: prop.y };
@@ -241,6 +242,8 @@ export function createWorldLayout(editable = WORLD_PROPS): WorldLayout {
       npcInteractable(editable, "bernie"),
       npcInteractable(editable, "sam"),
       npcInteractable(editable, "rabbit"),
+      npcInteractable(editable, "greta"),
+      npcInteractable(editable, "wolfenberg"),
       { id: "intake", kind: "intake", x: INTAKE.x, y: INTAKE.y },
     ],
   };

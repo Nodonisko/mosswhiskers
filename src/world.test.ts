@@ -17,6 +17,7 @@ import {
   DATA_CENTER,
   DATA_CENTER_SCALE,
   dataCenterPathPoints,
+  GRETA,
   FARM,
   FARM_CARROTS,
   FARM_SHED,
@@ -36,6 +37,9 @@ import {
   PIER_Y,
   RABBIT,
   SAM,
+  southPathX,
+  UNIQUE_NPC_KINDS,
+  WOLFENBERG,
   TREE_TRUNK_HITBOX,
   isAuthorableWorldKind,
   isUniqueNpcKind,
@@ -51,6 +55,8 @@ describe("createWorldLayout", () => {
     expect(layout.props.filter((prop) => prop.kind === "bernie")).toHaveLength(1);
     expect(layout.props.filter((prop) => prop.kind === "sam")).toHaveLength(1);
     expect(layout.props.filter((prop) => prop.kind === "rabbit")).toHaveLength(1);
+    expect(layout.props.filter((prop) => prop.kind === "greta")).toHaveLength(1);
+    expect(layout.props.filter((prop) => prop.kind === "wolfenberg")).toHaveLength(1);
     expect(layout.props.filter((prop) => prop.kind === "hut")).toHaveLength(1);
     expect(layout.props.filter((prop) => prop.kind === "lamp")).toHaveLength(2);
     expect(layout.props.filter((prop) => prop.kind === "carrot").length).toBeGreaterThan(0);
@@ -219,15 +225,24 @@ describe("createWalkable", () => {
     expect(walkable(FARM_SHED.x, FARM_SHED.y)).toBe(false);
   });
 
+  test("Greta stands on the south path and Wolfenberg waits further into the wood", () => {
+    expect(walkable(GRETA.x, GRETA.y)).toBe(false);
+    expect(walkable(WOLFENBERG.x, WOLFENBERG.y)).toBe(false);
+    expect(Math.abs(GRETA.x - southPathX(GRETA.y))).toBeLessThan(8);
+    expect(WOLFENBERG.y).toBeLessThan(GRETA.y);
+    expect(WOLFENBERG.x).toBeGreaterThan(GRETA.x);
+    expect(Math.hypot(WOLFENBERG.x - GRETA.x, WOLFENBERG.y - GRETA.y)).toBeGreaterThan(100);
+    expect(Math.hypot(WOLFENBERG.x - GRETA.x, WOLFENBERG.y - GRETA.y)).toBeLessThan(220);
+  });
+
   test("logs and stumps block their ground footprint", () => {
-    const bernie = WORLD_PROPS.find((prop) => prop.kind === "bernie");
-    const sam = WORLD_PROPS.find((prop) => prop.kind === "sam");
-    const rabbit = WORLD_PROPS.find((prop) => prop.kind === "rabbit");
-    if (!bernie || !sam || !rabbit) throw new Error("NPCs are missing from authored props");
+    const npcs = UNIQUE_NPC_KINDS.map((kind) => {
+      const prop = WORLD_PROPS.find((item) => item.kind === kind);
+      if (!prop) throw new Error(`${kind} is missing from authored props`);
+      return prop;
+    });
     const blocked = createWalkable(createWorldLayout([
-      bernie,
-      sam,
-      rabbit,
+      ...npcs,
       { kind: "log", x: 80, y: 40, scale: 1, seed: 1, variant: 0 },
       { kind: "mossLog", x: 80, y: 140, scale: 1, seed: 1, variant: 0, rot: 90 },
       { kind: "stump", x: 80, y: 240, scale: 1, seed: 1, variant: 0 },

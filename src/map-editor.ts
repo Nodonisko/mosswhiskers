@@ -718,6 +718,8 @@ function startEditor() {
       bernie: "#f4eac8",
       sam: "#6b3e22",
       rabbit: "#fff8f0",
+      greta: "#c43c32",
+      wolfenberg: "#8a8a90",
     };
       const flowerColors = ["#e7e8c9", "#6595ba", "#c591b1", "#e0c45a", "#d4843c", "#8a6aaa", "#c45a4a", "#f0ead0"] as const;
       for (const prop of store.props) {

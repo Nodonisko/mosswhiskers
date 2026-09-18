@@ -99,6 +99,12 @@ export const FARM_SHED_SCALE = 1.22;
 /** Next to Bag End, facing anyone walking up from the plot. */
 export const RABBIT = { x: FARM_SHED.x + 50, y: FARM_SHED.y - 10 };
 export const RABBIT_NAME = "Elon Hopsk";
+/** South path at the southeast wood, facing anyone walking down from the colony. */
+export const GRETA = { x: 737, y: -980 };
+export const GRETA_NAME = "Greta Thornberg";
+/** A little further into the trees, waiting. */
+export const WOLFENBERG = { x: 818, y: -1148 };
+export const WOLFENBERG_NAME = "Mark Wolfenberg";
 /** Biggest carrot in the plot. All farm carrots launch if you claw them. */
 export const ROCKET_CARROT = {
   x: FARM.x + 38,
@@ -128,6 +134,8 @@ export type WorldModelKind =
   | "sam"
   | "carrot"
   | "rabbit"
+  | "greta"
+  | "wolfenberg"
   | "fence"
   | "shed"
   | "mailbox"
@@ -223,7 +231,7 @@ export function normalizeFlowerVariant(value: unknown): FlowerVariant {
 }
 
 /** Unique characters: the editor can move them, not add or remove them. */
-export const UNIQUE_NPC_KINDS = ["bernie", "sam", "rabbit"] as const;
+export const UNIQUE_NPC_KINDS = ["bernie", "sam", "rabbit", "greta", "wolfenberg"] as const;
 export type UniqueNpcKind = (typeof UNIQUE_NPC_KINDS)[number];
 
 /** Long sprites the editor can spin to any angle. */
@@ -310,6 +318,8 @@ export const TREE_TRUNK_HITBOX: Partial<
   sam: [8, 6],
   carrot: [9, 6],
   rabbit: [8, 6],
+  greta: [8, 6],
+  wolfenberg: [8, 6],
   fence: [22, 5],
   shed: [56, 16],
   log: [34, 11, 5],

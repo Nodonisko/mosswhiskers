@@ -34,6 +34,7 @@ import { createWalkable, createWorldLayout, type WorldProp } from "./world";
 import { addWorldBackdrop } from "./world-backdrop";
 import {
   BERNIE_NAME,
+  GRETA_NAME,
   BERNIE_POND_X,
   BERNIE_POND_Y,
   CAT_SCALE,
@@ -55,6 +56,7 @@ import {
   TICK_DT,
   VIEW_HEIGHT,
   WALK_FRAME,
+  WOLFENBERG_NAME,
 } from "./world-config";
 import { createWorldModel, getWorldModelTexture, applyWorldPropPose, type WorldModelKind } from "./world-models";
 
@@ -386,11 +388,13 @@ export function createGame() {
   const ending = createEndingHud(gameRoot);
   const meows = createMeowLayer(world);
   const names = createNameLayer(world);
-  /** The three NPCs never move, so their tags are built once. */
+  /** Named NPCs never move, so their tags are built once. */
   const npcNameTags = ([
     ["bernie", "npc-bernie", BERNIE_NAME],
     ["sam", "npc-sam", SAM_NAME],
     ["rabbit", "npc-hopsk", RABBIT_NAME],
+    ["greta", "npc-greta", GRETA_NAME],
+    ["wolfenberg", "npc-wolfenberg", WOLFENBERG_NAME],
   ] as const).flatMap(([itemId, tagId, name]) => {
     const npc = layout.interactables.find((item) => item.id === itemId);
     return npc ? [{ id: tagId, name, x: npc.x, y: npc.y }] : [];

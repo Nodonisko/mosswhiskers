@@ -1,5 +1,5 @@
 import type { PlayerSim, TalkId } from "./sim";
-import { BERNIE_NAME, RABBIT_NAME, SAM_NAME } from "./world-config";
+import { BERNIE_NAME, GRETA_NAME, RABBIT_NAME, SAM_NAME, WOLFENBERG_NAME } from "./world-config";
 
 type TalkCopy = {
   name: string;
@@ -147,6 +147,20 @@ const TALK: Record<TalkId, TalkCopy> = {
       "So. The pond is keeping what water it has, and Catman's barn is having a little think. That will do for today.",
     ],
     objective: "Watch the woods. And your own pond, while you still have one.",
+  },
+  "greta-note": {
+    name: GRETA_NAME,
+    paragraphs: [
+      "I should be bringing biscuits to grandmother, but I am on this path because the grown wolves will not leave the coal in the ground.",
+    ],
+    objective: "Grandmother may have a stove. She does not need another degree.",
+  },
+  "wolfenberg-note": {
+    name: WOLFENBERG_NAME,
+    paragraphs: [
+      "Come closer, would you? The engagement is better at this range.",
+    ],
+    objective: "Stay. Most users bounce. It is sad for the numbers.",
   },
 };
 

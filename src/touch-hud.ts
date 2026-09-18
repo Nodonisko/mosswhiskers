@@ -1,7 +1,7 @@
 import { joystickFromOffset, type MoveInput } from "./input";
 import type { PlayerSim } from "./sim";
 
-const NPC_NEARBY = new Set(["bernie", "sam", "rabbit"]);
+const NPC_NEARBY = new Set(["bernie", "sam", "rabbit", "greta", "wolfenberg"]);
 
 export function interactButtonLabel(nearbyId: string | null | undefined) {
   return nearbyId != null && NPC_NEARBY.has(nearbyId) ? "TALK" : "USE";

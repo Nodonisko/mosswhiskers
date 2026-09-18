@@ -19,11 +19,13 @@ import {
 import {
   BERNIE,
   CAT_SCALE,
+  GRETA,
   MAP_HEIGHT,
   MAP_WIDTH,
   RABBIT,
   SAM,
   UNIQUE_NPC_KINDS,
+  WOLFENBERG,
   canHaveSickFoliage,
   isAuthorableWorldKind,
   isPlaceableWorldKind,
@@ -104,12 +106,16 @@ export const NPC_LABELS: Record<UniqueNpcKind, string> = {
   bernie: "Bernie",
   sam: "Sam",
   rabbit: "Hopsk",
+  greta: "Greta",
+  wolfenberg: "Wolfenberg",
 };
 
 export const DEFAULT_NPC_PROPS: Record<UniqueNpcKind, WorldProp> = {
   bernie: { kind: "bernie", x: BERNIE.x, y: BERNIE.y, scale: CAT_SCALE, seed: 0, variant: 0 },
   sam: { kind: "sam", x: SAM.x, y: SAM.y, scale: CAT_SCALE, seed: 0, variant: 0 },
   rabbit: { kind: "rabbit", x: RABBIT.x, y: RABBIT.y, scale: CAT_SCALE, seed: 0, variant: 0 },
+  greta: { kind: "greta", x: GRETA.x, y: GRETA.y, scale: CAT_SCALE, seed: 0, variant: 0 },
+  wolfenberg: { kind: "wolfenberg", x: WOLFENBERG.x, y: WOLFENBERG.y, scale: CAT_SCALE, seed: 0, variant: 0 },
 };
 
 const HISTORY_LIMIT = 80;
@@ -160,7 +166,7 @@ export function stripProp(prop: WorldProp): WorldProp {
 }
 
 function spriteCenterY(kind: WorldModelKind) {
-  if (kind === "cat" || kind === "bernie" || kind === "sam" || kind === "rabbit") {
+  if (kind === "cat" || kind === "bernie" || kind === "sam" || kind === "rabbit" || kind === "greta" || kind === "wolfenberg") {
     const height = WORLD_MODEL_SIZES[kind][1];
     return (height - 30) / height;
   }
